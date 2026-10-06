@@ -2,8 +2,8 @@
 //! backend's run-loop thread; scans, joins and power changes run on workers
 //! with their own `CWInterface`.
 
-use super::shell;
 use super::wake::Wake;
+use super::{host, shell};
 use crate::model::{Band, Details, Network, Security, Wifi};
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
@@ -115,12 +115,17 @@ impl Radio {
     /// Wi-Fi state from CoreWLAN's cached scan results.
     pub fn read(&self, current: Option<Current>, scanning: bool) -> Wifi {
         let power = self.power();
-        let entries = if power {
+        let mut entries = if power {
             cached_entries(&self.iface)
         } else {
             vec![]
         };
-        let saved = saved_ssids(&self.iface);
+        let mut saved = saved_ssids(&self.iface);
+        let names_hidden = entries.iter().all(|e| e.ssid.is_none());
+        if let Some(listing) = host::latest().filter(|_| power && names_hidden) {
+            entries = listing.entries();
+            saved.extend(listing.saved);
+        }
         let current = current.filter(|_| power);
         let view = assemble(entries, current, &saved);
         Wifi {
@@ -141,7 +146,8 @@ impl Radio {
         let ssid = unsafe { self.iface.ssid() }
             .map(|s| s.to_string())
             .filter(|s| !s.is_empty())
-            .or_else(|| record.as_ref().and_then(|r| r.ssid.clone()));
+            .or_else(|| record.as_ref().and_then(|r| r.ssid.clone()))
+            .or_else(|| host::latest().and_then(|l| l.current));
         let channel = unsafe { self.iface.wlanChannel() };
         // rssi is 0 and there's no channel when not associated.
         let rssi = unsafe { self.iface.rssiValue() };

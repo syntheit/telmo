@@ -3,6 +3,7 @@
 //! snapshot. Slow work (scans, joins, shelling out) runs on short-lived worker
 //! threads that ask that thread for a new snapshot when they finish.
 
+mod host;
 mod interfaces;
 mod sc;
 mod shell;
@@ -113,6 +114,9 @@ pub fn spawn(mut cmds: Rx, events: Tx) {
     let s = shared.clone();
     // The popup just opened: show cached results now, fresh ones when ready.
     thread::spawn(move || {
+        if running_in_host() && host::fetch("wifi-cached", host::QUICK).is_ok() {
+            s.refresh();
+        }
         let _ = scan(&s);
     });
     thread::spawn(request_location_once);
@@ -325,9 +329,7 @@ fn scan(shared: &Shared) -> Result<String, String> {
     state.running = true;
     drop(state);
     shared.refresh();
-    let result = wifi_device()
-        .and_then(|device| wifi::scan(&device))
-        .map(|()| "Scan finished.".to_string());
+    let result = scan_now().map(|()| "Scan finished.".to_string());
     let mut state = lock(&shared.scan);
     state.running = false;
     state.finished = state.finished.wrapping_add(1);
@@ -338,7 +340,18 @@ fn scan(shared: &Shared) -> Result<String, String> {
     result
 }
 
+/// The host scans when it can; otherwise this process asks CoreWLAN itself.
+fn scan_now() -> Result<(), String> {
+    if running_in_host() && host::fetch("wifi-scan", host::SCAN).is_ok() {
+        return Ok(());
+    }
+    wifi_device().and_then(|device| wifi::scan(&device))
+}
+
 fn join(network: &str, password: Option<&str>) -> Result<String, String> {
+    if let Some(result) = host::join(network, password) {
+        return result;
+    }
     wifi::join(&wifi_device()?, network, password)
 }
 
@@ -442,19 +455,11 @@ fn request_location_once() {
 }
 
 fn running_in_host() -> bool {
-    std::env::var_os("TELMO_HOST").is_some_and(|v| v == "1")
+    host::running_in_host()
 }
 
 fn host_command(command: &str) -> Result<String, String> {
-    let out = shell::run("telmo", &["host", command], Duration::from_secs(10))?;
-    if out.ok {
-        Ok(out.stdout.trim().to_string())
-    } else {
-        Err(format!(
-            "Couldn't reach the Telmo host: {}",
-            out.stderr.trim()
-        ))
-    }
+    host::command(command, host::QUICK)
 }
 
 /// The system prompt or Settings answers later: poll the host and rescan so names appear.

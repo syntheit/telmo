@@ -120,9 +120,11 @@ final class IPCServer {
         setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
         var line = [UInt8]()
         var byte: UInt8 = 0
-        while line.count < 512, read(fd, &byte, 1) == 1, byte != 10 { line.append(byte) }
-        let text = String(decoding: line, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        while line.count < 1024, read(fd, &byte, 1) == 1, byte != 10 { line.append(byte) }
+        // Only line ends are trimmed: SSIDs and passwords may start or end with spaces.
+        let text = String(decoding: line, as: UTF8.self).trimmingCharacters(in: .newlines)
         guard !text.isEmpty else { return }
+        if Wifi.isWifiCommand(text) { return reply(Wifi.handle(text), to: fd) } // slow: stays off the main thread
         // Main runs the command asynchronously; this background thread waits (bounded) for the reply.
         let done = DispatchSemaphore(value: 0)
         let lock = NSLock()

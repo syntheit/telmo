@@ -28,7 +28,7 @@ find "$SWIFTTERM_SRC/Sources/SwiftTerm" -name '*.swift' -not -path '*/iOS/*' -no
 # swiftc treats the file named main.swift as the entry point.
 swiftc -O -swift-version 5 -sdk "$SDKROOT" -target arm64-apple-macos14.0 \
   -module-name Telmo \
-  -framework AppKit -framework Carbon -framework CoreLocation \
+  -framework AppKit -framework Carbon -framework CoreLocation -framework CoreWLAN \
   -o "$app/Contents/MacOS/Telmo" \
   "$here"/*.swift "$work/BuildInfo.swift" @"$work/terms"
 

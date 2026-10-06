@@ -29,9 +29,11 @@ mod macos {
     }
 
     fn send(command: &str) -> std::io::Result<String> {
+        // Wi-Fi scans and joins reply only when they finish.
+        let wait = if command.starts_with("wifi-") { 40 } else { 3 };
         let path = socket_path().map_err(std::io::Error::other)?;
         let mut stream = UnixStream::connect(path)?;
-        stream.set_read_timeout(Some(Duration::from_secs(3)))?;
+        stream.set_read_timeout(Some(Duration::from_secs(wait)))?;
         stream.set_write_timeout(Some(Duration::from_secs(3)))?;
         stream.write_all(format!("{command}\n").as_bytes())?;
         // The host closes the connection after replying, and a reply may span lines.
