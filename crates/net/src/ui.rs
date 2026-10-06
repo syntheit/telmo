@@ -231,7 +231,7 @@ fn draw_wifi_hidden(app: &App, frame: &mut Frame, area: Rect) {
     frame.render_widget(block, area);
     let intro = vec![
         Line::styled("macOS hides network names until Location is", theme::text()),
-        Line::styled("allowed for PopupHost.", theme::text()),
+        Line::styled("allowed for Telmo.", theme::text()),
         Line::raw(""),
         Line::from(vec![
             Span::styled("L", theme::accent()),
