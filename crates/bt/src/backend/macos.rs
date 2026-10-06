@@ -1,7 +1,8 @@
 //! IOBluetooth backend. IOBluetooth objects are not thread-safe and its
 //! notifications and delegates need a run loop, so everything happens on one
-//! dedicated thread that alternates between spinning the run loop for 50 ms
-//! and draining commands. Callbacks only queue a `Note` (see `handler`).
+//! dedicated thread that sleeps in the run loop until a callback, a command
+//! (forwarded by a feeder thread that wakes the loop) or the next deadline.
+//! Callbacks only queue a `Note` (see `handler`).
 
 mod battery;
 mod classify;
@@ -10,11 +11,14 @@ mod handler;
 use super::{Cmd, Event, Rx, Tx};
 use crate::model::{Adapter, Device, PairPrompt, Snapshot};
 use battery::{BudsCache, HidBattery};
+use block2::RcBlock;
 use handler::Handler;
 use objc2::{
     msg_send, rc::Retained, rc::autoreleasepool, runtime::AnyObject, runtime::NSObjectProtocol, sel,
 };
-use objc2_core_foundation::{CFRunLoop, CFRunLoopRunResult, kCFRunLoopDefaultMode};
+use objc2_core_foundation::{
+    CFAbsoluteTimeGetCurrent, CFRetained, CFRunLoop, CFRunLoopTimer, CFType, kCFRunLoopDefaultMode,
+};
 use objc2_foundation::{NSArray, NSString};
 use objc2_io_bluetooth::{
     BluetoothHCIPowerState, BluetoothPINCode, IOBluetoothDevice, IOBluetoothDeviceInquiry,
@@ -26,14 +30,15 @@ use std::{
     sync::{
         Arc,
         atomic::Ordering,
-        mpsc::{Receiver, channel},
+        mpsc::{Receiver, Sender, TryRecvError, channel},
     },
     thread,
     time::{Duration, Instant},
 };
-use tokio::sync::mpsc::error::TryRecvError;
 
-const LOOP_SLICE: Duration = Duration::from_millis(50);
+/// How often to look at connecting devices, which have no completion we can wait on.
+const CONNECT_POLL: Duration = Duration::from_millis(200);
+const IDLE: Duration = Duration::from_secs(3600);
 const DEBOUNCE: Duration = Duration::from_millis(30);
 const POWER_POLL: Duration = Duration::from_secs(2);
 const POWER_POLL_WHILE_SWITCHING: Duration = Duration::from_millis(100);
@@ -70,22 +75,74 @@ pub fn spawn(cmds: Rx, events: Tx) {
     }
 }
 
+/// Wakes the run-loop thread from any thread. CFRunLoopPerformBlock and
+/// CFRunLoopWakeUp are thread-safe.
+pub struct Waker(CFRetained<CFRunLoop>);
+unsafe impl Send for Waker {}
+unsafe impl Sync for Waker {}
+
+impl Waker {
+    fn current() -> Option<Waker> {
+        CFRunLoop::current().map(Waker)
+    }
+
+    pub fn wake(&self) {
+        // The queued block stops the loop, so `run_in_mode` returns even if it
+        // wasn't running yet.
+        let target = self.0.clone();
+        let block = RcBlock::new(move || target.stop());
+        let mode: Option<&CFType> = unsafe { kCFRunLoopDefaultMode }.map(|mode| mode.as_ref());
+        unsafe { self.0.perform_block(mode, Some(&block)) };
+        self.0.wake_up();
+    }
+}
+
 fn run(cmds: Rx, events: Tx) {
-    let mut backend = Backend::new(cmds, events);
+    let Some(waker) = Waker::current() else {
+        let _ = events.send(Event::Snapshot(Snapshot::default()));
+        return;
+    };
+    let waker = Arc::new(waker);
+    let _keepalive = keep_loop_running();
+    let commands = forward_commands(cmds, waker.clone());
+    let mut backend = Backend::new(commands, events, waker);
     backend.start();
     while autoreleasepool(|_| {
-        spin_run_loop();
-        backend.tick()
+        if !backend.tick() {
+            return false;
+        }
+        let mode = unsafe { kCFRunLoopDefaultMode };
+        CFRunLoop::run_in_mode(mode, backend.sleep().as_secs_f64(), true);
+        true
     }) {}
 }
 
-fn spin_run_loop() {
-    let mode = unsafe { kCFRunLoopDefaultMode };
-    // With no sources at all the call returns at once; don't busy-loop.
-    if CFRunLoop::run_in_mode(mode, LOOP_SLICE.as_secs_f64(), false) == CFRunLoopRunResult::Finished
-    {
-        thread::sleep(LOOP_SLICE);
-    }
+/// A run loop with no sources returns at once; a timer that never fires in
+/// practice keeps it sleeping until woken.
+fn keep_loop_running() -> Option<CFRetained<CFRunLoopTimer>> {
+    let block = RcBlock::new(|_: *mut CFRunLoopTimer| {});
+    let far_future = CFAbsoluteTimeGetCurrent() + 1e9;
+    let timer = unsafe { CFRunLoopTimer::with_handler(None, far_future, 0.0, 0, 0, Some(&block)) }?;
+    CFRunLoop::current()?.add_timer(Some(&timer), unsafe { kCFRunLoopDefaultMode });
+    Some(timer)
+}
+
+/// Hands each command to the run-loop thread; the channel closing ends it.
+fn forward_commands(mut cmds: Rx, waker: Arc<Waker>) -> Receiver<Cmd> {
+    let (sender, receiver) = channel();
+    let _ = thread::Builder::new()
+        .name("bt-commands".into())
+        .spawn(move || {
+            while let Some(cmd) = cmds.blocking_recv() {
+                if sender.send(cmd).is_err() {
+                    return;
+                }
+                waker.wake();
+            }
+            drop(sender);
+            waker.wake();
+        });
+    receiver
 }
 
 /// The private power functions, loaded at runtime.
@@ -154,10 +211,9 @@ struct Pairing {
 }
 
 struct Backend {
-    cmds: Rx,
+    cmds: Receiver<Cmd>,
     events: Tx,
     notes: Receiver<Note>,
-    handler: Retained<Handler>,
     power: Power,
     powered: bool,
     next_power_poll: Instant,
@@ -171,18 +227,20 @@ struct Backend {
     pairing: Option<Pairing>,
     dirty_since: Option<Instant>,
     buds: Arc<BudsCache>,
+    refresh_buds: Sender<()>,
+    // Last, so it outlives everything that uses it as a delegate or target.
+    handler: Retained<Handler>,
 }
 
 impl Backend {
-    fn new(cmds: Rx, events: Tx) -> Self {
+    fn new(cmds: Receiver<Cmd>, events: Tx, waker: Arc<Waker>) -> Self {
         let (note_tx, notes) = channel();
         let buds = Arc::new(BudsCache::default());
-        battery::spawn_profiler(buds.clone(), note_tx.clone());
+        let refresh_buds = battery::spawn_profiler(buds.clone(), note_tx.clone(), waker);
         Self {
             cmds,
             events,
             notes,
-            handler: Handler::new(note_tx),
             power: Power::load(),
             powered: false,
             next_power_poll: Instant::now(),
@@ -196,6 +254,8 @@ impl Backend {
             pairing: None,
             dirty_since: None,
             buds,
+            refresh_buds,
+            handler: Handler::new(note_tx),
         }
     }
 
@@ -212,6 +272,20 @@ impl Backend {
 
     fn delegate(&self) -> &AnyObject {
         self.handler.as_ref()
+    }
+
+    /// How long the run loop may sleep: until the earliest thing that needs a look.
+    fn sleep(&self) -> Duration {
+        let mut deadlines = vec![self.next_power_poll];
+        deadlines.extend(self.dirty_since.map(|since| since + DEBOUNCE));
+        deadlines.extend(self.disconnecting.iter().map(|job| job.next_try));
+        deadlines.extend(self.pairing.iter().map(|p| p.deadline));
+        let earliest = deadlines.into_iter().min().unwrap_or_else(Instant::now);
+        let mut sleep = earliest.saturating_duration_since(Instant::now());
+        if !self.connecting.is_empty() {
+            sleep = sleep.min(CONNECT_POLL);
+        }
+        sleep.min(IDLE)
     }
 
     /// Returns false once the UI is gone and the thread should end.
@@ -267,9 +341,13 @@ impl Backend {
             .filter(|d| d.connected)
             .map(|d| d.id.as_str())
             .collect();
+        let any_connected = !connected.is_empty();
+        if any_connected && !self.buds.any_connected.swap(true, Ordering::Relaxed) {
+            let _ = self.refresh_buds.send(());
+        }
         self.buds
             .any_connected
-            .store(!connected.is_empty(), Ordering::Relaxed);
+            .store(any_connected, Ordering::Relaxed);
         self.watch_disconnects(&connected);
         self.send(Event::Snapshot(snapshot));
     }
@@ -760,6 +838,31 @@ impl Backend {
         self.mark_dirty();
         if self.scanning && !self.run_inquiry() {
             self.scanning = false;
+        }
+    }
+}
+
+impl Drop for Backend {
+    /// Tear down in dependency order: nothing may call the handler after it
+    /// is released.
+    fn drop(&mut self) {
+        if let Some(inquiry) = self.inquiry.take() {
+            unsafe {
+                inquiry.stop();
+                inquiry.setDelegate(None);
+            }
+        }
+        if let Some(pairing) = self.pairing.take() {
+            unsafe {
+                pairing.pair.stop();
+                pairing.pair.setDelegate(None);
+            }
+        }
+        for (_, notification) in self.disconnect_notifications.drain() {
+            unsafe { notification.unregister() };
+        }
+        if let Some(notification) = self.connect_notification.take() {
+            unsafe { notification.unregister() };
         }
     }
 }

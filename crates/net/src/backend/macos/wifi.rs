@@ -3,6 +3,7 @@
 //! with their own `CWInterface`.
 
 use super::shell;
+use super::wake::Wake;
 use crate::model::{Band, Details, Network, Security, Wifi};
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
@@ -15,7 +16,6 @@ use objc2_foundation::{
     NSData, NSDictionary, NSError, NSKeyedArchiveRootObjectKey, NSKeyedUnarchiver, NSObject,
     NSObjectProtocol, NSString,
 };
-use std::sync::mpsc::Sender;
 use std::time::Duration;
 
 const SCAN_FAILED: &str = "Couldn't scan for networks";
@@ -23,7 +23,7 @@ const SCAN_FAILED: &str = "Couldn't scan for networks";
 const WRONG_PASSWORD_CODES: [isize; 4] = [-3924, -3925, -3912, -3900];
 
 struct Events {
-    changed: Sender<()>,
+    changed: Wake,
 }
 
 define_class!(
@@ -62,13 +62,13 @@ define_class!(
 );
 
 impl Delegate {
-    fn new(changed: Sender<()>) -> Retained<Self> {
+    fn new(changed: Wake) -> Retained<Self> {
         let this = Self::alloc().set_ivars(Events { changed });
         unsafe { msg_send![super(this), init] }
     }
 
     fn notify(&self) {
-        let _ = self.ivars().changed.send(());
+        self.ivars().changed.send();
     }
 }
 
@@ -83,7 +83,7 @@ pub struct Radio {
 
 impl Radio {
     /// None when this Mac has no Wi-Fi hardware.
-    pub fn start(changed: Sender<()>) -> Option<Radio> {
+    pub fn start(changed: Wake) -> Option<Radio> {
         let client = unsafe { CWWiFiClient::sharedWiFiClient() };
         let iface = unsafe { client.interface() }?;
         let device = unsafe { iface.interfaceName() }?.to_string();

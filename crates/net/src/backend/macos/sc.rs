@@ -1,5 +1,6 @@
 //! SystemConfiguration dynamic store: reads values as JSON and reports changes.
 
+use super::wake::Wake;
 use objc2_core_foundation::{
     CFArray, CFBoolean, CFDictionary, CFNumber, CFRetained, CFRunLoop, CFString, CFType,
     kCFRunLoopDefaultMode,
@@ -8,7 +9,6 @@ use objc2_system_configuration::{SCDynamicStore, SCDynamicStoreContext};
 use serde_json::{Map, Value};
 use std::ffi::c_void;
 use std::ptr::NonNull;
-use std::sync::mpsc::Sender;
 
 /// Keys and patterns whose changes should trigger a new snapshot.
 const WATCHED: &[&str] = &[
@@ -39,12 +39,13 @@ impl Store {
 
     /// A store that sends `()` on `changed` when a watched key changes. The
     /// notifications arrive while the current thread runs its run loop.
-    pub fn watcher(changed: Box<Sender<()>>) -> Result<Store, String> {
+    pub fn watcher(changed: Wake) -> Result<Store, String> {
+        let info = Box::into_raw(Box::new(changed));
         let mut context = SCDynamicStoreContext {
             version: 0,
-            info: Box::into_raw(changed).cast::<c_void>(),
+            info: info.cast::<c_void>(),
             retain: None,
-            release: None,
+            release: Some(release_info),
             copyDescription: None,
         };
         let store = unsafe {
@@ -55,9 +56,12 @@ impl Store {
                 &mut context,
             )
         };
-        let store = Store {
-            store: store.ok_or_else(open_error)?,
+        let Some(store) = store else {
+            // No store was made, so nothing will call `release_info`.
+            drop(unsafe { Box::from_raw(info) });
+            return Err(open_error());
         };
+        let store = Store { store };
         store.watch()?;
         Ok(store)
     }
@@ -107,9 +111,14 @@ unsafe extern "C-unwind" fn notify(
     _: NonNull<CFArray>,
     info: *mut c_void,
 ) {
-    // `info` is the leaked Sender from `Store::watcher`; it lives as long as the thread.
-    let changed = unsafe { &*info.cast::<Sender<()>>() };
-    let _ = changed.send(());
+    // `info` is the boxed Wake from `Store::watcher`, alive until `release_info`.
+    let changed = unsafe { &*info.cast::<Wake>() };
+    changed.send();
+}
+
+/// The store calls this when it is destroyed.
+unsafe extern "C-unwind" fn release_info(info: NonNull<c_void>) {
+    drop(unsafe { Box::from_raw(info.as_ptr().cast::<Wake>()) });
 }
 
 /// View an untyped CFArray as holding `T`. The caller knows what's inside.

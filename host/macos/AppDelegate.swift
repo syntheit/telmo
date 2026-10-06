@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
     private var locationManager: CLLocationManager?
     private var previousApp: NSRunningApplication?
     private var module: String?
+    private var signalSources: [DispatchSourceSignal] = []
 
     func applicationDidFinishLaunching(_ note: Notification) {
         if IPCServer.isRunning() { exit(0) }
@@ -22,7 +23,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
         }
         ipc = server
 
+        for sig in [SIGTERM, SIGINT] {
+            signal(sig) { _ in } // not SIG_IGN: children would inherit the ignore
+            let source = DispatchSource.makeSignalSource(signal: sig, queue: .main)
+            source.setEventHandler { NSApp.terminate(nil) }
+            source.resume()
+            signalSources.append(source)
+        }
+
         hotkeys = Hotkeys { [weak self] module in self?.toggle(module) }
+    }
+
+    func applicationWillTerminate(_ note: Notification) {
+        popup.terminateChild() // otherwise the telmo-* child outlives the host
     }
 
     // MARK: Commands (main thread)

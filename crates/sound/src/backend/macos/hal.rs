@@ -177,6 +177,12 @@ pub fn settable(object: u32, mut address: AudioObjectPropertyAddress) -> bool {
 
 pub type ListenerBlock = RcBlock<dyn Fn(u32, NonNull<AudioObjectPropertyAddress>)>;
 
+const SYSTEM_SELECTORS: [u32; 3] = [
+    kAudioHardwarePropertyDevices,
+    kAudioHardwarePropertyDefaultOutputDevice,
+    kAudioHardwarePropertyDefaultInputDevice,
+];
+
 /// Listens on the system object plus every device's volume and mute.
 pub struct Listeners {
     block: ListenerBlock,
@@ -192,12 +198,7 @@ impl Listeners {
             block,
             watched: Vec::new(),
         };
-        let system = [
-            kAudioHardwarePropertyDevices,
-            kAudioHardwarePropertyDefaultOutputDevice,
-            kAudioHardwarePropertyDefaultInputDevice,
-        ];
-        for selector in system {
+        for selector in SYSTEM_SELECTORS {
             listeners.add(SYSTEM, global(selector));
         }
         listeners
@@ -240,6 +241,20 @@ impl Listeners {
                 None,
                 RcBlock::as_ptr(&self.block).cast(),
             );
+        }
+    }
+}
+
+impl Drop for Listeners {
+    // CoreAudio must not be left holding a pointer to the block we free next.
+    fn drop(&mut self) {
+        for selector in SYSTEM_SELECTORS {
+            self.remove(SYSTEM, global(selector));
+        }
+        for device in std::mem::take(&mut self.watched) {
+            for address in device_addresses() {
+                self.remove(device, address);
+            }
         }
     }
 }

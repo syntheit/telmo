@@ -8,7 +8,7 @@ self:
 let
   cfg = config.programs.telmo;
   inherit (lib) mkEnableOption mkIf mkMerge mkOption types;
-  isDarwin = pkgs.stdenv.isDarwin;
+  isDarwin = pkgs.stdenv.hostPlatform.isDarwin;
   modules = [ "net" "bt" "sound" ];
 
   # Where the app is run from. With a signing identity it's a signed copy in

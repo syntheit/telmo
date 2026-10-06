@@ -22,6 +22,7 @@ objc2 = { version = "0.6", features = ["exception"] }
 objc2-core-wlan = "0.3"
 objc2-core-foundation = "0.3"
 objc2-foundation = "0.3"
+block2 = "0.6"
 objc2-system-configuration = "0.3"
 libc = "0.2"
 

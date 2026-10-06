@@ -6,9 +6,11 @@ private let padding: CGFloat = 14
 
 final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
     var onExit: (() -> Void)?
-    private let terminal = LocalProcessTerminalView(frame: .zero)
+    // Every child gets its own terminal view, so a late callback from a replaced
+    // child (source !== terminal) is recognisably stale.
+    private var terminal = LocalProcessTerminalView(frame: .zero)
+    private let holder = NSView()
     private(set) var isRunning = false
-    private var generation = 0
 
     init() {
         super.init(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
@@ -19,7 +21,7 @@ final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
         collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary, .ignoresCycle]
         hidesOnDeactivate = false
         animationBehavior = .none
-        configureTerminal()
+        configureTerminal(terminal)
         contentView = makeBackground()
     }
 
@@ -28,7 +30,7 @@ final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
 
     // MARK: Setup
 
-    private func configureTerminal() {
+    private func configureTerminal(_ terminal: LocalProcessTerminalView) {
         let size: CGFloat = 13
         terminal.font = NSFont(name: "JetBrainsMono Nerd Font Mono", size: size)
             ?? NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
@@ -47,15 +49,13 @@ final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
         let size = NSSize(width: terminal.frame.width + 2 * padding, height: terminal.frame.height + 2 * padding)
         setContentSize(size)
         let bounds = NSRect(origin: .zero, size: size)
+        holder.frame = bounds
+        holder.addSubview(terminal)
 
         if #available(macOS 26.0, *) {
             let glass = NSGlassEffectView(frame: bounds)
             glass.cornerRadius = radius
-            glass.contentView = {
-                let holder = NSView(frame: bounds)
-                holder.addSubview(terminal)
-                return holder
-            }()
+            glass.contentView = holder
             return glass
         }
         let blur = NSVisualEffectView(frame: bounds)
@@ -68,7 +68,7 @@ final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
             return true
         }
         blur.maskImage?.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
-        blur.addSubview(terminal)
+        blur.addSubview(holder)
         return blur
     }
 
@@ -76,14 +76,23 @@ final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
 
     func run(executable: String) {
         terminateChild()
-        generation += 1
+        replaceTerminal()
         isRunning = true
         var env = ProcessInfo.processInfo.environment
         env["TERM"] = "xterm-256color"
         env["COLORTERM"] = "truecolor"
         env["PATH"] = ModuleLookup.searchPath.joined(separator: ":")
-        terminal.getTerminal().resetToInitialState()
         terminal.startProcess(executable: executable, environment: env.map { "\($0.key)=\($0.value)" })
+    }
+
+    private func replaceTerminal() {
+        let old = terminal
+        let fresh = LocalProcessTerminalView(frame: old.frame)
+        configureTerminal(fresh)
+        old.processDelegate = nil
+        old.removeFromSuperview()
+        holder.addSubview(fresh)
+        terminal = fresh
     }
 
     func show() {
@@ -95,7 +104,6 @@ final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
     func terminateChild() {
         guard isRunning else { return }
         isRunning = false
-        generation += 1 // a late processTerminated for this child must not close its successor
         terminal.terminate()
     }
 
@@ -123,7 +131,7 @@ final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
 
     func processTerminated(source: TerminalView, exitCode: Int32?) {
         DispatchQueue.main.async { [self] in
-            guard isRunning else { return }
+            guard source === terminal, isRunning else { return }
             isRunning = false
             onExit?()
         }

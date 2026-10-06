@@ -2797,6 +2797,7 @@ dependencies = [
 name = "telmo-net"
 version = "0.1.0"
 dependencies = [
+ "block2",
  "crossterm",
  "futures-util",
  "insta",

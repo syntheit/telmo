@@ -7,20 +7,22 @@ mod interfaces;
 mod sc;
 mod shell;
 mod vpn;
+mod wake;
 mod wifi;
 
 use super::{Cmd, Event, Rx, Tx};
 use crate::model::{Caps, Details, Interface, InterfaceKind, Ipv4Config, Snapshot, Vpn};
 use interfaces::WifiBrief;
-use objc2_core_foundation::{CFRunLoop, CFRunLoopRunResult, kCFRunLoopDefaultMode};
+use objc2_core_foundation::{CFRunLoop, kCFRunLoopDefaultMode};
 use sc::Store;
 use std::collections::{HashMap, HashSet};
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant};
+use wake::Wake;
 
 const NO_WIFI: &str = "This Mac has no Wi-Fi interface.";
 /// Gather changes for this long before building a snapshot.
@@ -28,16 +30,30 @@ const DEBOUNCE: Duration = Duration::from_millis(30);
 /// The first snapshot waits this long for the first VPN poll.
 const FIRST_SNAPSHOT_WAIT: Duration = Duration::from_millis(1500);
 const VPN_POLL: Duration = Duration::from_secs(5);
+/// How long the run loop sleeps when nothing is pending.
+const IDLE: Duration = Duration::from_secs(3600);
+const SCAN_WAIT: Duration = Duration::from_secs(30);
 
 /// State shared between the run-loop thread, workers and the command task.
 struct Shared {
     events: Tx,
     /// Asks the run-loop thread to build a new snapshot.
-    refresh: Sender<()>,
+    wake: Wake,
+    /// Set once the command channel closes; every thread then exits.
+    stopped: AtomicBool,
+    stop_vpn_poll: Sender<()>,
     vpns: Mutex<Vec<Vpn>>,
     vpns_ready: AtomicBool,
-    scanning: AtomicBool,
+    scan: Mutex<Scan>,
+    scan_finished: Condvar,
     speeds: Mutex<Speeds>,
+}
+
+/// The scan in flight, and how the last one ended so waiters can share it.
+struct Scan {
+    running: bool,
+    finished: u32,
+    result: Result<String, String>,
 }
 
 /// Wired link speeds, measured once per connection.
@@ -49,7 +65,13 @@ struct Speeds {
 
 impl Shared {
     fn refresh(&self) {
-        let _ = self.refresh.send(());
+        self.wake.send();
+    }
+
+    fn stop(&self) {
+        self.stopped.store(true, Ordering::SeqCst);
+        let _ = self.stop_vpn_poll.send(());
+        self.wake.send();
     }
 
     fn done(&self, target: &str, result: Result<String, String>) {
@@ -67,19 +89,27 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 pub fn spawn(mut cmds: Rx, events: Tx) {
-    let (refresh, wanted) = mpsc::channel();
+    let (wake, wanted) = Wake::new();
+    let (stop_vpn_poll, vpn_stopped) = mpsc::channel();
     let shared = Arc::new(Shared {
         events,
-        refresh: refresh.clone(),
+        wake: wake.clone(),
+        stopped: AtomicBool::new(false),
+        stop_vpn_poll,
         vpns: Mutex::new(Vec::new()),
         vpns_ready: AtomicBool::new(false),
-        scanning: AtomicBool::new(false),
+        scan: Mutex::new(Scan {
+            running: false,
+            finished: 0,
+            result: Ok(String::new()),
+        }),
+        scan_finished: Condvar::new(),
         speeds: Mutex::new(Speeds::default()),
     });
     let s = shared.clone();
-    thread::spawn(move || run_loop(&s, refresh, wanted));
+    thread::spawn(move || run_loop(&s, wake, wanted));
     let s = shared.clone();
-    thread::spawn(move || poll_vpns(&s));
+    thread::spawn(move || poll_vpns(&s, &vpn_stopped));
     let s = shared.clone();
     // The popup just opened: show cached results now, fresh ones when ready.
     thread::spawn(move || {
@@ -90,47 +120,50 @@ pub fn spawn(mut cmds: Rx, events: Tx) {
             let shared = shared.clone();
             thread::spawn(move || handle(cmd, &shared));
         }
+        shared.stop();
     });
 }
 
 // The run-loop thread
 
-fn run_loop(shared: &Arc<Shared>, changed: Sender<()>, wanted: Receiver<()>) {
-    let store = match Store::watcher(Box::new(changed.clone())) {
+fn run_loop(shared: &Arc<Shared>, wake: Wake, wanted: Receiver<()>) {
+    wake.attach();
+    let store = match Store::watcher(wake.clone()) {
         Ok(store) => store,
         Err(message) => return shared.done("backend", Err(message)),
     };
-    let radio = wifi::Radio::start(changed);
+    let radio = wifi::Radio::start(wake);
     let started = Instant::now();
-    let mut dirty = true;
+    let mut dirty_since = Some(started);
     let mut sent_first = false;
     let mut reported = None;
-    loop {
-        let mode = unsafe { kCFRunLoopDefaultMode };
-        if CFRunLoop::run_in_mode(mode, DEBOUNCE.as_secs_f64(), false)
-            == CFRunLoopRunResult::Finished
-        {
-            thread::sleep(DEBOUNCE);
-        }
+    while !shared.stopped.load(Ordering::SeqCst) {
         while wanted.try_recv().is_ok() {
-            dirty = true;
+            dirty_since.get_or_insert_with(Instant::now);
         }
         let ready = sent_first
             || shared.vpns_ready.load(Ordering::SeqCst)
             || started.elapsed() > FIRST_SNAPSHOT_WAIT;
-        if !(dirty && ready) {
-            continue;
-        }
-        dirty = false;
-        sent_first = true;
-        let (snapshot, problem) = snapshot(shared, &store, radio.as_ref());
-        if problem != reported {
-            if let Some(message) = &problem {
-                shared.done("backend", Err(message.clone()));
+        if dirty_since.is_some_and(|since| ready && since.elapsed() >= DEBOUNCE) {
+            dirty_since = None;
+            sent_first = true;
+            let (snapshot, problem) = snapshot(shared, &store, radio.as_ref());
+            if problem != reported {
+                if let Some(message) = &problem {
+                    shared.done("backend", Err(message.clone()));
+                }
+                reported = problem;
             }
-            reported = problem;
+            let _ = shared.events.send(Event::Snapshot(snapshot));
         }
-        let _ = shared.events.send(Event::Snapshot(snapshot));
+        let wake_at = match dirty_since {
+            Some(_) if !ready => started + FIRST_SNAPSHOT_WAIT,
+            Some(since) => since + DEBOUNCE,
+            None => Instant::now() + IDLE,
+        };
+        let sleep = wake_at.saturating_duration_since(Instant::now());
+        // Any handled event returns, so a wake-up or notification re-checks the state above.
+        CFRunLoop::run_in_mode(unsafe { kCFRunLoopDefaultMode }, sleep.as_secs_f64(), true);
     }
 }
 
@@ -148,7 +181,7 @@ fn snapshot(
             .and_then(|data| wifi::scan_record(&data))
     });
     let current = radio.and_then(|r| r.current(record));
-    let scanning = shared.scanning.load(Ordering::SeqCst);
+    let scanning = lock(&shared.scan).running;
     let wifi_state = radio.map(|r| r.read(current.clone(), scanning));
     let brief = WifiBrief {
         power: wifi_state.as_ref().is_some_and(|w| w.power),
@@ -195,10 +228,13 @@ fn measure_link_speeds(shared: &Arc<Shared>, rows: &[Interface]) {
 
 // VPN polling
 
-fn poll_vpns(shared: &Shared) {
+fn poll_vpns(shared: &Shared, stopped: &Receiver<()>) {
     loop {
         update_vpns(shared);
-        thread::sleep(VPN_POLL);
+        // Anything on the channel, or its closing, means stop.
+        if stopped.recv_timeout(VPN_POLL) != Err(RecvTimeoutError::Timeout) {
+            return;
+        }
     }
 }
 
@@ -210,8 +246,8 @@ fn update_vpns(shared: &Shared) {
         *current = polled;
         changed
     };
-    shared.vpns_ready.store(true, Ordering::SeqCst);
-    if changed {
+    let first = !shared.vpns_ready.swap(true, Ordering::SeqCst);
+    if changed || first {
         shared.refresh();
     }
 }
@@ -269,28 +305,35 @@ fn wifi_device() -> Result<String, String> {
     wifi::default_device().ok_or_else(|| NO_WIFI.to_string())
 }
 
-/// Run a fresh scan, showing the scanning state while it runs.
+/// Run a fresh scan, showing the scanning state while it runs. A scan that
+/// is already running is shared: waiters get its result.
 fn scan(shared: &Shared) -> Result<String, String> {
-    if shared.scanning.swap(true, Ordering::SeqCst) {
-        return wait_for_scan(shared);
-    }
-    shared.refresh();
-    let result = wifi_device().and_then(|device| wifi::scan(&device));
-    shared.scanning.store(false, Ordering::SeqCst);
-    shared.refresh();
-    result.map(|()| "Scan finished.".to_string())
-}
-
-/// Another scan is running: wait for it instead of starting a second one.
-fn wait_for_scan(shared: &Shared) -> Result<String, String> {
-    let deadline = Instant::now() + Duration::from_secs(30);
-    while shared.scanning.load(Ordering::SeqCst) {
-        if Instant::now() > deadline {
+    let mut state = lock(&shared.scan);
+    if state.running {
+        let before = state.finished;
+        let (state, timeout) = shared
+            .scan_finished
+            .wait_timeout_while(state, SCAN_WAIT, |s| s.finished == before)
+            .unwrap_or_else(PoisonError::into_inner);
+        if timeout.timed_out() {
             return Err("The scan is taking too long. Try again in a moment.".to_string());
         }
-        thread::sleep(Duration::from_millis(100));
+        return state.result.clone();
     }
-    Ok("Scan finished.".to_string())
+    state.running = true;
+    drop(state);
+    shared.refresh();
+    let result = wifi_device()
+        .and_then(|device| wifi::scan(&device))
+        .map(|()| "Scan finished.".to_string());
+    let mut state = lock(&shared.scan);
+    state.running = false;
+    state.finished = state.finished.wrapping_add(1);
+    state.result = result.clone();
+    drop(state);
+    shared.scan_finished.notify_all();
+    shared.refresh();
+    result
 }
 
 fn join(network: &str, password: Option<&str>) -> Result<String, String> {
@@ -450,8 +493,8 @@ mod live {
     #[test]
     #[ignore]
     fn core_wlan_events_reach_the_run_loop() {
-        let (tx, rx) = mpsc::channel();
-        let _radio = wifi::Radio::start(tx).expect("radio");
+        let (wake, rx) = Wake::new();
+        let _radio = wifi::Radio::start(wake).expect("radio");
         let device = wifi_device().expect("device");
         thread::spawn(move || {
             let _ = wifi::scan(&device);

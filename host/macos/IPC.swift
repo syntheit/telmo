@@ -119,12 +119,19 @@ final class IPCServer {
         guard !text.isEmpty else { return }
         // Main runs the command asynchronously; this background thread waits (bounded) for the reply.
         let done = DispatchSemaphore(value: 0)
-        var reply = "error timed out"
+        let lock = NSLock()
+        var result: String?
         DispatchQueue.main.async { [handler] in
-            reply = handler(text)
+            let value = handler(text)
+            lock.lock()
+            result = value
+            lock.unlock()
             done.signal()
         }
-        if done.wait(timeout: .now() + 1) == .timedOut { reply = "error host busy" }
+        _ = done.wait(timeout: .now() + 1)
+        lock.lock()
+        let reply = result ?? "error host busy"
+        lock.unlock()
         var bytes = Array((reply + "\n").utf8)[...]
         while !bytes.isEmpty {
             let n = bytes.withUnsafeBytes { write(fd, $0.baseAddress, $0.count) }

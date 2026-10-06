@@ -2,7 +2,7 @@
 //! earbuds only report through `system_profiler`, which is slow, so a
 //! background thread polls it and keeps a cache.
 
-use super::{Note, normalize_address};
+use super::{Note, Waker, normalize_address};
 use crate::model::Battery;
 use objc2_core_foundation::{CFDictionary, CFNumber, CFRetained, CFString, CFType};
 use objc2_io_kit::{
@@ -15,10 +15,10 @@ use std::{
     sync::{
         Arc, Mutex, PoisonError,
         atomic::{AtomicBool, Ordering},
-        mpsc::Sender,
+        mpsc::{Receiver, RecvTimeoutError, Sender, channel},
     },
     thread,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 const PROFILER_INTERVAL: Duration = Duration::from_secs(60);
@@ -108,21 +108,30 @@ impl BudsCache {
     }
 }
 
-pub fn spawn_profiler(cache: Arc<BudsCache>, notes: Sender<Note>) {
+/// Starts the profiler thread. Send on the returned channel when a device
+/// has just connected; dropping it ends the thread.
+pub fn spawn_profiler(cache: Arc<BudsCache>, notes: Sender<Note>, waker: Arc<Waker>) -> Sender<()> {
+    let (refresh, requests) = channel();
     let _ = thread::Builder::new()
         .name("bt-battery".into())
-        .spawn(move || profiler_loop(&cache, &notes));
+        .spawn(move || profiler_loop(&cache, &notes, &waker, &requests));
+    refresh
 }
 
-fn profiler_loop(cache: &BudsCache, notes: &Sender<Note>) {
-    let mut last_run: Option<Instant> = None;
+/// Sleeps until asked, then refreshes every minute while a device stays connected.
+fn profiler_loop(cache: &BudsCache, notes: &Sender<Note>, waker: &Waker, requests: &Receiver<()>) {
     loop {
-        thread::sleep(Duration::from_secs(1));
-        let due = last_run.is_none_or(|at| at.elapsed() >= PROFILER_INTERVAL);
-        if !due || !cache.any_connected.load(Ordering::Relaxed) {
+        let request = if cache.any_connected.load(Ordering::Relaxed) {
+            requests.recv_timeout(PROFILER_INTERVAL)
+        } else {
+            requests.recv().map_err(|_| RecvTimeoutError::Disconnected)
+        };
+        if request == Err(RecvTimeoutError::Disconnected) {
+            return;
+        }
+        if !cache.any_connected.load(Ordering::Relaxed) {
             continue;
         }
-        last_run = Some(Instant::now());
         let Some(fresh) = run_profiler() else {
             continue;
         };
@@ -132,8 +141,11 @@ fn profiler_loop(cache: &BudsCache, notes: &Sender<Note>) {
             *buds = fresh;
             changed
         };
-        if changed && notes.send(Note::Changed).is_err() {
-            return;
+        if changed {
+            if notes.send(Note::Changed).is_err() {
+                return;
+            }
+            waker.wake();
         }
     }
 }

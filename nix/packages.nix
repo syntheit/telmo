@@ -6,7 +6,7 @@ let
     src = craneLib.cleanCargoSource ../.;
     strictDeps = true;
     nativeBuildInputs = [ pkgs.pkg-config ];
-    buildInputs = lib.optionals stdenv.isLinux [ pkgs.libpulseaudio pkgs.dbus ];
+    buildInputs = lib.optionals stdenv.hostPlatform.isLinux [ pkgs.libpulseaudio pkgs.dbus ];
   };
   cargoArtifacts = craneLib.buildDepsOnly (common // { pname = "telmo-deps"; });
   module =
@@ -39,7 +39,7 @@ rec {
   telmo-sound = module "sound" "Sound popup";
   telmo = pkgs.symlinkJoin {
     name = "telmo";
-    paths = [ telmo-cli telmo-net telmo-bt telmo-sound ] ++ lib.optional stdenv.isDarwin telmo-host;
+    paths = [ telmo-cli telmo-net telmo-bt telmo-sound ] ++ lib.optional stdenv.hostPlatform.isDarwin telmo-host;
     meta.mainProgram = "telmo";
   };
   default = telmo;
