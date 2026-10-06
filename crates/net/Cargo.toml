@@ -1,0 +1,16 @@
+[package]
+name = "telmo-net"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+telmo-kit.workspace = true
+ratatui.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+telmo-speed.workspace = true
+
+[dev-dependencies]
+insta.workspace = true

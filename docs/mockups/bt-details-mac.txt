@@ -1,0 +1,23 @@
+# Bluetooth · Details · mac
+ Bluetooth                                                                           ● on
+
+╭─ Connected ────────────────────────────────────────────────────────────────────────────╮
+│ ▌ AirPods Pro                             80% · case 45%                               │
+│   Keychron K3  ╭─ AirPods Pro ────────────────────────────────────────╮                │
+╰────────────────│                                                      │────────────────╯
+╭─ Paired ───────│   battery    left 82% · right 80% · case 45%         │────────────────╮
+│   MX Master 3S │   type       headphones                              │                │
+│   Sony WH-1000X│   address    4C:87:5D:1A:0F:22                       │                │
+│   Xbox Wireless│                                                      │                │
+╰────────────────│  t untrust   r rename   d forget   esc back          │────────────────╯
+                 │                                                      │
+                 ╰──────────────────────────────────────────────────────╯
+
+
+
+
+
+
+
+
+ ↵ connect  s scan  i details  ? more  esc close

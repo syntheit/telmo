@@ -1,0 +1,23 @@
+# Bluetooth · Details · linux
+ Bluetooth                                                                           ● on
+
+╭─ Connected ────────────────────────────────────────────────────────────────────────────╮
+│ ▌ AirPods Pro                             81%                                          │
+│   Keychron K3  ╭─ AirPods Pro ────────────────────────────────────────╮                │
+╰────────────────│                                                      │────────────────╯
+╭─ Paired ───────│   battery    81%                                     │────────────────╮
+│   MX Master 3S │   type       headphones                              │                │
+│   Sony WH-1000X│   address    4C:87:5D:1A:0F:22                       │                │
+│   Xbox Wireless│                                                      │                │
+╰────────────────│  t untrust   r rename   d forget   esc back          │────────────────╯
+                 │                                                      │
+                 ╰──────────────────────────────────────────────────────╯
+
+
+
+
+
+
+
+
+ ↵ connect  s scan  i details  ? more  esc close

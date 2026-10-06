@@ -1,0 +1,23 @@
+# Network · Wrong password · linux
+ Network                                                              ● online  via Wi-Fi
+
+╭─ Interfaces ───────────╮╭─ Wi-Fi ─────────────────────────────────────────────── ● on ─╮
+│ ▌ Wi-Fi             ●  ││   HomeNet-5G                    ▂▄▆█   ● connected           │
+│   HomeNet-5G           ││   HomeNet                       ▂▄▆█   saved                 │
+│                        ││ ▌ Tanaka-AP                     ▂▄▆█                         │
+│   Ethernet          ●  ││   Matv-Guest                    ▂▄▆█   saved                 │
+│   enp5s0 · 1 Gbps      ││   DIRECT-7F-HP OfficeJet        ▂▄▆█                         │
+│                        ││   aterm-5c1d2e-g                ▂▄▆█                         │
+│   USB               ○  ││   Starbucks_WiFi                ▂▄▆█   open                  │
+│   fajita · off         ││   hidden network                ▂▄▆█                         │
+│                        ││                                                              │
+│   VPN               ●  ││   a show 2 saved networks out of range                       │
+│   Tailscale            ││                                                              │
+╰────────────────────────╯╰──────────────────────────────────────────────────────────────╯
+
+
+
+
+
+  ✗  Couldn't join Tanaka-AP: wrong password. Press ↵ to try again.
+ ↵ join  i details  s speedtest  tab interfaces  ? more  esc close

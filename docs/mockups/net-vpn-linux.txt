@@ -1,0 +1,23 @@
+# Network · VPN · linux
+ Network                                                              ● online  via Wi-Fi
+
+╭─ Interfaces ───────────╮╭─ VPN ────────────────────────────────────────────────────────╮
+│   Wi-Fi             ●  ││                                                              │
+│   HomeNet-5G           ││ ▌ Tailscale                     ● connected                  │
+│                        ││   wg0 (WireGuard)               ○ off                        │
+│   Ethernet          ●  ││                                                              │
+│   enp5s0 · 1 Gbps      ││                                                              │
+│                        ││                                                              │
+│   USB               ○  ││                                                              │
+│   fajita · off         ││                                                              │
+│                        ││                                                              │
+│ ▌ VPN               ●  ││                                                              │
+│   Tailscale            ││                                                              │
+╰────────────────────────╯╰──────────────────────────────────────────────────────────────╯
+
+
+
+
+
+
+ ↵ connect/disconnect  i details  tab interfaces  ? more  esc close

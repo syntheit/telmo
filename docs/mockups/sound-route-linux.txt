@@ -1,0 +1,23 @@
+# Sound · Move an app · linux
+ Sound
+
+╭─ Output ───────────────────────────────────────────────────────────────────────────────╮
+│   ● Built-in Audio                ━━━━━━━━━━━━━━━━━━━━━─────────    70%                │
+│     AirPods Pro                   ━━━━━━━━━━━━━━────────────────    45%                │
+│     Mac mini speakers             ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━   100%                │
+│     LG UltraFine                  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━   100%                │
+╰───────────────────╭─ Play Zen Browser on ──────────────────────────╮───────────────────╯
+╭─ Input ───────────│                                                │───────────────────╮
+│   ● Blue Snowball │     Built-in Audio                             │80%                │
+╰───────────────────│ ▌ ● AirPods Pro                                │───────────────────╯
+╭─ Playing ─────────│     Mac mini speakers                          │───────────────────╮
+│     Spotify       │     LG UltraFine                               │80%                │
+│ ▌   Zen Browser   │                                                │00%  → AirPods Pro │
+│     Discord       │  ↵ move   esc cancel                           │ted                │
+╰───────────────────│                                                │───────────────────╯
+                    ╰────────────────────────────────────────────────╯
+
+
+
+
+ ←→ volume  m mute  ↵ set default  tab pane  ? more  esc close

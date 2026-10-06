@@ -1,0 +1,23 @@
+# Network · Edit IPv4 · linux
+ Network                                                              ● online  via Wi-Fi
+
+╭─ Interfaces ───────────╮╭─ Ethernet ──────────────────────────── ● connected · 1 Gbps ─╮
+│   Wi-Fi             ●  ││                                                              │
+│   HomeNet-5G           ││   ip        192.168.1.40                                     │
+│                   ╭─ IPv4 · Ethernet ──────────────────────────────╮                   │
+│ ▌ Ethernet        │                                                │                   │
+│   enp5s0 · 1 Gbps │  mode       Automatic    Manual                │                   │
+│                   │                                                │─────────────────  │
+│   USB             │  address    192.168.1.40        ▏              │        ›          │
+│   fajita · off    │  subnet     255.255.255.0                      │        ›          │
+│                   │  router     192.168.1.1                        │        ›          │
+│   VPN             │                                                │                   │
+│   Tailscale       │  applies right away through NetworkManager     │                   │
+╰───────────────────│                                                │───────────────────╯
+                    │  ↵ save    tab next field    esc cancel        │
+                    │                                                │
+                    ╰────────────────────────────────────────────────╯
+
+
+
+ ↵ edit  tab interfaces  ? more  esc close

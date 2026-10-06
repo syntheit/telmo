@@ -1,0 +1,23 @@
+# Sound · Headset mode · mac
+ Sound
+
+╭─ Output ───────────────────────────────────────────────────────────────────────────────╮
+│   ● MacBook Pro Speakers          ━━━━━━━━━━━━━━━━━━━───────────    62%                │
+│ ▌   AirPods Pro                   ━━━━━━━━━━━━──────────────────    40%                │
+│     LG UltraFine                  fixed volume                                         │
+╰────────────────╭─ AirPods Pro mode ───────────────────────────────────╮────────────────╯
+╭─ Input ────────│                                                      │────────────────╮
+│   ● MacBook Pro│  macOS switches this on its own: picking AirPods     │                │
+│     AirPods Pro│  as the input turns on headset mode.                 │                │
+╰────────────────│                                                      │────────────────╯
+╭─ Playing ──────│  esc back                                            │ase 2 on macOS ─╮
+│     Spotify    │                                                      │                │
+│     Zen Browser╰──────────────────────────────────────────────────────╯                │
+│     Discord                       ━━━━━━━━━━━━━━━━━━━━──────────  muted                │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+
+
+
+ ←→ volume  m mute  ↵ set default  tab pane  ? more  esc close

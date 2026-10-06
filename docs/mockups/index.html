@@ -1,0 +1,828 @@
+<title>System Popup Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: control strip, then a fake desktop "stage" with the dimmed backdrop and one rounded popup, then the plan as a skimmable column. Single dark look (it mocks a terminal). */
+:root {
+  color-scheme: dark;
+  --page: #0b0c13;
+  --panel: #12131d;
+  --ink: #c9d0ee;
+  --mute: #7a81a6;
+  --line: #222538;
+  --accent: #7aa2f7;
+  --warn: #e0af68;
+  --ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--ink); font-family: var(--ui); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 64px; display: grid; gap: 22px; }
+h1 { font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font-size: 18px; font-weight: 600; margin: 0 0 8px; text-wrap: balance; }
+h3 { font-size: 15px; font-weight: 600; margin: 14px 0 6px; color: var(--ink); }
+p { margin: 0 0 8px; max-width: 75ch; }
+code, kbd { font-family: var(--mono); font-size: 0.86em; }
+kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; background: var(--panel); }
+.sub { color: var(--mute); font-size: 14px; }
+.top { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: baseline; justify-content: space-between; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--panel); }
+.seg button { font: 500 13px var(--ui); color: var(--mute); background: transparent; border: 0; padding: 7px 12px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { color: var(--page); background: var(--accent); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.seg button:disabled { opacity: .35; cursor: not-allowed; }
+.lbl { font: 600 11px var(--ui); letter-spacing: .08em; text-transform: uppercase; color: var(--mute); margin-right: 6px; }
+
+.stage { position: relative; width: 100%; aspect-ratio: 16 / 10; max-width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid var(--line);
+  background: radial-gradient(1200px 700px at 15% 10%, #2b2f6b 0%, transparent 60%), radial-gradient(900px 600px at 90% 90%, #3a1f4f 0%, transparent 55%), #0d0f1d; }
+.stage .bar { position: absolute; inset: 0 0 auto 0; height: 5.2%; background: #000; display: flex; justify-content: space-between; align-items: center; padding: 0 1.4%; font: 400 clamp(6px, 1.05vw, 12px) var(--mono); color: #a9b1d6; }
+.stage .bar .sp span { padding: 0 .6em; }
+.stage .bar .sp span.on { background: #7aa2f7; color: #1a1b26; }
+.stage .tiles { position: absolute; inset: 5.2% 0 0 0; display: grid; grid-template-columns: 1fr 1fr; }
+.stage[data-os="linux"] .bar { display: none; }
+.stage[data-os="linux"] .tiles { inset: 0; }
+.tiles div { background: rgba(0,0,0,.78); border-right: 1px solid #000; padding: 1.6%; font: 400 clamp(5px, .9vw, 11px)/1.5 var(--mono); color: #6b7089; white-space: pre; overflow: hidden; }
+.dim-layer { position: absolute; inset: 0; background: rgba(0,0,0,.5); }
+.popup { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 24px; background: rgba(0,0,0,.80);
+  -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); box-shadow: 0 30px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.07); padding: 1.1em 1.3em; }
+.term { margin: 0; font-family: var(--mono); line-height: 1.32; white-space: pre; color: var(--t-fg); font-variant-ligatures: none; }
+.size-tag { position: absolute; right: 1.2%; bottom: 1.6%; font: 400 11px var(--mono); color: rgba(255,255,255,.45); }
+
+.term[data-pal="night"] { --t-fg:#c0caf5; --t-dim:#737aa2; --t-faint:#3b4261; --t-blue:#7aa2f7; --t-cyan:#7dcfff; --t-green:#9ece6a; --t-mag:#bb9af7; --t-red:#f7768e; --t-yel:#e0af68; --t-org:#ff9e64; --t-sel:#283457; --t-modal:#13141f; --t-field:#24283b; }
+.term[data-pal="dark"]  { --t-fg:#a0a8cd; --t-dim:#6b7089; --t-faint:#353945; --t-blue:#7199ee; --t-cyan:#9fbbf3; --t-green:#95c561; --t-mag:#a485dd; --t-red:#ee6d85; --t-yel:#d7a65f; --t-org:#f6955b; --t-sel:#212234; --t-modal:#11121d; --t-field:#212234; }
+.term .fg{color:var(--t-fg)} .term .dim{color:var(--t-dim)} .term .faint{color:var(--t-faint)} .term .b{color:var(--t-blue)} .term .c{color:var(--t-cyan)}
+.term .g{color:var(--t-green)} .term .m{color:var(--t-mag)} .term .r{color:var(--t-red)} .term .y{color:var(--t-yel)} .term .o{color:var(--t-org)}
+.term .bd{color:var(--t-faint)} .term .bda{color:var(--t-blue)} .term .ybd{color:var(--t-yel)} .term .bold{font-weight:700} .term .ital{font-style:italic}
+.term .sel{background:var(--t-sel)} .term .mbg{background:var(--t-modal)} .term .field{background:var(--t-field)}
+.term .rbg{background:var(--t-red);color:#000} .term .gbg{background:var(--t-green);color:#000} .term .dimmed{opacity:.25}
+
+.caption { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.caption > div { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+.caption .k { font: 600 11px var(--ui); letter-spacing: .08em; text-transform: uppercase; color: var(--mute); margin-bottom: 4px; }
+.states { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 500 13px var(--ui); color: var(--mute); background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px; cursor: pointer; }
+.chip[aria-pressed="true"] { color: var(--ink); border-color: var(--accent); }
+.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.chip .os { font-size: 11px; color: var(--warn); margin-left: 4px; }
+
+.plan { display: grid; gap: 18px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; min-width: 0; }
+.card ul, .card ol { margin: 4px 0 8px; padding-left: 20px; }
+.card li { margin: 3px 0; max-width: 80ch; }
+.grid2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 18px; }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+th { font: 600 11px var(--ui); letter-spacing: .08em; text-transform: uppercase; color: var(--mute); }
+td code { color: #a9b8f0; }
+pre.tree { margin: 6px 0 0; font: 13px/1.5 var(--mono); color: #a9b1d6; background: #0d0e16; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; }
+pre.tree .c1 { color: #565f89; }
+.rec { display: inline-block; font: 600 11px var(--ui); letter-spacing: .06em; text-transform: uppercase; color: #0b0c13; background: #9ece6a; border-radius: 4px; padding: 0 6px; margin-left: 6px; }
+.q { color: var(--warn); font-weight: 600; }
+.est { font-family: var(--mono); font-size: 13px; color: #7dcfff; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tech { display: grid; gap: 10px; }
+.tech-h { font-size: 20px; margin: 18px 0 0; }
+.sec { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 0 18px; min-width: 0; }
+.sec[open] { padding-bottom: 14px; }
+.sec summary { cursor: pointer; font-weight: 600; font-size: 16px; padding: 13px 0; list-style: none; }
+.sec summary::-webkit-details-marker { display: none; }
+.sec summary::before { content: "›"; display: inline-block; width: 1.1em; color: var(--accent); transition: transform .15s; }
+.sec[open] summary::before { transform: rotate(90deg); }
+.sec summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.sec ul, .sec ol { margin: 4px 0 8px; padding-left: 20px; }
+.sec li { margin: 4px 0; max-width: 85ch; }
+.tag { font: 600 10px var(--ui); letter-spacing: .06em; text-transform: uppercase; color: var(--warn); border: 1px solid var(--warn); border-radius: 4px; padding: 0 4px; vertical-align: 1px; }
+.jump { color: var(--accent); }
+@media (max-width: 760px) { .caption, .grid2 { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: no-preference) { .popup { transition: opacity .15s; } }
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>System popups: Network, Bluetooth, Sound</h1>
+      <div class="sub">Non-functional mockups + plan. One look on swift (macOS) and mantle (Hyprland). Keys on this page: <kbd>1</kbd>–<kbd>3</kbd> app, <kbd>←</kbd><kbd>→</kbd> state, <kbd>o</kbd> OS, <kbd>t</kbd> palette. <a class="jump" href="#tech">Technical plan ↓</a></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div><span class="lbl">App</span><span class="seg" id="apps"></span></div>
+    <div><span class="lbl">OS</span><span class="seg" id="oses"></span></div>
+    <div><span class="lbl">Palette</span><span class="seg" id="pals"></span></div>
+  </div>
+  <div class="states" id="states"></div>
+
+  <div class="stage" id="stage" data-os="mac">
+    <div class="bar"><div class="sp"><span class="on">1</span><span>2</span><span>3</span><span>4</span></div><div>wifi  bt  62%  Mon 5 Oct 14:02</div></div>
+    <div class="tiles"><div id="tileL"></div><div id="tileR"></div></div>
+    <div class="dim-layer"></div>
+    <div class="popup" id="popup"><pre class="term" id="term" data-pal="night"></pre></div>
+    <div class="size-tag" id="sizetag"></div>
+  </div>
+
+  <div class="caption">
+    <div><div class="k">This state</div><div id="cap"></div></div>
+    <div><div class="k" id="oskey">On this OS</div><div id="osnote"></div></div>
+  </div>
+
+  <div class="plan">
+    <div class="card">
+      <h2>What I found</h2>
+      <div class="grid2">
+        <div>
+          <h3>swift (macOS) today</h3>
+          <ul>
+            <li><code>fn+N</code> / <code>fn+B</code> open SwiftUI panels (resident daemons + socket). Mouse-first: Wi-Fi has no list keys at all.</li>
+            <li><b>Missing networks:</b> the scan path drops SSIDs that macOS redacts (Location), and falls back to saved profiles with fake signal. That matches "doesn't list all networks".</li>
+            <li><b>Wrong BT state:</b> no device-change listener. State refreshes only on open, or a fixed 1.5 s after connect. One global spinner for every row.</li>
+            <li><b>Freezes:</b> <code>netstat</code>, <code>scutil</code>, IOBluetooth connect and the socket handler all run on the main thread.</li>
+            <li><b>Sound:</b> an output switcher exists inside <code>volume-panel show</code>, but nothing binds it. No input switching, no per-app volume.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>mantle (Hyprland) today</h3>
+          <ul>
+            <li><code>Super+N</code> nmtui, <code>Super+B</code> bluetuith, <code>Super+M</code> pavucontrol (a GTK GUI, not a TUI).</li>
+            <li>Windowrules: float, center, fixed px size per tool (600×900, 1104×580, 800×600), <code>dim_around</code>. Global <code>rounding = 0</code>.</li>
+            <li>Esc closes via a class allowlist in the Hyprland escape handler.</li>
+            <li>Stack: NetworkManager 1.58, BlueZ 5.87, PipeWire + WirePlumber (pipewire-pulse on). Extra "Mac mini speakers" ROC sink always listed.</li>
+            <li>Also applies to ledger (same <code>hyprland.nix</code>).</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Proposal</h2>
+      <p>Four small TUI programs that share one UI kit. Each program has one backend trait with a macOS, a Linux and a mock implementation. The popup window is a thin per-OS wrapper; the TUI itself handles <kbd>esc</kbd>, so behaviour is identical on both machines.</p>
+      <pre class="tree">packages/sysmenu/                 <span class="c1"># working name, cargo workspace</span>
+  crates/kit/      <span class="c1"># theme, widgets (list, modal, toast, gauge, big digits), keymap, event loop, --mock</span>
+  crates/net/      <span class="c1"># bin net    · Wi-Fi, Ethernet, USB/Thunderbolt, VPN → macos.rs | networkmanager.rs | mock.rs</span>
+  crates/bt/       <span class="c1"># bin bt     · BtBackend    → iobluetooth.rs | bluez.rs | mock.rs</span>
+  crates/sound/    <span class="c1"># bin sound  · AudioBackend → coreaudio.rs | pulse.rs | mock.rs</span>
+  crates/speed/    <span class="c1"># library (+ tiny bin) · Cloudflare speed endpoints, same code on both OSes; net opens it with s</span>
+  popup/macos/     <span class="c1"># PopupHost.app (Swift): rounded panel + dim layer + embedded terminal</span>
+  popup/popup.sh   <span class="c1"># `popup net` toggle: Hyprland → ghostty --class; macOS → PopupHost socket</span></pre>
+      <h3>Shared by both OSes</h3>
+      <ul>
+        <li>All UI, keymaps, state handling, error toasts, per-row pending states. Roughly 75% of the code.</li>
+        <li>Speedtest is 100% shared and lives inside Network.</li>
+        <li>Backends push events into the UI; the UI never blocks on a backend. That removes the freeze class of bugs.</li>
+        <li><code>--mock</code> runs any app with fake data, so the next step after these mockups is the same screens running for real in your terminal.</li>
+      </ul>
+      <div class="tbl">
+        <table>
+          <thead><tr><th>Area</th><th>macOS backend</th><th>Linux backend</th></tr></thead>
+          <tbody>
+            <tr><td>Network</td><td>CoreWLAN (objc2) for Wi-Fi; SystemConfiguration for interfaces, IPv4 and DNS (admin prompt to save); Tailscale CLI + system VPNs. Location grant comes from PopupHost.app.</td><td>NetworkManager over D-Bus (zbus) for Wi-Fi, Ethernet, USB, WireGuard, with live signals. Tailscale CLI.</td></tr>
+            <tr><td>Bluetooth</td><td>IOBluetooth (objc2) on a worker thread with timeouts. Battery from IOKit + system_profiler (AirPods L/R/case).</td><td>BlueZ (bluer) with a pairing agent. Battery from Battery1.</td></tr>
+            <tr><td>Sound</td><td>CoreAudio HAL with change listeners. Per-app volume in phase 2 (process taps).</td><td>pipewire-pulse via libpulse: devices, per-app streams, BT profiles, events.</td></tr>
+            <tr><td>Speedtest</td><td colspan="2">Shared: download/upload/latency against speed.cloudflare.com, live progress. Opened from Network with <kbd>s</kbd>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>The popup window</h3>
+      <ul>
+        <li><b>mantle:</b> keep the Ghostty approach. Add <code>rounding 24</code> and <code>stay_focused</code> rules per class, one shared size for all four, and a toggle (hotkey again closes it).</li>
+        <li><b>swift:</b> a small resident Swift app (PopupHost) that shows a borderless 24 px-radius panel centred on the active screen, a dim layer behind it, and an embedded terminal running the TUI. It opens instantly (no Ghostty launch), gets corners right without the square-corners dylib, and gives the TUIs one stable app identity for the Location and Bluetooth permissions.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Display rules</h2>
+      <ol>
+        <li>The main screen shows what you act on: name, state, one strength cue.</li>
+        <li>Numbers (dBm, channel, MAC, IP) live in the details view, <kbd>i</kbd>.</li>
+        <li>The key bar shows at most 5 keys; <kbd>?</kbd> lists the rest.</li>
+        <li>Rarely used or empty sections stay hidden until asked for.</li>
+        <li>One status item in the header, nothing more.</li>
+      </ol>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h2>Unknowns to test first</h2>
+        <ol>
+          <li>On macOS 27, does a Rust binary started by a Location-allowed app get real Wi-Fi names from CoreWLAN? <span class="est">30 min</span></li>
+          <li>PopupHost terminal view: SwiftTerm vs libghostty. Check font, colours, focus, corners. <span class="est">1 h</span></li>
+          <li>IOBluetooth from Rust: connect/disconnect and change notifications are reliable. <span class="est">30 min</span></li>
+          <li>mantle's Hyprland accepts per-window <code>rounding</code> and <code>stay_focused</code>. <span class="est">10 min</span></li>
+        </ol>
+        <p class="sub">If test 1 fails, the macOS Wi-Fi backend moves into a small Swift helper inside PopupHost. The UI does not change.</p>
+      </div>
+      <div class="card">
+        <h2>Phases</h2>
+        <table>
+          <tbody>
+            <tr><td>1</td><td>Kit + all four apps running with <code>--mock</code> in Ghostty</td><td class="est">2–3 h</td></tr>
+            <tr><td>2</td><td>The four tests on the left</td><td class="est">2 h</td></tr>
+            <tr><td>3</td><td>PopupHost + <code>fn</code> binds on swift</td><td class="est">2–3 h</td></tr>
+            <tr><td>4</td><td>macOS backends: sound, bt, wifi, speed</td><td class="est">6–8 h</td></tr>
+            <tr><td>5</td><td>Linux backends + Hyprland rules, tested on mantle</td><td class="est">4–6 h</td></tr>
+            <tr><td>6</td><td>Remove old panels and binds; keep volume/brightness HUD and eq</td><td class="est">1 h</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Shared keys (all four apps)</h2>
+      <div class="tbl">
+        <table>
+          <thead><tr><th>Key</th><th>Everywhere</th><th>Network</th><th>Bluetooth</th><th>Sound</th></tr></thead>
+          <tbody>
+            <tr><td><kbd>j</kbd><kbd>k</kbd> / <kbd>↑</kbd><kbd>↓</kbd></td><td>move</td><td></td><td></td><td></td></tr>
+            <tr><td><kbd>↵</kbd></td><td>primary action</td><td>join / edit / toggle VPN</td><td>connect / disconnect / pair</td><td>set default</td></tr>
+            <tr><td><kbd>esc</kbd></td><td>close dialog, else quit (closes the popup)</td><td></td><td></td><td></td></tr>
+            <tr><td><kbd>tab</kbd></td><td>next pane</td><td>interfaces ↔ detail</td><td>connected / nearby</td><td>output / input / playing</td></tr>
+            <tr><td><kbd>h</kbd><kbd>l</kbd> / <kbd>←</kbd><kbd>→</kbd></td><td></td><td></td><td></td><td>volume ±5%</td></tr>
+            <tr><td>letters</td><td><kbd>/</kbd> filter · <kbd>r</kbd> refresh · <kbd>p</kbd> power · <kbd>?</kbd> all keys</td><td><kbd>i</kbd> details · <kbd>s</kbd> speedtest · <kbd>a</kbd> all saved</td><td><kbd>s</kbd> scan · <kbd>i</kbd> details (trust, rename, forget)</td><td><kbd>m</kbd> mute · <kbd>o</kbd> move app · <kbd>P</kbd> headset mode</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <section class="tech" id="tech">
+    <h2 class="tech-h">Technical plan</h2>
+    <p class="sub">Each section opens on click. <code>NAME</code> is the placeholder until we pick the name. Items marked <span class="tag">verify</span> are settled by a spike before we depend on them.</p>
+
+    <details class="sec" open>
+      <summary>1. Modules and packaging</summary>
+      <p>One suite, installed in pieces. Every module is its own small binary that works alone in any terminal. A tiny core command ties them together, git-style.</p>
+      <div class="tbl"><table>
+        <thead><tr><th>Package</th><th>Contains</th><th>Needs</th></tr></thead>
+        <tbody>
+          <tr><td><code>NAME</code></td><td>Dispatcher (<code>NAME net</code> runs <code>NAME-net</code>), <code>NAME popup net</code>, <code>NAME list</code>. On macOS also <code>NAME.app</code> (the popup host).</td><td>at least one module</td></tr>
+          <tr><td><code>NAME-net</code></td><td>Wi-Fi, Ethernet, USB/Thunderbolt, VPN, speedtest</td><td>nothing</td></tr>
+          <tr><td><code>NAME-bt</code></td><td>Bluetooth</td><td>nothing</td></tr>
+          <tr><td><code>NAME-sound</code></td><td>Output, input, per-app volume</td><td>nothing</td></tr>
+        </tbody>
+      </table></div>
+      <ul>
+        <li><b>Why separate binaries</b> and not one binary with cargo features: people install only what they want from Homebrew or Nix, there's no plugin ABI to maintain, and each binary stays around 2–5 MB because the shared kit is compiled in.</li>
+        <li><b>Dispatcher lookup order:</b> next to itself, then <code>NAME.app/Contents/Helpers</code>, then <code>$PATH</code>.</li>
+        <li><b>Nix:</b> the flake exports <code>packages.{NAME,NAME-net,NAME-bt,NAME-sound}</code>, an overlay, a home-manager module and a nix-darwin module: <code>programs.NAME = { enable; modules = [ "net" "bt" "sound" ]; hotkeys = { … }; }</code>. Your nix repo imports it as a flake input.</li>
+        <li><b>Later for others:</b> a Homebrew tap (notarized cask for <code>NAME.app</code>, formulae per module), plus GitHub release binaries. Linux: Nix and <code>cargo install</code> first, AUR later.</li>
+      </ul>
+    </details>
+
+    <details class="sec">
+      <summary>2. Repo layout</summary>
+      <pre class="tree">NAME/
+  Cargo.toml              <span class="c1"># workspace, resolver 3, shared dependency versions</span>
+  crates/
+    kit/                  <span class="c1"># lib: theme, widgets, keymap, runtime, config, test helpers</span>
+    speed/                <span class="c1"># lib: Cloudflare speedtest engine</span>
+    net/  bt/  sound/     <span class="c1"># one bin each, same shape:</span>
+      src/main.rs         <span class="c1">#   pick backend (cfg + --mock), kit::run(App)</span>
+      src/app.rs          <span class="c1">#   State, Msg, update()</span>
+      src/ui.rs           <span class="c1">#   view(&amp;State, &amp;mut Frame)</span>
+      src/model.rs        <span class="c1">#   plain data types shared by all backends</span>
+      src/backend/{mod.rs, macos/, linux/, mock.rs}
+      tests/snapshots/    <span class="c1">#   one snapshot per mockup state</span>
+    cli/                  <span class="c1"># bin NAME (dispatcher + popup command)</span>
+  host/macos/             <span class="c1"># NAME.app: Swift sources, Info.plist, pinned SwiftTerm</span>
+  nix/                    <span class="c1"># package.nix, host.nix, hm-module.nix, darwin-module.nix</span>
+  DESIGN.md</pre>
+    </details>
+
+    <details class="sec">
+      <summary>3. How every module runs</summary>
+      <ul>
+        <li><b>Loop:</b> Elm style. <code>Msg</code> comes from keys, backend events or timers. <code>update(&amp;mut State, Msg)</code> returns commands; <code>view</code> is a pure function of state.</li>
+        <li><b>Idle cost zero:</b> it redraws only when a message arrives. A timer runs only while something animates (a spinner, the speedtest).</li>
+        <li><b>Runtime:</b> tokio <code>current_thread</code> for the UI. Each native backend gets its own OS thread where the OS wants a run loop (CoreWLAN delegate, IOBluetooth notifications, the libpulse mainloop) and talks to the UI over channels.</li>
+        <li><b>Backends send snapshots:</b> on any change the backend sends the whole small state (debounced ~30 ms), never deltas. Simpler and impossible to drift. This is the fix for "Bluetooth shows the wrong state".</li>
+        <li><b>Actions:</b> every action is async with a typed error that maps to a toast message ("wrong password"). Pending state is per row, not global.</li>
+        <li><b>First frame under ~30 ms:</b> draw the last known snapshot from <code>~/.cache/NAME/&lt;module&gt;.json</code> immediately, then live data replaces it. The popup never opens empty.</li>
+        <li><b>Keys:</b> crossterm <code>EventStream</code>. If the terminal supports the kitty keyboard protocol (SwiftTerm, Ghostty and kitty do), push <code>DISAMBIGUATE_ESCAPE_CODES</code> so Esc reacts instantly; otherwise fall back to the ESC timeout.</li>
+        <li><b>Esc rule:</b> close the top dialog; with no dialog open, quit. Quitting closes the popup on both OSes.</li>
+        <li><b>Backend choice:</b> enum dispatch (<code>Real | Mock</code>) so <code>--mock</code> works in release builds without boxing futures.</li>
+      </ul>
+      <pre class="tree">trait NetBackend {
+    fn caps(&amp;self) -&gt; NetCaps;                       <span class="c1">// what this OS can do; UI hides the rest</span>
+    fn events(&amp;self) -&gt; Receiver&lt;NetSnapshot&gt;;
+    async fn scan(&amp;self) -&gt; Result&lt;()&gt;;
+    async fn join(&amp;self, ap: ApId, secret: Option&lt;Secret&gt;) -&gt; Result&lt;(), JoinError&gt;;
+    async fn forget(&amp;self, net: SavedId) -&gt; Result&lt;()&gt;;
+    async fn set_wifi_power(&amp;self, on: bool) -&gt; Result&lt;()&gt;;
+    async fn set_ipv4(&amp;self, iface: IfaceId, cfg: Ipv4Config) -&gt; Result&lt;()&gt;;
+    async fn set_vpn(&amp;self, vpn: VpnId, on: bool) -&gt; Result&lt;()&gt;;
+}</pre>
+    </details>
+
+    <details class="sec">
+      <summary>4. kit (shared UI)</summary>
+      <ul>
+        <li><b>Theme:</b> Tokyo Night as semantic roles (accent, ok, warn, err, text, dim, faint, selection). True color, with a 256-color fallback when <code>COLORTERM</code> isn't truecolor. Panes keep the terminal's own background (<code>Color::Reset</code>) so the popup's translucency shows through.</li>
+        <li><b>Widgets:</b> Pane (rounded block with title, badge, right label, active state), SelectList, Modal (dims everything behind it), Toast (4 s), KeyBar, Help overlay (<kbd>?</kbd>), signal Bars, volume Gauge, BigDigits, Spinner, TextInput with masking, Form.</li>
+        <li><b>Keymap:</b> each screen declares bindings once (<code>keys, action, label, in_bar</code>). The key bar and the <kbd>?</kbd> overlay are generated from the same list, so they can't disagree. User overrides come from config.</li>
+        <li><b>Config:</b> optional <code>~/.config/NAME/config.toml</code> (XDG path on macOS too): key overrides, hidden devices (e.g. BlackHole), hotkeys for the macOS host.</li>
+        <li><b>Testing:</b> <code>kit::test::render(app, 90, 22)</code> returns a string for insta snapshots. Every mockup state becomes a snapshot test.</li>
+      </ul>
+    </details>
+
+    <details class="sec">
+      <summary>5. NAME-net</summary>
+      <div class="tbl"><table>
+        <thead><tr><th>Feature</th><th>macOS</th><th>Linux</th></tr></thead>
+        <tbody>
+          <tr><td>Wi-Fi scan, join, power</td><td>CoreWLAN (<code>objc2-core-wlan</code>) on its own thread; scan blocks 2–5 s. Event delegate for SSID, link and power changes. Bad password maps from the CoreWLAN error code <span class="tag">verify</span>.</td><td>NetworkManager over <code>zbus</code> (or <code>nmrs</code>, compared in a spike). <code>RequestScan</code> → <code>GetAllAccessPoints</code>; group by SSID, keep the strongest. Join = <code>AddAndActivateConnection</code>; delete the new profile if it fails. Wrong password = state 60→120 with reason 7/11/12.</td></tr>
+          <tr><td>Network names</td><td>Need Location for the host app; if missing, show the banner (<code>caps.location_ok</code>).</td><td>Always available. SSIDs can be emoji or invalid UTF-8: decode lossy, fall back to hex.</td></tr>
+          <tr><td>Interfaces and IPs</td><td>SCDynamicStore (<code>system-configuration</code> crate) with change notifications on <code>State:/Network/Interface/.*/(IPv4|Link)</code> and <code>Global/(IPv4|DNS)</code>. Service names from SCNetworkService. Link speed from <code>SIOCGIFMEDIA</code>.</td><td><code>GetDevices</code> + <code>Ip4Config</code> (<code>AddressData</code>, <code>Gateway</code>, <code>NameserverData</code>), <code>Wired.Speed</code>. Re-read on <code>PropertiesChanged</code> (the Ip4Config path changes on every activation).</td></tr>
+          <tr><td>Edit IPv4 / DNS</td><td><code>networksetup -setmanual / -setdhcp / -setdnsservers "&lt;service&gt;"</code> via the standard admin prompt (Touch ID works). Nix users can add a sudoers rule to skip the prompt.</td><td><code>GetSettings</code> → edit <code>ipv4</code> (<code>address-data</code>, <code>gateway</code>, <code>dns-data</code>) → <code>Update2</code> → <code>Device.Reapply</code> (no link drop). Check <code>GetPermissions</code> up front.</td></tr>
+          <tr><td>VPN</td><td>Tailscale CLI (<code>status --json</code>, <code>up</code>/<code>down</code>); other system VPNs via <code>scutil --nc list/start/stop</code>.</td><td>Tailscale CLI (needs <code>--operator</code> set once). NetworkManager VPN/WireGuard profiles toggle directly. Externally managed ones (mantle's <code>wg-quick-wg0</code>) show read-only with a hint.</td></tr>
+          <tr><td>Speedtest</td><td colspan="2"><code>speed</code> crate, identical on both. reqwest + rustls against speed.cloudflare.com, sending a <code>Referer</code> header (needed for <code>/meta</code>). Latency is 20 × <code>__down?bytes=0</code> minus <code>Server-Timing</code>, median, with jitter. Download ramps 100 kB → 25 MB (100 MB on fast links) over 4 parallel connections, reported as p90. Upload works the same way. Loaded latency is measured during transfers. The last 5 runs are kept in <code>~/.local/state/NAME/</code>.</td></tr>
+          <tr><td>Public IP</td><td colspan="2">From <code>/meta</code>, fetched only when details open, cached 5 min.</td></tr>
+        </tbody>
+      </table></div>
+    </details>
+
+    <details class="sec">
+      <summary>6. NAME-bt</summary>
+      <div class="tbl"><table>
+        <thead><tr><th>Feature</th><th>macOS</th><th>Linux</th></tr></thead>
+        <tbody>
+          <tr><td>Devices and state</td><td>IOBluetooth (<code>objc2-io-bluetooth</code>) on a thread with its own run loop. <code>pairedDevices</code>, and connect/disconnect notifications drive snapshots.</td><td><code>bluer</code>: session, adapter event stream, device properties (<code>Alias</code>, <code>Icon</code>, <code>Connected</code>, <code>Paired</code>, <code>Trusted</code>).</td></tr>
+          <tr><td>Connect / disconnect</td><td><code>openConnection(target, withPageTimeout:)</code> (async, ~5 s timeout), <code>closeConnection</code>.</td><td><code>Device.connect()</code> / <code>disconnect()</code>.</td></tr>
+          <tr><td>Scan and pair</td><td><code>IOBluetoothDeviceInquiry</code> (classic devices) + <code>IOBluetoothDevicePair</code> delegate. Best effort; on refusal, offer System Settings.</td><td><code>discover_devices()</code> stream; an agent with <code>KeyboardDisplay</code> sends the code or confirmation to the UI and waits for your answer. After pairing: <code>Trusted=true</code>, connect.</td></tr>
+          <tr><td>Battery</td><td>IOKit HID <code>BatteryPercent</code>; AirPods left/right/case from <code>system_profiler SPBluetoothDataType -json</code> (slow, so async and cached 60 s).</td><td><code>org.bluez.Battery1.Percentage</code> when present.</td></tr>
+          <tr><td>Power / forget</td><td>Private calls (the ones <code>blueutil</code> uses), checked at startup; if missing, the action shows "open System Settings".</td><td><code>Adapter.Powered</code>, <code>RemoveDevice</code>.</td></tr>
+        </tbody>
+      </table></div>
+    </details>
+
+    <details class="sec">
+      <summary>7. NAME-sound</summary>
+      <div class="tbl"><table>
+        <thead><tr><th>Feature</th><th>macOS</th><th>Linux</th></tr></thead>
+        <tbody>
+          <tr><td>Devices, default, volume, mute</td><td>CoreAudio HAL (<code>objc2-core-audio</code>). Volume via <code>VirtualMainVolume</code>, falling back to per-channel. Devices with no volume control say "fixed volume". Changing the default output also changes the alert device.</td><td>libpulse (<code>libpulse-binding</code>) on its own thread against pipewire-pulse; no <code>pactl</code> needed. <code>set_default_sink</code>, per-device volume and mute.</td></tr>
+          <tr><td>Live updates</td><td>Property listener blocks (device list, defaults, volume, mute) on a dispatch queue.</td><td><code>subscribe</code> (sink, source, sink-input, card, server) → re-query, debounced.</td></tr>
+          <tr><td>Hidden devices</td><td>Aggregate and hidden devices, plus a configurable deny list (BlackHole, "(EQ)").</td><td>Monitor sources. Virtual sinks like "Mac mini speakers" stay visible (they're real outputs).</td></tr>
+          <tr><td>Per-app</td><td>Phase 2: process taps (macOS 14.2+) in the host app, with the System Audio Recording permission.</td><td>Sink inputs: volume, mute, <code>move_sink_input_by_index</code>.</td></tr>
+          <tr><td>Headset mode</td><td>macOS decides; the dialog explains this.</td><td>Card profiles matched by prefix (<code>a2dp-sink*</code>, <code>headset-head-unit*</code>).</td></tr>
+        </tbody>
+      </table></div>
+    </details>
+
+    <details class="sec">
+      <summary>8. NAME.app, the macOS popup host</summary>
+      <ul>
+        <li><b>Size:</b> about 400 lines of Swift plus SwiftTerm 1.19.0 (pinned). SwiftTerm compiles in one <code>swiftc</code> call with a one-line build-info stub (tested: 38 s, 2.6 MB). The build uses the Command Line Tools <code>swiftc</code>, the same way your panels build today; no SwiftPM.</li>
+        <li><b>Bundle:</b> <code>LSUIElement</code> (no Dock icon). Info.plist carries the Location and Bluetooth usage strings; without them macOS silently denies the TUIs. Signed with your Developer ID; hardened runtime and notarization for public releases.</li>
+        <li><b>Why the permissions work:</b> SwiftTerm starts the module with <code>forkpty</code>, so macOS treats NAME.app as responsible for it. One Location grant and one Bluetooth grant cover every module. <span class="tag">verify</span></li>
+        <li><b>Window:</b> borderless NSPanel subclass (<code>canBecomeKey</code>), level <code>.popUpMenu</code>, <code>[.moveToActiveSpace, .fullScreenAuxiliary, .ignoresCycle]</code>. Content is an <code>NSGlassEffectView</code> with radius 24 (NSVisualEffectView before macOS 26) holding the terminal view. Sized from font cell metrics to exactly 90×22 plus padding, centred on the screen under the mouse.</li>
+        <li><b>Dim:</b> one borderless window per screen at 35% black, created once and reused. Clicking it closes the popup, so no Accessibility permission is needed.</li>
+        <li><b>Focus:</b> remember the frontmost app → <code>NSApp.activate()</code> → <code>makeKeyAndOrderFront</code> → <code>makeFirstResponder(terminal)</code>. On close: hide, kill the child, re-activate the previous app.</li>
+        <li><b>Toggle:</b> the same hotkey while open closes it; a different module's hotkey swaps the content.</li>
+        <li><b>Hotkeys:</b> Carbon <code>RegisterEventHotKey</code> needs no permission. Defaults <kbd>⌃⌥⌘N</kbd> / <kbd>⌃⌥⌘B</kbd> / <kbd>⌃⌥⌘M</kbd>, configurable. macOS can't register <kbd>fn</kbd> hotkeys, so your skhd binds call <code>NAME popup net</code> instead.</li>
+        <li><b>IPC:</b> Unix socket in <code>~/Library/Application Support/NAME/</code>, one-line commands (<code>toggle net</code>, <code>hide</code>). Connect-first gives single-instance for free. It replaces the current <code>IPCServer</code>, which can freeze the UI (blocking accept, <code>main.sync</code>, no timeouts).</li>
+        <li><b>Start at login:</b> an <code>SMAppService</code> toggle for vanilla users; a launchd agent from the home-manager module for you.</li>
+        <li><b>Location prompt:</b> when Wi-Fi names are hidden, <kbd>L</kbd> in NAME-net asks the host to request Location. The host briefly becomes a regular app so the prompt is visible. <span class="tag">verify</span></li>
+      </ul>
+    </details>
+
+    <details class="sec">
+      <summary>9. Linux popup (mantle)</summary>
+      <ul>
+        <li><code>NAME popup net</code> on Hyprland: if a window with class <code>NAME.net</code> exists, close it; otherwise start the terminal with that class running <code>NAME-net</code>.</li>
+        <li>Terminal: auto-detected (ghostty, kitty, foot, alacritty, wezterm) with a config override. Not tied to Ghostty.</li>
+        <li>The home-manager module emits window rules: float, center, size, <code>rounding 24</code>, <code>dim_around</code>, <code>stay_focused</code>. It replaces the current nmtui, bluetuith and pavucontrol binds and the Esc allowlist entries.</li>
+        <li>Later: a native Linux host (GTK4 + VTE + layer-shell) so non-Hyprland desktops get the same popup.</li>
+      </ul>
+    </details>
+
+    <details class="sec">
+      <summary>10. Dependencies (checked against crates.io today)</summary>
+      <div class="tbl"><table>
+        <thead><tr><th>Area</th><th>Crates</th></tr></thead>
+        <tbody>
+          <tr><td>UI</td><td><code>ratatui 0.30</code> (crossterm 0.29 re-exported, feature <code>event-stream</code>), <code>tokio 1</code>, <code>futures-util</code>, <code>serde</code> + <code>toml 1</code>, <code>thiserror</code>, <code>insta</code> (dev)</td></tr>
+          <tr><td>Linux</td><td><code>zbus 5</code> (pure Rust, no libdbus), <code>nmrs 3</code> (candidate), <code>bluer 0.17</code>, <code>libpulse-binding 2.30</code> (needs <code>libpulseaudio</code> + <code>pkg-config</code>)</td></tr>
+          <tr><td>macOS</td><td><code>objc2 0.6</code>, <code>block2 0.6</code>, <code>objc2-core-wlan</code>, <code>objc2-io-bluetooth</code>, <code>objc2-core-audio</code>, <code>objc2-core-location</code>, <code>objc2-system-configuration</code> (all 0.3), <code>system-configuration 0.8</code></td></tr>
+          <tr><td>HTTP</td><td><code>reqwest 0.13</code> with rustls (no OpenSSL, reproducible Nix build)</td></tr>
+          <tr><td>Nix</td><td>crane (deps built once, shared by every binary); the default nixpkgs Apple SDK covers every framework we use</td></tr>
+        </tbody>
+      </table></div>
+    </details>
+
+    <details class="sec">
+      <summary>11. Spikes, phases, risks</summary>
+      <div class="grid2">
+        <div>
+          <h3>Spikes (each answers one question)</h3>
+          <ol>
+            <li>Signed host + forkpty child: does CoreWLAN return names? Does the Location prompt show from an agent app? <span class="est">45 min</span></li>
+            <li>SwiftTerm in the glass panel: instant Esc via the kitty protocol, focus from a hotkey over a fullscreen app, idle CPU. <span class="est">1 h</span></li>
+            <li>IOBluetooth from Rust: notifications on a run-loop thread, async connect. <span class="est">45 min</span></li>
+            <li>nmrs vs raw zbus for everything in section 5. <span class="est">20 min</span></li>
+            <li>Hyprland on mantle accepts per-window <code>rounding</code> + <code>stay_focused</code>. <span class="est">10 min</span></li>
+          </ol>
+        </div>
+        <div>
+          <h3>Phases</h3>
+          <table><tbody>
+            <tr><td>1</td><td>Repo, kit, 3 modules on mock data, snapshot tests</td><td class="est">3–4 h</td></tr>
+            <tr><td>2</td><td>Spikes</td><td class="est">3 h</td></tr>
+            <tr><td>3</td><td>NAME.app host</td><td class="est">3 h</td></tr>
+            <tr><td>4</td><td>macOS backends: sound, bt, net, speed</td><td class="est">10–11 h</td></tr>
+            <tr><td>5</td><td>Linux backends + popup command</td><td class="est">6–7 h</td></tr>
+            <tr><td>6</td><td>Nix modules, swap binds, delete old panels</td><td class="est">2 h</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+      <h3>Risks and fallbacks</h3>
+      <ul>
+        <li>Location not inherited by the child → a small Swift Wi-Fi helper inside NAME.app serves scan results over the socket. The UI doesn't change.</li>
+        <li>Private Bluetooth calls break in a macOS update → feature-checked at startup; the action degrades to "open System Settings".</li>
+        <li>SwiftTerm rendering not good enough → swap in libghostty behind the same host code.</li>
+        <li>The admin prompt on every IP edit is annoying → optional sudoers rule via the nix-darwin module.</li>
+      </ul>
+    </details>
+  </section>
+</div>
+
+<script>
+(() => {
+  const W = 90, H = 22;
+  const T = (s, c = '') => Array.from(String(s), ch => ({ ch, c }));
+  const B = n => T(' '.repeat(Math.max(0, n)));
+  const cat = (...a) => [].concat(...a);
+  const fit = (cells, w) => cells.length >= w ? cells.slice(0, w) : cells.concat(B(w - cells.length));
+  const rfit = (cells, w) => cells.length >= w ? cells.slice(0, w) : B(w - cells.length).concat(cells);
+  const col = (s, w, c = '') => fit(T(s, c), w);
+  const rcol = (s, w, c = '') => rfit(T(s, c), w);
+  const add = (cells, cls) => cells.map(x => ({ ch: x.ch, c: (x.c + ' ' + cls).trim() }));
+  const spread = (l, r, w) => cat(l, B(w - l.length - r.length), r);
+  const S = cells => ({ sel: true, cells });
+
+  function box(title, rows, w, o = {}) {
+    const bc = o.bc || (o.active ? 'bda' : 'bd');
+    const tc = o.tc || (o.active ? 'b bold' : 'fg bold');
+    const left = cat(T('╭─', bc), T(' ' + title + ' ', tc), o.badge ? cat(o.badge, B(1)) : []);
+    const right = o.right ? cat(B(1), o.right, B(1), T('─', bc)) : [];
+    const top = cat(left, T('─'.repeat(Math.max(0, w - left.length - right.length - 1)), bc), right, T('╮', bc));
+    const out = [top];
+    for (const r of rows) {
+      const sel = r && r.sel;
+      let inner = fit(sel ? r.cells : r, w - 2);
+      if (sel) inner = add(inner, 'sel');
+      out.push(cat(T('│', bc), inner, T('│', bc)));
+    }
+    out.push(T('╰' + '─'.repeat(w - 2) + '╯', bc));
+    return out;
+  }
+  function hjoin(a, b, gap = 0) {
+    const wa = a[0].length, n = Math.max(a.length, b.length), out = [];
+    for (let i = 0; i < n; i++) out.push(cat(a[i] || B(wa), B(gap), b[i] || []));
+    return out;
+  }
+  function screen(header, body, footer, toast) {
+    const reserve = toast ? 2 : 1;
+    const lines = [fit(header, W), B(W)];
+    for (const l of body) lines.push(fit(l, W));
+    while (lines.length < H - reserve) lines.push(B(W));
+    lines.length = H - reserve;
+    if (toast) lines.push(fit(toast, W));
+    lines.push(fit(footer, W));
+    return lines;
+  }
+  function overlay(base, modal, top) {
+    const mw = modal[0].length, left = Math.floor((W - mw) / 2);
+    const out = base.map(l => add(l, 'dimmed'));
+    modal.forEach((m, i) => { const r = top + i; if (r < out.length) out[r] = cat(out[r].slice(0, left), add(m, 'mbg'), out[r].slice(left + mw)); });
+    return out;
+  }
+  const hdr = (title, status) => spread(cat(B(1), T(title, 'b bold')), cat(status, B(1)), W);
+  const keys = list => cat(B(1), ...list.map(([k, l], i) => cat(i ? B(2) : [], T(k, 'b'), B(1), T(l, 'dim'))));
+  const toastErr = msg => cat(B(1), T(' ✗ ', 'rbg bold'), B(1), T(msg, 'r'));
+  const toastOk = msg => cat(B(1), T(' ✓ ', 'gbg bold'), B(1), T(msg, 'g'));
+  const mark = sel => sel ? T(' ▌ ', 'b') : B(3);
+  function bars(n) { const cls = n >= 3 ? 'g' : n === 2 ? 'y' : 'r'; return Array.from('▂▄▆█', (ch, i) => ({ ch, c: i < n ? cls : 'faint' })); }
+  function vbar(p, w, cls = 'b') { const f = Math.round(p / 100 * w); return cat(T('━'.repeat(f), cls), T('─'.repeat(w - f), 'faint')); }
+  const batt = p => T(p + '%', p > 50 ? 'g' : p > 20 ? 'y' : 'r');
+  const spark = (s, cls) => T(Array.from(s, d => '▁▂▃▄▅▆▇█'[+d]).join(''), cls);
+  const BIG = { '0': ['█▀█', '█ █', '▀▀▀'], '1': ['▀█ ', ' █ ', '▀▀▀'], '2': ['▀▀█', '█▀▀', '▀▀▀'], '3': ['▀▀█', ' ▀█', '▀▀▀'], '4': ['█ █', '▀▀█', '  ▀'],
+    '5': ['█▀▀', '▀▀█', '▀▀▀'], '6': ['█▀▀', '█▀█', '▀▀▀'], '7': ['▀▀█', '  █', '  ▀'], '8': ['█▀█', '█▀█', '▀▀▀'], '9': ['█▀█', '▀▀█', '▀▀▀'], '.': [' ', ' ', '▀'], '-': ['   ', '▀▀▀', '   '] };
+  function big(str, cls) { const r = ['', '', '']; for (const ch of str) { const g = BIG[ch]; for (let i = 0; i < 3; i++) r[i] += g[i] + ' '; } return r.map(x => T(x.replace(/ $/, ''), cls)); }
+
+  /* ---------------- Network ---------------- */
+  const NETS = [
+    { n: 'HomeNet-5G', s: 4, conn: true, saved: true },
+    { n: 'HomeNet', s: 3, saved: true },
+    { n: 'Tanaka-AP', s: 3 },
+    { n: 'Matv-Guest', s: 2, open: true, saved: true },
+    { n: 'DIRECT-7F-HP OfficeJet', s: 2 },
+    { n: 'aterm-5c1d2e-g', s: 1 },
+    { n: 'Starbucks_WiFi', s: 1, open: true },
+    { n: null, s: 1 },
+  ];
+  const IFACES = {
+    mac: [['Wi-Fi', 'HomeNet-5G', true], ['Ethernet', 'USB LAN · 1 Gbps', true], ['Thunderbolt', 'not connected', false], ['iPhone USB', 'not connected', false], ['VPN', 'Tailscale', true]],
+    linux: [['Wi-Fi', 'HomeNet-5G', true], ['Ethernet', 'enp5s0 · 1 Gbps', true], ['USB', 'fajita · off', false], ['VPN', 'Tailscale', true]],
+  };
+  const SIDE_W = 26, PANE_W = W - SIDE_W;
+  function sideRows(os, sel) {
+    const rows = [];
+    IFACES[os].forEach(([n, sub, on], i) => {
+      if (i) rows.push([]);
+      const a = cat(mark(i === sel), col(n, 18, i === sel ? 'fg bold' : 'fg'), on ? T('●', 'g') : T('○', 'faint'));
+      const b = cat(B(3), T(sub, 'dim'));
+      rows.push(i === sel ? S(a) : a, i === sel ? S(b) : b);
+    });
+    return rows;
+  }
+  function netBody(os, sel, title, rows, o = {}) {
+    const side = sideRows(os, sel);
+    const n = Math.max(side.length, rows.length);
+    while (side.length < n) side.push([]);
+    rows = rows.slice(); while (rows.length < n) rows.push([]);
+    return hjoin(box('Interfaces', side, SIDE_W, { active: o.sideFocus }), box(title, rows, PANE_W, { active: !o.sideFocus, right: o.right, bc: o.bc, tc: o.tc }));
+  }
+  function netRow(x, sel, o = {}) {
+    const hidden = x.n == null || o.redact;
+    const nm = hidden ? col(o.redact ? '‹name hidden›' : 'hidden network', 30, 'dim ital') : col(x.n, 30, x.conn ? 'fg bold' : 'fg');
+    const tag = o.pending ? T('◜ joining…', 'y') : x.conn ? T('● connected', 'g') : x.saved && !o.redact ? T('saved', 'dim') : x.open ? T('open', 'y') : [];
+    const cells = cat(mark(sel), nm, bars(x.s), B(3), tag);
+    return sel ? S(cells) : cells;
+  }
+  function wifiRows(sel, o = {}) {
+    const rows = NETS.map((x, i) => netRow(x, i === sel, { pending: o.pending === i, redact: o.redact }));
+    if (!o.redact) rows.push([], cat(B(3), T('a', 'b'), T(' show 2 saved networks out of range', 'faint')));
+    return rows;
+  }
+  const netStatus = () => cat(T('● online', 'g'), T('  via Wi-Fi', 'dim'));
+  const wifiKeys = keys([['↵', 'join'], ['i', 'details'], ['s', 'speedtest'], ['tab', 'interfaces'], ['?', 'more'], ['esc', 'close']]);
+  const wifiPane = (os, sel, o = {}) => netBody(os, 0, 'Wi-Fi', wifiRows(sel, o), { right: T('● on', 'g') });
+  const kv = (k, v, c = 'fg', w = 10) => cat(B(3), col(k, w, 'dim'), T(v, c));
+  const setRow = (sel, k, v) => { const c = cat(mark(sel), col(k, 14, 'fg'), col(v, 34, 'dim'), T('›', 'faint')); return sel ? S(c) : c; };
+  const ethRows = os => [[], kv('ip', '192.168.1.40', 'c'), kv('router', '192.168.1.1'), kv('dns', '1.1.1.1, 1.0.0.1'), [],
+    cat(B(3), T('settings ', 'dim'), T('─'.repeat(48), 'faint')), setRow(true, 'IPv4', 'Automatic (DHCP)'), setRow(false, 'DNS', 'Automatic'), setRow(false, 'Interface', 'On')];
+  const ethKeys = keys([['↵', 'edit'], ['tab', 'interfaces'], ['?', 'more'], ['esc', 'close']]);
+
+  function meter(title, val, unit, cls, sp, prog, label, active, w = 45) {
+    const g = val ? big(val, cls) : big('--', 'faint');
+    const rows = [[], cat(B(3), g[0]), cat(B(3), g[1]), cat(B(3), g[2], B(2), T(unit, 'dim')), [],
+      cat(B(3), sp ? spark(sp, cls) : []), cat(B(3), vbar(prog, 30, cls), T('  ' + label, prog < 100 && prog > 0 ? 'y' : 'dim'))];
+    return box(title, rows, w, { active });
+  }
+  const latency = done => box('Latency', [cat(B(2), T('idle ', 'dim'), T('8 ms', 'fg'), T('    jitter ', 'dim'), T('1.2 ms', 'fg'), T('    under load ', 'dim'), done ? T('24 ms', 'fg') : T('--', 'faint'))], W);
+  const lastRun = cat(B(1), T('last run  ', 'dim'), T('today 09:12   ↓ 388.0   ↑ 41.2   9 ms', 'faint'));
+  const spHdr = s => hdr('Network › Speedtest', s || T('Cloudflare · via HomeNet-5G', 'dim'));
+  const spKeys = keys([['↵', 'run again'], ['c', 'copy result'], ['esc', 'back']]);
+
+  const NET = {
+    wifi: os => screen(hdr('Network', netStatus()), wifiPane(os, 1), wifiKeys),
+    join: os => {
+      const base = screen(hdr('Network', netStatus()), wifiPane(os, 2), wifiKeys);
+      const m = box('Join Tanaka-AP', [
+        [], cat(B(2), T('password  ', 'dim'), T(' ••••••••••', 'fg field'), T('▏', 'b field'), T(' '.repeat(16), 'field')), [],
+        cat(B(2), T('↵', 'b'), T(' join    ', 'dim'), T('tab', 'b'), T(' show password    ', 'dim'), T('esc', 'b'), T(' cancel', 'dim')), []
+      ], 50, { active: true });
+      return overlay(base, m, 9);
+    },
+    details: os => {
+      const base = screen(hdr('Network', netStatus()), wifiPane(os, 0), wifiKeys);
+      const m = box('HomeNet-5G', [
+        [], kv('ip', '192.168.1.42', 'c', 11), kv('router', '192.168.1.1', 'fg', 11), kv('dns', '1.1.1.1, 1.0.0.1', 'fg', 11), kv('public ip', '203.0.113.24', 'fg', 11),
+        kv('signal', 'strong · 5 GHz · WPA3', 'fg', 11), cat(B(3), col('password', 11, 'dim'), T('••••••••••', 'fg')), [],
+        cat(B(2), T('y', 'b'), T(' show password   ', 'dim'), T('c', 'b'), T(' copy ip   ', 'dim'), T('Q', 'b'), T(' share QR   ', 'dim'), T('d', 'b'), T(' forget', 'dim')), []
+      ], 58, { active: true });
+      return overlay(base, m, 5);
+    },
+    ethernet: os => screen(hdr('Network', netStatus()), netBody(os, 1, 'Ethernet', ethRows(os), { right: T('● connected · 1 Gbps', 'g') }), ethKeys),
+    ipv4: os => {
+      const base = screen(hdr('Network', netStatus()), netBody(os, 1, 'Ethernet', ethRows(os), { right: T('● connected · 1 Gbps', 'g') }), ethKeys);
+      const field = (k, v, focus) => cat(B(2), col(k, 10, 'dim'), T(' ' + v.padEnd(20), 'fg field'), focus ? T('▏', 'b field') : T(' ', 'field'));
+      const m = box('IPv4 · Ethernet', [
+        [], cat(B(2), col('mode', 10, 'dim'), T(' Automatic ', 'dim'), B(2), T(' Manual ', 'gbg bold')), [],
+        field('address', '192.168.1.40', true), field('subnet', '255.255.255.0'), field('router', '192.168.1.1'), [],
+        os === 'mac' ? cat(B(2), T('saving asks for your admin password', 'faint')) : cat(B(2), T('applies right away through NetworkManager', 'faint')), [],
+        cat(B(2), T('↵', 'b'), T(' save    ', 'dim'), T('tab', 'b'), T(' next field    ', 'dim'), T('esc', 'b'), T(' cancel', 'dim')), []
+      ], 50, { active: true });
+      return overlay(base, m, 5);
+    },
+    vpn: os => {
+      const sel = 0, items = os === 'mac' ? [['Tailscale', true], ['Work (IKEv2)', false]] : [['Tailscale', true], ['wg0 (WireGuard)', false]];
+      const rows = [[], ...items.map(([n, on], i) => { const c = cat(mark(i === sel), col(n, 30, on ? 'fg bold' : 'fg'), on ? T('● connected', 'g') : T('○ off', 'faint')); return i === sel ? S(c) : c; })];
+      return screen(hdr('Network', netStatus()), netBody(os, os === 'mac' ? 4 : 3, 'VPN', rows), keys([['↵', 'connect/disconnect'], ['i', 'details'], ['tab', 'interfaces'], ['?', 'more'], ['esc', 'close']]));
+    },
+    speed: os => screen(spHdr(), cat(hjoin(meter('Download', '412.6', 'Mbps', 'c', '3456677787788788', 100, 'done', false), meter('Upload', '38.1', 'Mbps', 'm', '24555', 55, '◜ measuring', true)), latency(false), [[]], [lastRun]), spKeys),
+    speeddone: os => screen(spHdr(), cat(hjoin(meter('Download', '412.6', 'Mbps', 'c', '3456677787788788', 100, 'done', false), meter('Upload', '39.4', 'Mbps', 'm', '2455565666565656', 100, 'done', false)), latency(true), [[]], [lastRun]), spKeys, toastOk('Copied: ↓ 412.6 Mbps  ↑ 39.4 Mbps  8 ms')),
+    error: os => screen(hdr('Network', netStatus()), wifiPane(os, 2), wifiKeys, toastErr("Couldn't join Tanaka-AP: wrong password. Press ↵ to try again.")),
+    location: os => screen(hdr('Network', netStatus()), netBody(os, 0, 'Wi-Fi names hidden', [
+      cat(B(1), T('macOS hides network names until Location is', 'fg')), cat(B(1), T('allowed for PopupHost.', 'fg')), [],
+      cat(B(1), T('L', 'b'), T(' open Location Services settings', 'dim')), [], ...wifiRows(-1, { redact: true }).slice(0, 5)
+    ], { bc: 'ybd', tc: 'y bold' }), wifiKeys),
+  };
+
+  /* ---------------- Bluetooth ---------------- */
+  const btStatus = (on = true) => on ? T('● on', 'g') : T('○ off', 'dim');
+  const airpods = os => os === 'mac' ? cat(batt(80), T(' · case ', 'dim'), batt(45)) : batt(81);
+  function devRow(sel, name, right = []) { const c = cat(mark(sel), col(name, 40, 'fg'), right); return sel ? S(c) : c; }
+  function btBoxes(os, sel, o = {}) {
+    return cat(
+      box('Connected', [devRow(sel === 0, 'AirPods Pro', airpods(os)), devRow(sel === 1, 'Keychron K3', batt(61))], W, { active: !o.scan }),
+      box('Paired', [devRow(sel === 2, 'MX Master 3S', o.pending === 2 ? T('◜ connecting…', 'y') : []), devRow(sel === 3, 'Sony WH-1000XM5'), devRow(sel === 4, 'Xbox Wireless Controller')], W),
+    );
+  }
+  const btKeys = keys([['↵', 'connect'], ['s', 'scan'], ['i', 'details'], ['?', 'more'], ['esc', 'close']]);
+  function nearby(sel) {
+    const row = (i, n, s, c = 'fg') => { const cells = cat(mark(sel === i), col(n, 40, c), bars(s)); return sel === i ? S(cells) : cells; };
+    return box('Nearby', [row(0, 'Keychron Q1', 3), row(1, 'Galaxy Buds2 Pro', 3), row(2, 'Bose QC45', 2), row(3, 'Unnamed device', 1, 'dim')], W, { active: true, right: T('◜ scanning', 'y') });
+  }
+  const BT = {
+    devices: os => screen(hdr('Bluetooth', btStatus()), btBoxes(os, 0), btKeys),
+    connecting: os => screen(hdr('Bluetooth', btStatus()), btBoxes(os, 2, { pending: 2 }), btKeys),
+    scan: os => screen(hdr('Bluetooth', btStatus()), cat(btBoxes(os, -1, { scan: true }), nearby(0)), keys([['↵', 'pair'], ['s', 'stop scan'], ['tab', 'pane'], ['esc', 'close']])),
+    pair: os => {
+      const base = screen(hdr('Bluetooth', btStatus()), cat(btBoxes(os, -1, { scan: true }), nearby(0)), btKeys);
+      const code = big('482913', 'c');
+      const m = box('Pair Keychron Q1', [
+        [], cat(B(2), T('Type this code on the keyboard, then press Enter on it.', 'fg')), [],
+        cat(B(15), code[0]), cat(B(15), code[1]), cat(B(15), code[2]), [],
+        cat(B(2), T('◜ waiting for the keyboard', 'y'), B(10), T('esc', 'b'), T(' cancel', 'dim')), []
+      ], 62, { active: true });
+      return overlay(base, m, 5);
+    },
+    details: os => {
+      const base = screen(hdr('Bluetooth', btStatus()), btBoxes(os, 0), btKeys);
+      const m = box('AirPods Pro', [
+        [], kv('battery', os === 'mac' ? 'left 82% · right 80% · case 45%' : '81%', 'fg', 11), kv('type', 'headphones', 'fg', 11), kv('address', '4C:87:5D:1A:0F:22', 'dim', 11), [],
+        cat(B(2), T('t', 'b'), T(' untrust   ', 'dim'), T('r', 'b'), T(' rename   ', 'dim'), T('d', 'b'), T(' forget   ', 'dim'), T('esc', 'b'), T(' back', 'dim')), []
+      ], 56, { active: true });
+      return overlay(base, m, 4);
+    },
+    off: os => screen(hdr('Bluetooth', btStatus(false)), box('Bluetooth is off', [[], cat(B(2), T('p', 'b'), T(' turn on', 'dim')), []], W), keys([['p', 'power'], ['esc', 'close']])),
+  };
+
+  /* ---------------- Sound ---------------- */
+  const SND = {
+    mac: {
+      out: [{ n: 'MacBook Pro Speakers', v: 62, def: true }, { n: 'AirPods Pro', v: 40 }, { n: 'LG UltraFine', v: null }],
+      inp: [{ n: 'MacBook Pro Microphone', v: 75, def: true }, { n: 'AirPods Pro', v: 50 }],
+      apps: [{ n: 'Spotify', v: 80 }, { n: 'Zen Browser', v: 100 }, { n: 'Discord', v: 65, muted: true }],
+    },
+    linux: {
+      out: [{ n: 'Built-in Audio', v: 70, def: true }, { n: 'AirPods Pro', v: 45 }, { n: 'Mac mini speakers', v: 100 }, { n: 'LG UltraFine', v: 100 }],
+      inp: [{ n: 'Blue Snowball', v: 80, def: true }],
+      apps: [{ n: 'Spotify', v: 80 }, { n: 'Zen Browser', v: 100, to: 'AirPods Pro' }, { n: 'Discord', v: 65, muted: true }],
+    },
+  };
+  function volCells(v, muted) {
+    if (v == null) return T('fixed volume', 'faint');
+    return cat(vbar(v, 30, muted ? 'faint' : 'b'), muted ? rcol('muted', 7, 'r') : rcol(v + '%', 7, 'fg'));
+  }
+  function sndDev(d, sel) { const c = cat(mark(sel), d.def ? T('● ', 'g') : T('  '), col(d.n, 30, d.def ? 'fg bold' : 'fg'), volCells(d.v, d.muted)); return sel ? S(c) : c; }
+  function sndApp(a, sel) { const c = cat(mark(sel), B(2), col(a.n, 30, 'fg'), volCells(a.v, a.muted), a.to ? T('  → ' + a.to, 'dim') : []); return sel ? S(c) : c; }
+  function sndBody(os, focus, selIdx) {
+    const d = SND[os];
+    return cat(
+      box('Output', d.out.map((x, i) => sndDev(x, focus === 'out' && i === selIdx)), W, { active: focus === 'out' }),
+      box('Input', d.inp.map((x, i) => sndDev(x, focus === 'inp' && i === selIdx)), W, { active: focus === 'inp' }),
+      box('Playing', d.apps.map((x, i) => sndApp(x, focus === 'apps' && i === selIdx)), W, { active: focus === 'apps', right: os === 'mac' ? T('phase 2 on macOS', 'y') : null }),
+    );
+  }
+  const sndKeys = keys([['←→', 'volume'], ['m', 'mute'], ['↵', 'set default'], ['tab', 'pane'], ['?', 'more'], ['esc', 'close']]);
+  const SOUND = {
+    mixer: os => screen(hdr('Sound', []), sndBody(os, 'out', 1), sndKeys),
+    apps: os => screen(hdr('Sound', []), sndBody(os, 'apps', 1), keys([['←→', 'volume'], ['m', 'mute'], ['o', 'output'], ['tab', 'pane'], ['?', 'more'], ['esc', 'close']])),
+    route: os => {
+      const base = screen(hdr('Sound', []), sndBody(os, 'apps', 1), sndKeys);
+      const outs = SND[os].out.filter(x => x.v != null);
+      const m = box('Play Zen Browser on', cat([[]], outs.map((x, i) => { const c = cat(mark(i === 1), i === 1 ? T('● ', 'g') : T('  '), col(x.n, 30, 'fg')); return i === 1 ? S(c) : c; }), [[], cat(B(2), T('↵', 'b'), T(' move   ', 'dim'), T('esc', 'b'), T(' cancel', 'dim')), []]), 50, { active: true });
+      return overlay(base, m, 7);
+    },
+    profile: os => {
+      const base = screen(hdr('Sound', []), sndBody(os, 'out', 1), sndKeys);
+      const opt = (sel, on, a) => { const c = cat(mark(sel), on ? T('● ', 'g') : T('  '), T(a, 'fg')); return sel ? S(c) : c; };
+      const rows = os === 'linux'
+        ? [[], opt(false, true, 'Best sound (no mic)'), opt(true, false, 'Headset (mic on, lower quality)'), [], cat(B(2), T('↵', 'b'), T(' switch   ', 'dim'), T('esc', 'b'), T(' cancel', 'dim')), []]
+        : [[], cat(B(2), T('macOS switches this on its own: picking AirPods', 'fg')), cat(B(2), T('as the input turns on headset mode.', 'fg')), [], cat(B(2), T('esc', 'b'), T(' back', 'dim')), []];
+      return overlay(base, box('AirPods Pro mode', rows, 56, { active: true }), 6);
+    },
+  };
+
+  /* ---------------- data for the page ---------------- */
+  const APPS = [
+    { id: 'net', name: 'Network', key: 'fn+N · Super+N', screens: NET, states: [['wifi', 'Wi-Fi'], ['join', 'Join'], ['details', 'Details'], ['ethernet', 'Ethernet'], ['ipv4', 'Edit IPv4'], ['vpn', 'VPN'], ['speed', 'Speedtest'], ['speeddone', 'Speedtest done'], ['error', 'Wrong password'], ['location', 'Location not allowed', 'mac']] },
+    { id: 'bt', name: 'Bluetooth', key: 'fn+B · Super+B', screens: BT, states: [['devices', 'Devices'], ['connecting', 'Connecting one row'], ['scan', 'Scanning'], ['pair', 'Pairing code'], ['details', 'Details'], ['off', 'Radio off']] },
+    { id: 'sound', name: 'Sound', key: 'fn+M · Super+M', screens: SOUND, states: [['mixer', 'Devices'], ['apps', 'Per-app'], ['route', 'Move an app'], ['profile', 'Headset mode']] },
+  ];
+  const CAP = {
+    net: {
+      wifi: 'Left: every network interface with a one-line status. Right: the selected one. Wi-Fi rows show only name, signal and a single tag. Out-of-range saved networks stay hidden until you press a.',
+      join: 'Enter on a locked network asks for the password and nothing else. Esc closes the dialog; a second Esc closes the popup.',
+      details: 'Numbers live here instead of in the list: IP, router, DNS, public IP, band. Forget and QR share are here too.',
+      ethernet: 'Ethernet (and Thunderbolt or USB tethering) shows its addresses plus three editable settings.',
+      ipv4: 'Switch between automatic and manual addressing. Tab walks the fields.',
+      vpn: 'Tailscale and system VPNs in one list. Enter toggles.',
+      speed: 'Press s from anywhere in Network. Runs right away; esc returns to the interface you were on.',
+      speeddone: 'Results stay on screen. c copies a one-line summary.',
+      error: 'Errors show above the key bar with the cause and the fix.',
+      location: 'macOS only. If Location is not allowed, the app says so and opens the right settings page, instead of quietly dropping networks.',
+    },
+    bt: {
+      devices: 'Two groups, no extra columns. Battery shows only for connected devices.',
+      connecting: 'Only the row being connected shows a spinner. Its state follows real system events.',
+      scan: 's starts discovery; new devices stream into Nearby. Tab moves between panes.',
+      pair: 'Code-based pairing shows the code large. Confirm-style pairing shows y / n instead.',
+      details: 'Address, type and the less common actions (trust, rename, forget) live here.',
+      off: 'Radio off.',
+    },
+    sound: {
+      mixer: 'Three panes: Output, Input, Playing. ● is the default. Left and right change volume in 5% steps.',
+      apps: 'Each app playing sound. An arrow appears only when an app plays somewhere other than the default.',
+      route: 'o moves the selected app to another output.',
+      profile: 'P on Bluetooth headphones: best sound vs headset with mic.',
+    },
+  };
+  const OSNOTE = {
+    mac: {
+      net: 'Wi-Fi via CoreWLAN, interfaces and IP settings via SystemConfiguration (changes ask for your admin password, like System Settings does). VPN list = Tailscale + VPNs configured in System Settings.',
+      bt: 'IOBluetooth. AirPods report left, right and case battery. Pairing new devices is best effort; if one refuses, the app says so and offers System Settings.',
+      sound: 'CoreAudio. "Playing" (per-app volume) needs macOS process taps, so it arrives in phase 2. macOS picks headset mode itself.',
+    },
+    linux: {
+      net: 'Everything through NetworkManager: Wi-Fi, Ethernet, the fajita USB link, WireGuard. Tailscale through its CLI (same code as macOS).',
+      bt: 'BlueZ with a built-in pairing agent. Battery is one number per device.',
+      sound: 'PipeWire through its PulseAudio layer. Per-app volume, moving apps and headset mode all work in phase 1.',
+    },
+  };
+  const TILE_L = ' ~/nix  main\n❯ git status\nOn branch main\nnothing to commit, working tree clean\n❯ nvim hosts/swift/skhdrc\n\n\n\n\n\n\n\n\n\n\n\n\n\n';
+  const TILE_R = ' hosts/swift/skhdrc\n 24 # System panels\n 25 fn - b : popup bt\n 26 fn - n : popup net\n 27 fn - m : popup sound\n \n\n\n\n\n\n\n\n\n\n\n';
+
+  const st = { app: 0, os: 'mac', pal: 'night', state: 0 };
+  try { const s = JSON.parse(localStorage.getItem('popup-mock') || '{}'); Object.assign(st, s); } catch (e) {}
+  if (!APPS[st.app]) st.app = 0;
+
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  function renderLines(lines) {
+    return lines.map(l => {
+      let html = '', cur = null, buf = '';
+      for (const x of l) { if (x.c !== cur) { if (buf) html += cur ? `<span class="${cur}">${esc(buf)}</span>` : esc(buf); cur = x.c; buf = ''; } buf += x.ch; }
+      if (buf) html += cur ? `<span class="${cur}">${esc(buf)}</span>` : esc(buf);
+      return html;
+    }).join('\n');
+  }
+
+  const $ = id => document.getElementById(id);
+  function mkSeg(el, items, cur, onPick) {
+    el.innerHTML = '';
+    items.forEach(([v, label]) => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.setAttribute('aria-pressed', String(v === cur));
+      b.addEventListener('click', () => onPick(v)); el.appendChild(b);
+    });
+  }
+  function validStates() { return APPS[st.app].states.filter(s => !s[2] || s[2] === st.os); }
+  function draw() {
+    const app = APPS[st.app];
+    const states = validStates();
+    if (st.state >= states.length) st.state = 0;
+    const [sid] = states[st.state];
+    mkSeg($('apps'), APPS.map((a, i) => [i, a.name]), st.app, v => { st.app = v; st.state = 0; draw(); });
+    mkSeg($('oses'), [['mac', 'macOS · swift'], ['linux', 'Linux · mantle']], st.os, v => { st.os = v; draw(); });
+    mkSeg($('pals'), [['night', 'Tokyo Night'], ['dark', 'Tokyo Dark']], st.pal, v => { st.pal = v; draw(); });
+    const se = $('states'); se.innerHTML = '';
+    states.forEach((s, i) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.setAttribute('aria-pressed', String(i === st.state));
+      b.textContent = s[1]; if (s[2]) { const o = document.createElement('span'); o.className = 'os'; o.textContent = 'macOS'; b.appendChild(o); }
+      b.addEventListener('click', () => { st.state = i; draw(); }); se.appendChild(b);
+    });
+    $('stage').dataset.os = st.os;
+    $('term').dataset.pal = st.pal;
+    $('term').innerHTML = renderLines(app.screens[sid](st.os));
+    $('tileL').textContent = TILE_L; $('tileR').textContent = st.os === 'mac' ? TILE_R : TILE_R.replace('hosts/swift/skhdrc', 'home/modules/hyprland.nix').replace(/fn - (\w) : popup (\w+)/g, '"$$mod, $1, exec, popup $2"');
+    $('sizetag').textContent = `${W}×${H} cells · radius 24 · ${app.key}`;
+    $('cap').textContent = CAP[app.id][sid];
+    $('oskey').textContent = st.os === 'mac' ? 'On macOS (swift)' : 'On Linux (mantle)';
+    $('osnote').textContent = OSNOTE[st.os][app.id];
+    try { localStorage.setItem('popup-mock', JSON.stringify(st)); } catch (e) {}
+    size();
+  }
+  function size() {
+    const stage = $('stage'), w = stage.clientWidth, h = stage.clientHeight;
+    const fs = Math.max(4, Math.min(15, (w * 0.80) / (W * 0.6 + 2.6), (h * 0.86) / (H * 1.32 + 2.2)));
+    $('popup').style.fontSize = fs + 'px';
+  }
+  if ('ResizeObserver' in window) new ResizeObserver(size).observe($('stage')); else window.addEventListener('resize', size);
+  document.addEventListener('keydown', e => {
+    if (e.target.closest && e.target.closest('input,textarea')) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const n = validStates().length;
+    if (e.key >= '1' && e.key <= '3') { st.app = +e.key - 1; st.state = 0; draw(); }
+    else if (e.key === 'ArrowRight') { st.state = (st.state + 1) % n; draw(); }
+    else if (e.key === 'ArrowLeft') { st.state = (st.state - 1 + n) % n; draw(); }
+    else if (e.key === 'o') { st.os = st.os === 'mac' ? 'linux' : 'mac'; draw(); }
+    else if (e.key === 't') { st.pal = st.pal === 'night' ? 'dark' : 'night'; draw(); }
+  });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(size);
+  globalThis.__mock = { APPS, W, H };
+  draw();
+})();
+</script>
