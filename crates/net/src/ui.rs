@@ -235,7 +235,7 @@ fn draw_wifi_hidden(app: &App, frame: &mut Frame, area: Rect) {
         Line::raw(""),
         Line::from(vec![
             Span::styled("L", theme::accent()),
-            Span::styled(" open Location Services settings", theme::dim()),
+            Span::styled(" allow Location", theme::dim()),
         ]),
         Line::raw(""),
     ];

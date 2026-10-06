@@ -37,7 +37,8 @@ enum ModuleLookup {
 /// Line protocol over a unix socket: one request line, then a reply that ends when the host closes the connection. Connections are handled on a background queue
 /// with a read timeout; commands run on the main thread asynchronously.
 final class IPCServer {
-    static let socketPath = NSHomeDirectory() + "/Library/Application Support/Telmo/host.sock"
+    static let socketPath = ProcessInfo.processInfo.environment["TELMO_SOCKET"]
+        ?? NSHomeDirectory() + "/Library/Application Support/Telmo/host.sock"
 
     private let handler: (String) -> String
     private var listenFD: Int32 = -1
@@ -76,6 +77,8 @@ final class IPCServer {
     func start() throws {
         let dir = (Self.socketPath as NSString).deletingLastPathComponent
         try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        // Passwords travel over this socket. An override may point into a shared directory such as /tmp, which must stay as it is.
+        if ProcessInfo.processInfo.environment["TELMO_SOCKET"] == nil { chmod(dir, 0o700) }
         unlink(Self.socketPath) // stale: isRunning() already failed to connect
 
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
@@ -103,6 +106,9 @@ final class IPCServer {
                 return
             }
             fcntl(client, F_SETFD, FD_CLOEXEC) // the popup's child must not inherit the connection
+            // A client that went away (the popup's child is killed while we answer it) must not kill the host with SIGPIPE.
+            var on: Int32 = 1
+            setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
             queue.async { [self] in serve(client) }
         }
     }
@@ -132,9 +138,16 @@ final class IPCServer {
         lock.lock()
         let reply = result ?? "error host busy"
         lock.unlock()
-        var bytes = Array((reply + "\n").utf8)[...]
+        self.reply(reply, to: fd)
+    }
+
+    private func reply(_ text: String, to fd: Int32) {
+        var timeout = timeval(tv_sec: 10, tv_usec: 0)
+        setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+        var bytes = Array((text + "\n").utf8)[...]
         while !bytes.isEmpty {
             let n = bytes.withUnsafeBytes { write(fd, $0.baseAddress, $0.count) }
+            if n < 0 && errno == EINTR { continue }
             if n <= 0 { break }
             bytes = bytes.dropFirst(n)
         }

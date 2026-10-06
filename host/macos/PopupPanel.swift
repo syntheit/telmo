@@ -13,13 +13,15 @@ final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
     private(set) var isRunning = false
 
     init() {
-        super.init(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
+        super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         isOpaque = false
         backgroundColor = .clear
         hasShadow = true
         level = .popUpMenu
         collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary, .ignoresCycle]
         hidesOnDeactivate = false
+        becomesKeyOnlyIfNeeded = false
+        appearance = NSAppearance(named: .darkAqua)
         animationBehavior = .none
         configureTerminal(terminal)
         contentView = makeBackground()
@@ -35,8 +37,8 @@ final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
         terminal.font = NSFont(name: "JetBrainsMono Nerd Font Mono", size: size)
             ?? NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
         terminal.nativeBackgroundColor = .black
+        terminal.backgroundOpacity = 0 // the container paints the background
         terminal.nativeForegroundColor = NSColor(white: 0.92, alpha: 1)
-        terminal.backgroundOpacity = 0.55
         terminal.processDelegate = self
         terminal.getTerminal().resize(cols: cols, rows: rows)
         let fit = terminal.getOptimalFrameSize().size
@@ -52,22 +54,19 @@ final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
         holder.frame = bounds
         holder.addSubview(terminal)
 
-        if #available(macOS 26.0, *) {
-            let glass = NSGlassEffectView(frame: bounds)
-            glass.cornerRadius = radius
-            glass.contentView = holder
-            return glass
-        }
         let blur = NSVisualEffectView(frame: bounds)
         blur.material = .hudWindow
         blur.blendingMode = .behindWindow
         blur.state = .active
-        blur.maskImage = NSImage(size: size, flipped: false) { rect in
-            NSColor.black.setFill()
-            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
-            return true
-        }
-        blur.maskImage?.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
+        blur.appearance = NSAppearance(named: .darkAqua)
+        blur.wantsLayer = true
+        blur.layer?.cornerRadius = radius
+        blur.layer?.cornerCurve = .continuous
+        blur.layer?.masksToBounds = true
+        let tint = NSView(frame: bounds)
+        tint.wantsLayer = true
+        tint.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.8).cgColor
+        blur.addSubview(tint)
         blur.addSubview(holder)
         return blur
     }
@@ -81,6 +80,7 @@ final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
         var env = ProcessInfo.processInfo.environment
         env["TERM"] = "xterm-256color"
         env["COLORTERM"] = "truecolor"
+        env["TELMO_HOST"] = "1"
         env["PATH"] = ModuleLookup.searchPath.joined(separator: ":")
         terminal.startProcess(executable: executable, environment: env.map { "\($0.key)=\($0.value)" })
     }
@@ -99,6 +99,7 @@ final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
         center(on: NSEvent.mouseLocation)
         makeKeyAndOrderFront(nil)
         makeFirstResponder(terminal)
+        invalidateShadow()
     }
 
     func terminateChild() {

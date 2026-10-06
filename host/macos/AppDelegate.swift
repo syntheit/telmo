@@ -7,7 +7,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
     private var hotkeys: Hotkeys?
     private var ipc: IPCServer?
     private var locationManager: CLLocationManager?
-    private var previousApp: NSRunningApplication?
     private var module: String?
     private var signalSources: [DispatchSourceSignal] = []
 
@@ -46,7 +45,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
         case ("ping", 1): return "ok"
         case ("hide", 1): hide(); return "ok"
         case ("dump", 1): return popup.isRunning ? popup.visibleText() : "error no popup is open"
-        case ("request-location", 1): requestLocation(); return "ok"
+        case ("location-status", 1): return locationStatus()
+        case ("request-location", 1): return requestLocation()
         case ("toggle", 2), ("show", 2):
             guard ModuleLookup.find(words[1]) != nil else { return "error module not found: telmo-\(words[1])" }
             if words[0] == "toggle" { toggle(words[1]) } else { show(words[1]) }
@@ -64,15 +64,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
             NSLog("telmo: telmo-\(module) not found")
             return
         }
-        if !popup.isRunning {
-            let front = NSWorkspace.shared.frontmostApplication
-            previousApp = front?.processIdentifier == getpid() ? nil : front
-        }
         self.module = module
         popup.run(executable: exe)
         dim.show(below: popup)
-        NSApp.activate()
         popup.show()
+        FileHandle.standardError.write(Data("telmo: popup key=\(popup.isKeyWindow) active=\(NSApp.isActive)\n".utf8))
     }
 
     private func hide() {
@@ -85,24 +81,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
         module = nil
         popup.hide()
         dim.hide()
-        previousApp?.activate()
-        previousApp = nil
     }
 
     // MARK: Location
 
-    private func requestLocation() {
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate()
-        let manager = CLLocationManager()
-        manager.delegate = self
-        locationManager = manager
-        manager.requestWhenInUseAuthorization()
+    private func locationStatus() -> String {
+        guard CLLocationManager.locationServicesEnabled() else { return "services-off" }
+        switch CLLocationManager().authorizationStatus {
+        case .notDetermined: return "not-determined"
+        case .restricted: return "restricted"
+        case .denied: return "denied"
+        default: return "authorized"
+        }
+    }
+
+    /// The popup and dim windows sit above everything, so close them before the system prompt or Settings appears.
+    private func requestLocation() -> String {
+        let status = locationStatus()
+        switch status {
+        case "authorized": return status
+        case "not-determined":
+            hide()
+            NSApp.setActivationPolicy(.regular)
+            NSApp.activate()
+            let manager = CLLocationManager()
+            manager.delegate = self
+            locationManager = manager
+            manager.requestWhenInUseAuthorization()
+            return "prompted"
+        default:
+            hide()
+            openLocationSettings()
+            return "opened-settings"
+        }
+    }
+
+    private func openLocationSettings() {
+        let urls = [
+            "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_LocationServices",
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices",
+        ]
+        for text in urls {
+            if let url = URL(string: text), NSWorkspace.shared.open(url) { return }
+        }
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         guard manager.authorizationStatus != .notDetermined else { return }
         NSApp.setActivationPolicy(.accessory)
         locationManager = nil
+        if locationStatus() == "authorized" { show("net") }
     }
 }

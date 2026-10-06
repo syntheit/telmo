@@ -1,6 +1,6 @@
 import AppKit
 
-private final class DimWindow: NSWindow {
+private final class DimWindow: NSPanel {
     var onClick: (() -> Void)?
     override var canBecomeKey: Bool { false }
     override func mouseDown(with event: NSEvent) { onClick?() }
@@ -43,10 +43,11 @@ final class DimWindows {
     private func window(for screen: NSScreen) -> DimWindow {
         let id = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID ?? 0
         if let existing = windows[id] { return existing }
-        let window = DimWindow(contentRect: screen.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        let window = DimWindow(contentRect: screen.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         window.backgroundColor = NSColor.black.withAlphaComponent(alpha)
         window.isOpaque = false
         window.hasShadow = false
+        window.hidesOnDeactivate = false
         window.isReleasedWhenClosed = false
         window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary, .ignoresCycle]
         window.onClick = onClick

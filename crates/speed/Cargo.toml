@@ -10,3 +10,4 @@ serde_json.workspace = true
 reqwest.workspace = true
 tokio.workspace = true
 futures-util.workspace = true
+bytes.workspace = true

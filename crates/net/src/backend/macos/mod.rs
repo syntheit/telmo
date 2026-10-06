@@ -19,7 +19,7 @@ use std::collections::{HashMap, HashSet};
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
-use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, Once, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant};
 use wake::Wake;
@@ -115,6 +115,7 @@ pub fn spawn(mut cmds: Rx, events: Tx) {
     thread::spawn(move || {
         let _ = scan(&s);
     });
+    thread::spawn(request_location_once);
     tokio::spawn(async move {
         while let Some(cmd) = cmds.recv().await {
             let shared = shared.clone();
@@ -297,6 +298,7 @@ fn handle(cmd: Cmd, shared: &Arc<Shared>) {
             let result = request_location();
             shared.done("wifi", result);
             let _ = scan(shared);
+            rescan_when_authorized(shared);
         }
     }
 }
@@ -428,15 +430,58 @@ fn public_ip() -> Option<String> {
     meta.get("clientIp")?.as_str().map(str::to_string)
 }
 
-fn request_location() -> Result<String, String> {
-    const MISSING: &str = "Open Telmo.app to allow Location.";
-    let args = ["host", "request-location"];
-    let out =
-        shell::run("telmo", &args, Duration::from_secs(60)).map_err(|_| MISSING.to_string())?;
+/// Asks the host for Location on first start, once per process, when it has
+/// never been asked. The host closes this popup to show the system prompt.
+fn request_location_once() {
+    static ASKED: Once = Once::new();
+    ASKED.call_once(|| {
+        if running_in_host() && host_command("location-status").as_deref() == Ok("not-determined") {
+            let _ = host_command("request-location");
+        }
+    });
+}
+
+fn running_in_host() -> bool {
+    std::env::var_os("TELMO_HOST").is_some_and(|v| v == "1")
+}
+
+fn host_command(command: &str) -> Result<String, String> {
+    let out = shell::run("telmo", &["host", command], Duration::from_secs(10))?;
     if out.ok {
-        Ok("Location requested.".to_string())
+        Ok(out.stdout.trim().to_string())
     } else {
-        Err(MISSING.to_string())
+        Err(format!(
+            "Couldn't reach the Telmo host: {}",
+            out.stderr.trim()
+        ))
+    }
+}
+
+/// The system prompt or Settings answers later: poll the host and rescan so names appear.
+fn rescan_when_authorized(shared: &Shared) {
+    for _ in 0..60 {
+        thread::sleep(Duration::from_secs(1));
+        if shared.stopped.load(Ordering::SeqCst) {
+            return;
+        }
+        if host_command("location-status").as_deref() == Ok("authorized") {
+            let _ = scan(shared);
+            return;
+        }
+    }
+}
+
+fn request_location() -> Result<String, String> {
+    if !running_in_host() {
+        return Err("Run inside Telmo.app (telmo popup net) to see network names.".to_string());
+    }
+    match host_command("request-location")?.as_str() {
+        "opened-settings" => {
+            Ok("Opening Location settings \u{2014} allow Telmo, then reopen.".to_string())
+        }
+        "prompted" => Ok("Asking for Location. Allow Telmo in the prompt.".to_string()),
+        "authorized" => Ok("Location is already allowed.".to_string()),
+        other => Err(format!("Telmo host answered: {other}")),
     }
 }
 

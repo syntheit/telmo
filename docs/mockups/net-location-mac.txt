@@ -3,9 +3,9 @@
 
 ╭─ Interfaces ───────────╮╭─ Wi-Fi names hidden ─────────────────────────────────────────╮
 │ ▌ Wi-Fi             ●  ││ macOS hides network names until Location is                  │
-│   HomeNet-5G           ││ allowed for Telmo.                                       │
+│   HomeNet-5G           ││ allowed for Telmo.                                           │
 │                        ││                                                              │
-│   Ethernet          ●  ││ L open Location Services settings                            │
+│   Ethernet          ●  ││ L allow Location                                            │
 │   USB LAN · 1 Gbps     ││                                                              │
 │                        ││   ‹name hidden›                 ▂▄▆█   ● connected           │
 │   Thunderbolt       ○  ││   ‹name hidden›                 ▂▄▆█                         │

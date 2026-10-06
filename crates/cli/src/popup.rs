@@ -21,6 +21,9 @@ mod macos {
     use std::{env, thread};
 
     fn socket_path() -> Result<PathBuf, String> {
+        if let Some(path) = env::var_os("TELMO_SOCKET") {
+            return Ok(PathBuf::from(path));
+        }
         let home = env::var_os("HOME").ok_or("HOME is not set")?;
         Ok(PathBuf::from(home).join("Library/Application Support/Telmo/host.sock"))
     }
