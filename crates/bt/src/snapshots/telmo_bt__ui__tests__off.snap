@@ -1,0 +1,26 @@
+---
+source: crates/bt/src/ui.rs
+expression: "Harness::new(snapshot).render()"
+---
+ Bluetooth                                                                          ○ off
+
+╭─ Bluetooth is off ─────────────────────────────────────────────────────────────────────╮
+│                                                                                        │
+│  p turn on                                                                             │
+│                                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ p power  esc close

@@ -1,0 +1,26 @@
+---
+source: crates/net/src/ui.rs
+expression: render(&app)
+---
+ Network                                                              ● online  via Wi-Fi
+
+╭─ Interfaces ───────────╮╭─ Ethernet ──────────────────────────── ● connected · 1 Gbps ─╮
+│   Wi-Fi             ●  ││                                                              │
+│   HomeNet-5G      ╭─ IPv4 · Ethernet ──────────────────────────────╮                   │
+│                   │                                                │                   │
+│ ▌ Ethernet        │  mode        Automatic    Manual               │                   │
+│   USB LAN · 1 Gbps│                                                │                   │
+│                   │  address   192.168.1.40                        │───────────────    │
+│   Thunderbolt     │  subnet    255.255.255.0                       │        ›          │
+│   not connected   │  router    192.168.1.1                         │        ›          │
+│                   │                                                │                   │
+│   iPhone USB      │  saving asks for your admin password           │                   │
+│   not connected   │                                                │                   │
+│                   │ ↵ save   tab next field   esc cancel           │                   │
+│   VPN             │                                                │                   │
+│   Tailscale       ╰────────────────────────────────────────────────╯                   │
+│                        ││                                                              │
+│                        ││                                                              │
+╰────────────────────────╯╰──────────────────────────────────────────────────────────────╯
+
+ ↵ edit  tab interfaces  ? more  esc close

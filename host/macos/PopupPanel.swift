@@ -1,0 +1,135 @@
+import AppKit
+
+private let cols = 90
+private let rows = 22
+private let padding: CGFloat = 14
+
+final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
+    var onExit: (() -> Void)?
+    private let terminal = LocalProcessTerminalView(frame: .zero)
+    private(set) var isRunning = false
+    private var generation = 0
+
+    init() {
+        super.init(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
+        isOpaque = false
+        backgroundColor = .clear
+        hasShadow = true
+        level = .popUpMenu
+        collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary, .ignoresCycle]
+        hidesOnDeactivate = false
+        animationBehavior = .none
+        configureTerminal()
+        contentView = makeBackground()
+    }
+
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+
+    // MARK: Setup
+
+    private func configureTerminal() {
+        let size: CGFloat = 13
+        terminal.font = NSFont(name: "JetBrainsMono Nerd Font Mono", size: size)
+            ?? NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
+        terminal.nativeBackgroundColor = .black
+        terminal.nativeForegroundColor = NSColor(white: 0.92, alpha: 1)
+        terminal.backgroundOpacity = 0.55
+        terminal.processDelegate = self
+        terminal.getTerminal().resize(cols: cols, rows: rows)
+        let fit = terminal.getOptimalFrameSize().size
+        terminal.frame = NSRect(x: padding, y: padding, width: fit.width.rounded(.up), height: fit.height.rounded(.up))
+        for case let scroller as NSScroller in terminal.subviews { scroller.isHidden = true }
+    }
+
+    private func makeBackground() -> NSView {
+        let radius: CGFloat = 24
+        let size = NSSize(width: terminal.frame.width + 2 * padding, height: terminal.frame.height + 2 * padding)
+        setContentSize(size)
+        let bounds = NSRect(origin: .zero, size: size)
+
+        if #available(macOS 26.0, *) {
+            let glass = NSGlassEffectView(frame: bounds)
+            glass.cornerRadius = radius
+            glass.contentView = {
+                let holder = NSView(frame: bounds)
+                holder.addSubview(terminal)
+                return holder
+            }()
+            return glass
+        }
+        let blur = NSVisualEffectView(frame: bounds)
+        blur.material = .hudWindow
+        blur.blendingMode = .behindWindow
+        blur.state = .active
+        blur.maskImage = NSImage(size: size, flipped: false) { rect in
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+            return true
+        }
+        blur.maskImage?.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
+        blur.addSubview(terminal)
+        return blur
+    }
+
+    // MARK: Lifecycle
+
+    func run(executable: String) {
+        terminateChild()
+        generation += 1
+        isRunning = true
+        var env = ProcessInfo.processInfo.environment
+        env["TERM"] = "xterm-256color"
+        env["COLORTERM"] = "truecolor"
+        env["PATH"] = ModuleLookup.searchPath.joined(separator: ":")
+        terminal.getTerminal().resetToInitialState()
+        terminal.startProcess(executable: executable, environment: env.map { "\($0.key)=\($0.value)" })
+    }
+
+    func show() {
+        center(on: NSEvent.mouseLocation)
+        makeKeyAndOrderFront(nil)
+        makeFirstResponder(terminal)
+    }
+
+    func terminateChild() {
+        guard isRunning else { return }
+        isRunning = false
+        generation += 1 // a late processTerminated for this child must not close its successor
+        terminal.terminate()
+    }
+
+    /// The visible text of the terminal, one line per row.
+    func visibleText() -> String {
+        let term = terminal.getTerminal()
+        return (0..<term.rows)
+            .map { term.getLine(row: $0)?.translateToString(trimRight: true) ?? "" }
+            .joined(separator: "\n")
+            .replacingOccurrences(of: "\0", with: " ") // empty cells
+    }
+
+    private func center(on point: NSPoint) {
+        let screen = NSScreen.screens.first { $0.frame.contains(point) } ?? NSScreen.main
+        guard let area = screen?.visibleFrame else { return }
+        setFrameOrigin(NSPoint(x: (area.midX - frame.width / 2).rounded(), y: (area.midY - frame.height / 2).rounded()))
+    }
+
+    func hide() {
+        isRunning = false
+        orderOut(nil)
+    }
+
+    // MARK: LocalProcessTerminalViewDelegate
+
+    func processTerminated(source: TerminalView, exitCode: Int32?) {
+        DispatchQueue.main.async { [self] in
+            guard isRunning else { return }
+            isRunning = false
+            onExit?()
+        }
+    }
+
+    func sizeChanged(source: LocalProcessTerminalView, newCols: Int, newRows: Int) {}
+    func setTerminalTitle(source: LocalProcessTerminalView, title: String) {}
+    func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}
+}

@@ -1,0 +1,26 @@
+---
+source: crates/sound/src/ui.rs
+expression: "render(&app(mock::mac(), \"jP\"))"
+---
+ Sound
+
+╭─ Output ───────────────────────────────────────────────────────────────────────────────╮
+│   ● MacBook Pro Speakers          ━━━━━━━━━━━━━━━━━━━───────────    62%                │
+│ ▌   AirPods Pro                   ━━━━━━━━━━━━──────────────────    40%                │
+│     LG UltraFine                  fixed volume                                         │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Input ────────╭─ AirPods Pro mode ───────────────────────────────────╮────────────────╮
+│   ● MacBook Pro│                                                      │                │
+│     AirPods Pro│  macOS switches this on its own: picking AirPods     │                │
+╰────────────────│  as the input turns on headset mode.                 │────────────────╯
+                 │                                                      │
+                 │  esc back                                            │
+                 │                                                      │
+                 ╰──────────────────────────────────────────────────────╯
+
+
+
+
+
+
+ ←→ volume  m mute  ↵ set default  tab pane  ? more  esc close

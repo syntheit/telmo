@@ -24,7 +24,7 @@
           packages =
             with pkgs;
             [ cargo rustc clippy rustfmt rust-analyzer cargo-insta pkg-config ]
-            ++ lib.optionals stdenv.isLinux [ libpulseaudio ];
+            ++ lib.optionals stdenv.isLinux [ libpulseaudio dbus ];
         };
       });
     };

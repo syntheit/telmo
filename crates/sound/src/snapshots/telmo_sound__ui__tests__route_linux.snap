@@ -1,0 +1,26 @@
+---
+source: crates/sound/src/ui.rs
+expression: "render(&app(mock::linux(), \"\\t\\tjo\"))"
+---
+ Sound
+
+╭─ Output ───────────────────────────────────────────────────────────────────────────────╮
+│   ● Built-in Audio                ━━━━━━━━━━━━━━━━━━━━━─────────    70%                │
+│     AirPods Pro                   ━━━━━━━━━━━━━━────────────────    45%                │
+│     Mac mini speakers             ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━   100%                │
+│     LG UltraFine  ╭─ Play Zen Browser on ──────────────────────────╮00%                │
+╰───────────────────│                                                │───────────────────╯
+╭─ Input ───────────│     Built-in Audio                             │───────────────────╮
+│   ● Blue Snowball │ ▌ ● AirPods Pro                                │80%                │
+╰───────────────────│     Mac mini speakers                          │───────────────────╯
+╭─ Playing ─────────│     LG UltraFine                               │───────────────────╮
+│     Spotify       │                                                │80%                │
+│ ▌   Zen Browser   │  ↵ move   esc cancel                           │00%  → AirPods Pro │
+│     Discord       │                                                │ted                │
+╰───────────────────╰────────────────────────────────────────────────╯───────────────────╯
+
+
+
+
+
+ ←→ volume  m mute  o output  tab pane  ? more  esc close

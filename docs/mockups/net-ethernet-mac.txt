@@ -10,7 +10,7 @@
 │                        ││   settings ────────────────────────────────────────────────  │
 │   Thunderbolt       ○  ││ ▌ IPv4          Automatic (DHCP)                  ›          │
 │   not connected        ││   DNS           Automatic                         ›          │
-│                        ││   Interface     On                                ›          │
+│                        ││                                                              │
 │   iPhone USB        ○  ││                                                              │
 │   not connected        ││                                                              │
 │                        ││                                                              │

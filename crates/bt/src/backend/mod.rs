@@ -1,7 +1,10 @@
 //! The UI talks to a backend only through `Cmd` and `Event`.
 
 use crate::model::{PairPrompt, Snapshot};
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tokio::{
+    sync::mpsc::{UnboundedReceiver, UnboundedSender},
+    task::JoinHandle,
+};
 
 #[cfg(target_os = "linux")]
 pub mod linux;
@@ -42,12 +45,17 @@ pub enum Event {
 pub type Tx = UnboundedSender<Event>;
 pub type Rx = UnboundedReceiver<Cmd>;
 
-pub fn spawn(mock: bool, cmds: Rx, events: Tx) {
+/// The returned handle, if any, finishes once the backend has cleaned up after
+/// the command channel closed.
+pub fn spawn(mock: bool, cmds: Rx, events: Tx) -> Option<JoinHandle<()>> {
     if mock {
-        return mock::spawn(cmds, events);
+        return Some(mock::spawn(cmds, events));
     }
     #[cfg(target_os = "linux")]
-    linux::spawn(cmds, events);
+    return Some(linux::spawn(cmds, events));
     #[cfg(target_os = "macos")]
-    macos::spawn(cmds, events);
+    {
+        macos::spawn(cmds, events);
+        None
+    }
 }

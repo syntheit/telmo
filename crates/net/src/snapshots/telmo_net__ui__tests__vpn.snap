@@ -1,0 +1,26 @@
+---
+source: crates/net/src/ui.rs
+expression: render(&app)
+---
+ Network                                                              ● online  via Wi-Fi
+
+╭─ Interfaces ───────────╮╭─ VPN ────────────────────────────────────────────────────────╮
+│   Wi-Fi             ●  ││                                                              │
+│   HomeNet-5G           ││ ▌ Tailscale                     ● connected                  │
+│                        ││   Work (IKEv2)                  ○ off                        │
+│   Ethernet          ●  ││                                                              │
+│   USB LAN · 1 Gbps     ││                                                              │
+│                        ││                                                              │
+│   Thunderbolt       ○  ││                                                              │
+│   not connected        ││                                                              │
+│                        ││                                                              │
+│   iPhone USB        ○  ││                                                              │
+│   not connected        ││                                                              │
+│                        ││                                                              │
+│ ▌ VPN               ●  ││                                                              │
+│   Tailscale            ││                                                              │
+│                        ││                                                              │
+│                        ││                                                              │
+╰────────────────────────╯╰──────────────────────────────────────────────────────────────╯
+
+ ↵ connect/disconnect  i details  tab interfaces  ? more  esc close

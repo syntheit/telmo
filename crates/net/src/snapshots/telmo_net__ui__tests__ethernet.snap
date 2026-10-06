@@ -1,0 +1,26 @@
+---
+source: crates/net/src/ui.rs
+expression: render(&app)
+---
+ Network                                                              ● online  via Wi-Fi
+
+╭─ Interfaces ───────────╮╭─ Ethernet ──────────────────────────── ● connected · 1 Gbps ─╮
+│   Wi-Fi             ●  ││                                                              │
+│   HomeNet-5G           ││   ip        192.168.1.40                                     │
+│                        ││   router    192.168.1.1                                      │
+│ ▌ Ethernet          ●  ││   dns       1.1.1.1, 1.0.0.1                                 │
+│   USB LAN · 1 Gbps     ││                                                              │
+│                        ││   settings ──────────────────────────────────────────────    │
+│   Thunderbolt       ○  ││ ▌ IPv4          Automatic (DHCP)                  ›          │
+│   not connected        ││   DNS           Automatic                         ›          │
+│                        ││                                                              │
+│   iPhone USB        ○  ││                                                              │
+│   not connected        ││                                                              │
+│                        ││                                                              │
+│   VPN               ●  ││                                                              │
+│   Tailscale            ││                                                              │
+│                        ││                                                              │
+│                        ││                                                              │
+╰────────────────────────╯╰──────────────────────────────────────────────────────────────╯
+
+ ↵ edit  tab interfaces  ? more  esc close

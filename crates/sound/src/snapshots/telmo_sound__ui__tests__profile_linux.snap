@@ -1,0 +1,26 @@
+---
+source: crates/sound/src/ui.rs
+expression: "render(&app(mock::linux(), \"jP\"))"
+---
+ Sound
+
+╭─ Output ───────────────────────────────────────────────────────────────────────────────╮
+│   ● Built-in Audio                ━━━━━━━━━━━━━━━━━━━━━─────────    70%                │
+│ ▌   AirPods Pro                   ━━━━━━━━━━━━━━────────────────    45%                │
+│     Mac mini speakers             ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━   100%                │
+│     LG UltraFine                  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━   100%                │
+╰────────────────╭─ AirPods Pro mode ───────────────────────────────────╮────────────────╯
+╭─ Input ────────│                                                      │────────────────╮
+│   ● Blue Snowba│   ● Best sound (no mic)                              │                │
+╰────────────────│ ▌   Headset (mic on, lower quality)                  │────────────────╯
+╭─ Playing ──────│                                                      │────────────────╮
+│     Spotify    │  ↵ switch   esc cancel                               │                │
+│     Zen Browser│                                                      │  → AirPods Pro │
+│     Discord    ╰──────────────────────────────────────────────────────╯                │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+
+
+
+ ←→ volume  m mute  ↵ set default  tab pane  ? more  esc close

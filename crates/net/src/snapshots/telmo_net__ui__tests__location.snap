@@ -1,0 +1,26 @@
+---
+source: crates/net/src/ui.rs
+expression: render(&app)
+---
+ Network                                                              ● online  via Wi-Fi
+
+╭─ Interfaces ───────────╮╭─ Wi-Fi names hidden ─────────────────────────────────────────╮
+│ ▌ Wi-Fi             ●  ││   macOS hides network names until Location is                │
+│   HomeNet-5G           ││   allowed for PopupHost.                                     │
+│                        ││                                                              │
+│   Ethernet          ●  ││   L open Location Services settings                          │
+│   USB LAN · 1 Gbps     ││                                                              │
+│                        ││ ▌ ‹name hidden›                 ▂▄▆█   ● connected           │
+│   Thunderbolt       ○  ││   ‹name hidden›                 ▂▄▆█   saved                 │
+│   not connected        ││   ‹name hidden›                 ▂▄▆█                         │
+│                        ││   ‹name hidden›                 ▂▄▆█   saved                 │
+│   iPhone USB        ○  ││   ‹name hidden›                 ▂▄▆█                         │
+│   not connected        ││                                                              │
+│                        ││                                                              │
+│   VPN               ●  ││                                                              │
+│   Tailscale            ││                                                              │
+│                        ││                                                              │
+│                        ││                                                              │
+╰────────────────────────╯╰──────────────────────────────────────────────────────────────╯
+
+ ↵ join  i details  s speedtest  tab interfaces  ? more  esc close

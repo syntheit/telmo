@@ -562,7 +562,7 @@ pre.tree .c1 { color: #565f89; }
   const kv = (k, v, c = 'fg', w = 10) => cat(B(3), col(k, w, 'dim'), T(v, c));
   const setRow = (sel, k, v) => { const c = cat(mark(sel), col(k, 14, 'fg'), col(v, 34, 'dim'), T('›', 'faint')); return sel ? S(c) : c; };
   const ethRows = os => [[], kv('ip', '192.168.1.40', 'c'), kv('router', '192.168.1.1'), kv('dns', '1.1.1.1, 1.0.0.1'), [],
-    cat(B(3), T('settings ', 'dim'), T('─'.repeat(48), 'faint')), setRow(true, 'IPv4', 'Automatic (DHCP)'), setRow(false, 'DNS', 'Automatic'), setRow(false, 'Interface', 'On')];
+    cat(B(3), T('settings ', 'dim'), T('─'.repeat(48), 'faint')), setRow(true, 'IPv4', 'Automatic (DHCP)'), setRow(false, 'DNS', 'Automatic')];
   const ethKeys = keys([['↵', 'edit'], ['tab', 'interfaces'], ['?', 'more'], ['esc', 'close']]);
 
   function meter(title, val, unit, cls, sp, prog, label, active, w = 45) {

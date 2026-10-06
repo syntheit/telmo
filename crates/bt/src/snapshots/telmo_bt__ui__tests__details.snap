@@ -1,0 +1,26 @@
+---
+source: crates/bt/src/ui.rs
+expression: h.render()
+---
+ Bluetooth                                                                           ● on
+
+╭─ Connected ────────────────────────────────────────────────────────────────────────────╮
+│ ▌ AirPods Pro                             80% · case 45%                               │
+│   Keychron K3                             61%                                          │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Paired ───────╭─ AirPods Pro ────────────────────────────────────────╮────────────────╮
+│   MX Master 3S │                                                      │                │
+│   Sony WH-1000X│   battery    left 82% · right 80% · case 45%         │                │
+│   Xbox Wireless│   type       headphones                              │                │
+╰────────────────│   address    4C:87:5D:1A:0F:22                       │────────────────╯
+                 │                                                      │
+                 │  t untrust   r rename   d forget   esc back          │
+                 │                                                      │
+                 ╰──────────────────────────────────────────────────────╯
+
+
+
+
+
+
+ ↵ connect  s scan  i details  ? more  esc close
