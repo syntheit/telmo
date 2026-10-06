@@ -120,6 +120,7 @@ pub fn data() -> Snapshot {
         caps: Caps {
             edit_ip: true,
             edit_needs_admin: true,
+            reveal_touch_id: true,
         },
     }
 }

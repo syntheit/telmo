@@ -7,18 +7,18 @@ expression: render(&app)
 ╭─ Interfaces ───────────╮╭─ Wi-Fi ─────────────────────────────────────────────── ● on ─╮
 │ ▌ Wi-Fi             ●  ││ ▌ HomeNet-5G                    ▂▄▆█   ● connected           │
 │   HomeNet-5G           ││   HomeNet                       ▂▄▆█   saved                 │
-│               ╭─ HomeNet-5G ───────────────────────────────────────────╮               │
-│   Ethernet    │                                                        │               │
-│   USB LAN · 1 │   ip         192.168.1.42                              │               │
-│               │   router     192.168.1.1                               │               │
-│   Thunderbolt │   dns        1.1.1.1, 1.0.0.1                          │               │
-│   not connecte│   public ip  203.0.113.24                              │               │
-│               │   signal     strong · 5 GHz · WPA3                     │               │
-│   iPhone USB  │   password   ••••••••••                                │               │
-│   not connecte│                                                        │               │
-│               │ y show password   c copy ip   Q share QR   d forget    │               │
-│   VPN         │                                                        │               │
-│   Tailscale   ╰────────────────────────────────────────────────────────╯               │
+│           ╭─ HomeNet-5G ───────────────────────────────────────────────────╮           │
+│   Ethernet│                                                                │           │
+│   USB LAN │   ip         192.168.1.42                                      │           │
+│           │   router     192.168.1.1                                       │           │
+│   Thunderb│   dns        1.1.1.1, 1.0.0.1                                  │           │
+│   not conn│   public ip  203.0.113.24                                      │           │
+│           │   signal     strong · 5 GHz · WPA3                             │           │
+│   iPhone U│   password   ••••••••••                                        │           │
+│   not conn│                                                                │           │
+│           │ y show password (Touch ID)   c copy ip   Q QR code   d forget  │           │
+│   VPN     │                                                                │           │
+│   Tailscal╰────────────────────────────────────────────────────────────────╯           │
 │                        ││                                                              │
 │                        ││                                                              │
 ╰────────────────────────╯╰──────────────────────────────────────────────────────────────╯

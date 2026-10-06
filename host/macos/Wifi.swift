@@ -15,11 +15,66 @@ enum Wifi {
             let args = line.dropFirst("wifi-join ".count).split(separator: "\t", maxSplits: 1, omittingEmptySubsequences: false)
             guard let ssid = args.first, !ssid.isEmpty else { return "error Missing network name." }
             return join(ssid: String(ssid), password: args.count > 1 ? String(args[1]) : "")
+        case "wifi-password":
+            let ssid = String(line.dropFirst("wifi-password ".count))
+            guard !ssid.isEmpty, ssid != "wifi-password" else { return "error Missing network name." }
+            return password(ssid: ssid)
         default: return "error unknown command: \(line)"
         }
     }
 
     static func isWifiCommand(_ line: String) -> Bool { line.hasPrefix("wifi-") }
+
+    // MARK: Saved password
+
+    private static let systemKeychain = "/Library/Keychains/System.keychain"
+
+    /// Wi-Fi passwords live in the system keychain. sudo (Touch ID through pam_tid) is the gate; with no tty it can't fall back to
+    /// a terminal prompt. If Touch ID isn't set up for sudo, ask `security` directly, which shows the keychain dialog.
+    /// The reply is "ok <password>" so a password that starts with "error " can't be mistaken for a failure.
+    private static func password(ssid: String) -> String {
+        let viaSudo = run("/usr/bin/sudo", passwordArguments(ssid: ssid, sudo: true))
+        if let reply = passwordReply(viaSudo, ssid: ssid) { return reply }
+        let direct = run("/usr/bin/security", passwordArguments(ssid: ssid, sudo: false))
+        return passwordReply(direct, ssid: ssid) ?? "error Couldn't read the keychain: \(direct.stderr.trimmingCharacters(in: .whitespacesAndNewlines))"
+    }
+
+    static func passwordArguments(ssid: String, sudo: Bool) -> [String] {
+        let find = ["find-generic-password", "-wa", ssid]
+        return sudo ? ["/usr/bin/security"] + find + [systemKeychain] : find
+    }
+
+    /// nil means "sudo has no way to authenticate here, try the plain keychain dialog".
+    private static func passwordReply(_ out: (status: Int32, stdout: String, stderr: String), ssid: String) -> String? {
+        if out.status == 0 { return "ok " + out.stdout.trimmingCharacters(in: CharacterSet(charactersIn: "\n")) }
+        let err = out.stderr
+        if err.contains("could not be found") { return "error No saved password for \(ssid)." }
+        if err.hasPrefix("sudo:") && (err.contains("terminal") || err.contains("askpass") || err.contains("password is required")) { return nil }
+        if err.contains("User canceled") || err.contains("denied") || err.contains("authentication") || out.status == 128 { return "error Cancelled." }
+        return "error Couldn't read the keychain: \(err.trimmingCharacters(in: .whitespacesAndNewlines))"
+    }
+
+    /// argv only, no shell; stdin is /dev/null; killed after 60 seconds.
+    private static func run(_ path: String, _ arguments: [String]) -> (status: Int32, stdout: String, stderr: String) {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: path)
+        task.arguments = arguments
+        task.standardInput = FileHandle.nullDevice
+        let out = Pipe(), err = Pipe()
+        task.standardOutput = out
+        task.standardError = err
+        do { try task.run() } catch { return (-1, "", "Couldn't run \(path): \(error.localizedDescription)") }
+        let timer = DispatchWorkItem { if task.isRunning { task.terminate() } }
+        DispatchQueue.global().asyncAfter(deadline: .now() + 60, execute: timer)
+        var errData = Data()
+        let reader = DispatchGroup()
+        DispatchQueue.global().async(group: reader) { errData = err.fileHandleForReading.readDataToEndOfFile() }
+        let outData = out.fileHandleForReading.readDataToEndOfFile()
+        reader.wait()
+        task.waitUntilExit()
+        timer.cancel()
+        return (task.terminationStatus, String(decoding: outData, as: UTF8.self), String(decoding: errData, as: UTF8.self))
+    }
 
     // MARK: Listing
 

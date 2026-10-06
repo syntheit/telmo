@@ -186,6 +186,7 @@ impl Backend {
             caps: Caps {
                 edit_ip: true,
                 edit_needs_admin: false,
+                reveal_touch_id: false,
             },
         })
     }

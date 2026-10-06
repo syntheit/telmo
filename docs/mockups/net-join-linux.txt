@@ -4,8 +4,8 @@
 ╭─ Interfaces ───────────╮╭─ Wi-Fi ─────────────────────────────────────────────── ● on ─╮
 │ ▌ Wi-Fi             ●  ││   HomeNet-5G                    ▂▄▆█   ● connected           │
 │   HomeNet-5G           ││   HomeNet                       ▂▄▆█   saved                 │
-│                        ││ ▌ Tanaka-AP                     ▂▄▆█                         │
-│   Ethernet          ●  ││   Matv-Guest                    ▂▄▆█   saved                 │
+│                        ││   Matv-Guest                    ▂▄▆█   saved                 │
+│   Ethernet          ●  ││ ▌ Tanaka-AP                     ▂▄▆█                         │
 │   enp5s0 · 1 Gbps      ││   DIRECT-7F-HP OfficeJet        ▂▄▆█                         │
 │                        ││   aterm-5c1d2e-g                ▂▄▆█                         │
 │   USB             ╭─ Join Tanaka-AP ───────────────────────────────╮n                  │

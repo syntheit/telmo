@@ -515,8 +515,8 @@ pre.tree .c1 { color: #565f89; }
   const NETS = [
     { n: 'HomeNet-5G', s: 4, conn: true, saved: true },
     { n: 'HomeNet', s: 3, saved: true },
-    { n: 'Tanaka-AP', s: 3 },
     { n: 'Matv-Guest', s: 2, open: true, saved: true },
+    { n: 'Tanaka-AP', s: 3 },
     { n: 'DIRECT-7F-HP OfficeJet', s: 2 },
     { n: 'aterm-5c1d2e-g', s: 1 },
     { n: 'Starbucks_WiFi', s: 1, open: true },
@@ -591,8 +591,8 @@ pre.tree .c1 { color: #565f89; }
       const m = box('HomeNet-5G', [
         [], kv('ip', '192.168.1.42', 'c', 11), kv('router', '192.168.1.1', 'fg', 11), kv('dns', '1.1.1.1, 1.0.0.1', 'fg', 11), kv('public ip', '203.0.113.24', 'fg', 11),
         kv('signal', 'strong · 5 GHz · WPA3', 'fg', 11), cat(B(3), col('password', 11, 'dim'), T('••••••••••', 'fg')), [],
-        cat(B(2), T('y', 'b'), T(' show password   ', 'dim'), T('c', 'b'), T(' copy ip   ', 'dim'), T('Q', 'b'), T(' share QR   ', 'dim'), T('d', 'b'), T(' forget', 'dim')), []
-      ], 58, { active: true });
+        cat(B(2), T('y', 'b'), T(' show password (Touch ID)   ', 'dim'), T('c', 'b'), T(' copy ip   ', 'dim'), T('Q', 'b'), T(' QR code   ', 'dim'), T('d', 'b'), T(' forget', 'dim')), []
+      ], 66, { active: true });
       return overlay(base, m, 5);
     },
     ethernet: os => screen(hdr('Network', netStatus()), netBody(os, 1, 'Ethernet', ethRows(os), { right: T('● connected · 1 Gbps', 'g') }), ethKeys),

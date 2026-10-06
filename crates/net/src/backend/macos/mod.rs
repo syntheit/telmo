@@ -207,6 +207,7 @@ fn snapshot(
         caps: Caps {
             edit_ip: true,
             edit_needs_admin: true,
+            reveal_touch_id: true,
         },
     };
     (snapshot, problem)
@@ -295,7 +296,11 @@ fn handle(cmd: Cmd, shared: &Arc<Shared>) {
             let _ = shared.events.send(Event::Details(details()));
         }
         Cmd::RevealPassword { ssid } => {
-            let password = wifi::reveal_password(&ssid);
+            let password = if host::running_in_host() {
+                host::reveal_password(&ssid)
+            } else {
+                wifi::reveal_password(&ssid)
+            };
             let _ = shared.events.send(Event::Password { ssid, password });
         }
         Cmd::RequestLocation => {

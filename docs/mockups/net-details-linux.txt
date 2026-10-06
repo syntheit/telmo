@@ -4,18 +4,18 @@
 ╭─ Interfaces ───────────╮╭─ Wi-Fi ─────────────────────────────────────────────── ● on ─╮
 │ ▌ Wi-Fi             ●  ││ ▌ HomeNet-5G                    ▂▄▆█   ● connected           │
 │   HomeNet-5G           ││   HomeNet                       ▂▄▆█   saved                 │
-│               ╭─ HomeNet-5G ───────────────────────────────────────────╮               │
-│   Ethernet    │                                                        │               │
-│   enp5s0 · 1 G│   ip         192.168.1.42                              │               │
-│               │   router     192.168.1.1                               │               │
-│   USB         │   dns        1.1.1.1, 1.0.0.1                          │               │
-│   fajita · off│   public ip  203.0.113.24                              │               │
-│               │   signal     strong · 5 GHz · WPA3                     │               │
-│   VPN         │   password   ••••••••••                                │               │
-│   Tailscale   │                                                        │               │
-╰───────────────│  y show password   c copy ip   Q share QR   d forget   │───────────────╯
-                │                                                        │
-                ╰────────────────────────────────────────────────────────╯
+│               ╭─ HomeNet-5G ───────────────────────────────────────────────────╮       │
+│   Ethernet    │                                                                │       │
+│   enp5s0 · 1 G│   ip         192.168.1.42                                      │       │
+│               │   router     192.168.1.1                                       │       │
+│   USB         │   dns        1.1.1.1, 1.0.0.1                                  │       │
+│   fajita · off│   public ip  203.0.113.24                                      │       │
+│               │   signal     strong · 5 GHz · WPA3                             │       │
+│   VPN         │   password   ••••••••••                                        │       │
+│   Tailscale   │                                                                │       │
+╰───────────────│ y show password   c copy ip   Q QR code   d forget             │───────╯
+                │                                                                │
+                ╰────────────────────────────────────────────────────────────────╯
 
 
 

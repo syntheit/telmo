@@ -14,6 +14,8 @@ use std::time::Duration;
 pub const QUICK: Duration = Duration::from_secs(5);
 pub const SCAN: Duration = Duration::from_secs(15);
 pub const JOIN: Duration = Duration::from_secs(40);
+/// The host gives Touch ID / the keychain 60 s.
+pub const REVEAL: Duration = Duration::from_secs(70);
 
 pub fn running_in_host() -> bool {
     std::env::var_os("TELMO_HOST").is_some_and(|v| v == "1")
@@ -125,9 +127,33 @@ pub fn join(ssid: &str, password: Option<&str>) -> Option<Result<String, String>
     Some(command(&line, JOIN).map(|_| format!("Joined {ssid}.")))
 }
 
+/// The saved password, read by the host (Touch ID through sudo).
+pub fn reveal_password(ssid: &str) -> Result<String, String> {
+    let line = password_line(ssid)?;
+    let reply = command(&line, REVEAL)?;
+    // "ok " keeps a password that starts with "error " from looking like a failure.
+    Ok(reply.strip_prefix("ok ").unwrap_or(&reply).to_string())
+}
+
+fn password_line(ssid: &str) -> Result<String, String> {
+    if ssid.contains('\n') {
+        return Err("This network name can't be looked up.".to_string());
+    }
+    Ok(format!("wifi-password {ssid}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn password_line_is_one_line() {
+        assert_eq!(
+            password_line("My Wi-Fi").as_deref(),
+            Ok("wifi-password My Wi-Fi")
+        );
+        assert!(password_line("a\nb").is_err());
+    }
 
     const JSON: &str = r#"{"current":"Home","networks":[
         {"ssid":"Home","rssi":-52,"security":"wpa3","band":"5","channel":149},

@@ -235,7 +235,19 @@ impl App {
         let Some(wifi) = &self.snapshot.wifi else {
             return vec![];
         };
-        let mut rows: Vec<WifiRow> = (0..wifi.networks.len()).map(WifiRow::Net).collect();
+        // Connected first, then saved, then the rest; nameless last, strongest first.
+        let mut order: Vec<usize> = (0..wifi.networks.len()).collect();
+        order.sort_by_key(|&i| {
+            let n = &wifi.networks[i];
+            (
+                !n.connected,
+                !n.saved,
+                n.ssid.is_none(),
+                std::cmp::Reverse(n.strength),
+                n.ssid.clone(),
+            )
+        });
+        let mut rows: Vec<WifiRow> = order.into_iter().map(WifiRow::Net).collect();
         if self.show_away {
             rows.extend((0..wifi.saved_elsewhere.len()).map(WifiRow::Away));
         }
@@ -523,6 +535,7 @@ impl App {
             };
         }
         let saved = d.network.saved;
+        let open = d.network.security == Security::Open;
         match key.code {
             KeyCode::Esc => return Outcome::Close,
             KeyCode::Char('c') => self.copy_ip(d),
@@ -533,11 +546,12 @@ impl App {
                     self.send(Cmd::RevealPassword { ssid });
                 }
             }
-            KeyCode::Char('Q') if saved => match &d.password {
-                Some(password) => {
+            KeyCode::Char('Q') if saved || open => match (&d.password, open) {
+                (Some(password), _) => {
                     return Outcome::ShowQr(Qr::new(&d.network, &ssid, password));
                 }
-                None => {
+                (None, true) => return Outcome::ShowQr(Qr::new(&d.network, &ssid, "")),
+                (None, false) => {
                     d.want_qr = true;
                     self.send(Cmd::RevealPassword { ssid });
                 }
@@ -891,26 +905,32 @@ fn prefix_to_mask(prefix: u8) -> String {
     Ipv4Addr::from(bits).to_string()
 }
 
+/// Escape the characters that are special in a Wi-Fi QR payload.
+fn escape_wifi_field(text: &str) -> String {
+    let mut out = String::new();
+    for c in text.chars() {
+        if matches!(c, '\\' | ';' | ',' | ':' | '"') {
+            out.push('\\');
+        }
+        out.push(c);
+    }
+    out
+}
+
+fn wifi_payload(security: Security, ssid: &str, password: &str) -> String {
+    let ssid = escape_wifi_field(ssid);
+    match security {
+        Security::Open => format!("WIFI:T:nopass;S:{ssid};;"),
+        Security::Wep => format!("WIFI:T:WEP;S:{ssid};P:{};;", escape_wifi_field(password)),
+        _ => format!("WIFI:T:WPA;S:{ssid};P:{};;", escape_wifi_field(password)),
+    }
+}
+
 impl Qr {
     fn new(network: &Network, ssid: &str, password: &str) -> Self {
-        let escape = |s: &str| {
-            let mut out = String::new();
-            for c in s.chars() {
-                if matches!(c, '\\' | ';' | ',' | ':' | '"') {
-                    out.push('\\');
-                }
-                out.push(c);
-            }
-            out
-        };
-        let kind = match network.security {
-            Security::Open => "nopass",
-            Security::Wep => "WEP",
-            _ => "WPA",
-        };
         Self {
             ssid: ssid.to_string(),
-            payload: format!("WIFI:T:{kind};S:{};P:{};;", escape(ssid), escape(password)),
+            payload: wifi_payload(network.security, ssid, password),
         }
     }
 
@@ -990,4 +1010,25 @@ fn base64(bytes: &[u8]) -> String {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wifi_payload_escapes_special_characters() {
+        assert_eq!(
+            wifi_payload(Security::Personal, r#"a;b,c:d"e\f"#, r#"p;w:"\,"#),
+            r#"WIFI:T:WPA;S:a\;b\,c\:d\"e\\f;P:p\;w\:\"\\\,;;"#
+        );
+    }
+
+    #[test]
+    fn open_network_payload_has_no_password() {
+        assert_eq!(
+            wifi_payload(Security::Open, "Cafe", ""),
+            "WIFI:T:nopass;S:Cafe;;"
+        );
+    }
 }

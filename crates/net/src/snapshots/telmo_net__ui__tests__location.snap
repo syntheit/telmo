@@ -12,8 +12,8 @@ expression: render(&app)
 │   USB LAN · 1 Gbps     ││                                                              │
 │                        ││ ▌ ‹name hidden›                 ▂▄▆█   ● connected           │
 │   Thunderbolt       ○  ││   ‹name hidden›                 ▂▄▆█   saved                 │
-│   not connected        ││   ‹name hidden›                 ▂▄▆█                         │
-│                        ││   ‹name hidden›                 ▂▄▆█   saved                 │
+│   not connected        ││   ‹name hidden›                 ▂▄▆█   saved                 │
+│                        ││   ‹name hidden›                 ▂▄▆█                         │
 │   iPhone USB        ○  ││   ‹name hidden›                 ▂▄▆█                         │
 │   not connected        ││                                                              │
 │                        ││                                                              │

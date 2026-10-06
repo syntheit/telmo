@@ -7,8 +7,8 @@ expression: render(&app)
 ╭─ Interfaces ───────────╮╭─ Wi-Fi ─────────────────────────────────────────────── ● on ─╮
 │ ▌ Wi-Fi             ●  ││   HomeNet-5G                    ▂▄▆█   ● connected           │
 │   HomeNet-5G           ││   HomeNet                       ▂▄▆█   saved                 │
-│                        ││ ▌ Tanaka-AP                     ▂▄▆█                         │
-│   Ethernet          ●  ││   Matv-Guest                    ▂▄▆█   saved                 │
+│                        ││   Matv-Guest                    ▂▄▆█   saved                 │
+│   Ethernet          ●  ││ ▌ Tanaka-AP                     ▂▄▆█                         │
 │   USB LAN · 1 Gbps╭─ Join Tanaka-AP ───────────────────────────────╮                   │
 │                   │                                                │                   │
 │   Thunderbolt     │  password   ••••••••••▏                        │n                  │

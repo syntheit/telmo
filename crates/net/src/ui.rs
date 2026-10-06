@@ -637,7 +637,7 @@ fn draw_details(app: &App, frame: &mut Frame, d: &DetailsDialog) {
         .ssid
         .clone()
         .unwrap_or_else(|| "hidden network".to_string());
-    let inner = widgets::dialog(frame, &title, 58, 12);
+    let inner = widgets::dialog(frame, &title, 66, 12);
     let ipv4 = d.network.connected.then(|| app.wifi_ipv4()).flatten();
     let none = "—".to_string();
     let public_ip = match (&app.details, d.network.connected) {
@@ -648,6 +648,7 @@ fn draw_details(app: &App, frame: &mut Frame, d: &DetailsDialog) {
     let password = match (&d.password, d.network.saved) {
         (Some(password), _) => password.clone(),
         (None, true) => "••••••••••".to_string(),
+        (None, false) if d.network.security == Security::Open => "none (open network)".to_string(),
         (None, false) => "not saved".to_string(),
     };
     let rows = [
@@ -679,17 +680,19 @@ fn draw_details(app: &App, frame: &mut Frame, d: &DetailsDialog) {
             Span::styled(" no", theme::dim()),
         ])
     } else if d.network.saved {
-        let reveal = if d.password.is_some() {
-            "hide password"
-        } else {
-            "show password"
+        let reveal = match (d.password.is_some(), app.snapshot.caps.reveal_touch_id) {
+            (true, _) => "hide password",
+            (false, true) => "show password (Touch ID)",
+            (false, false) => "show password",
         };
         widgets::hint(&[
             ("y", reveal),
             ("c", "copy ip"),
-            ("Q", "share QR"),
+            ("Q", "QR code"),
             ("d", "forget"),
         ])
+    } else if d.network.security == Security::Open {
+        widgets::hint(&[("c", "copy ip"), ("Q", "QR code"), ("esc", "close")])
     } else {
         widgets::hint(&[("c", "copy ip"), ("esc", "close")])
     });
@@ -830,7 +833,7 @@ mod tests {
     #[test]
     fn join() {
         let mut app = app();
-        press(&mut app, "jj");
+        press(&mut app, "jjj");
         code(&mut app, KeyCode::Enter);
         press(&mut app, "hunter22xx");
         insta::assert_snapshot!(render(&app));
@@ -844,6 +847,17 @@ mod tests {
             public_ip: Some("203.0.113.24".to_string()),
             ..Default::default()
         }));
+        insta::assert_snapshot!(render(&app));
+    }
+
+    #[test]
+    fn qr() {
+        let mut app = app();
+        press(&mut app, "iQ");
+        app.event(Event::Password {
+            ssid: "HomeNet-5G".to_string(),
+            password: Ok("correct-horse-battery".to_string()),
+        });
         insta::assert_snapshot!(render(&app));
     }
 
@@ -964,7 +978,7 @@ mod tests {
     #[test]
     fn error() {
         let mut app = app();
-        press(&mut app, "jj");
+        press(&mut app, "jjj");
         app.event(Event::Done {
             target: "Tanaka-AP".to_string(),
             result: Err("Wrong password for Tanaka-AP.".to_string()),

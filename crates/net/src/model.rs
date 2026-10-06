@@ -20,6 +20,9 @@ pub struct Caps {
     pub edit_ip: bool,
     /// Saving IP settings shows an admin password prompt.
     pub edit_needs_admin: bool,
+    /// Showing a saved Wi-Fi password asks for Touch ID (macOS).
+    #[serde(default)]
+    pub reveal_touch_id: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
