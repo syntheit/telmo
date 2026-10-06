@@ -33,16 +33,26 @@ fn main() -> ExitCode {
 }
 
 /// Path of `telmo-<module>`: next to this executable first, then on PATH.
+///
+/// "Next to" checks both the path we were invoked as and the resolved
+/// executable: in a Nix profile `telmo` is a symlink into its own store path,
+/// while the modules are symlinked beside it.
 pub fn find_module(module: &str) -> Option<PathBuf> {
     let name = format!("telmo-{module}");
+    let invoked_dir = env::args_os()
+        .next()
+        .map(PathBuf::from)
+        .filter(|p| p.components().count() > 1)
+        .and_then(|p| p.parent().map(PathBuf::from));
     let own_dir = env::current_exe()
         .ok()
         .and_then(|exe| exe.parent().map(PathBuf::from));
     let path_dirs = env::var_os("PATH")
         .map(|p| env::split_paths(&p).collect::<Vec<_>>())
         .unwrap_or_default();
-    own_dir
+    invoked_dir
         .into_iter()
+        .chain(own_dir)
         .chain(path_dirs)
         .map(|dir| dir.join(&name))
         .find(|p| p.is_file())
