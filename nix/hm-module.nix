@@ -81,7 +81,8 @@ in
         if [ "$(cat "$marker" 2>/dev/null)" != "${storeApp}" ]; then
           run mkdir -p "${config.home.homeDirectory}/Applications"
           run rm -rf "${signedApp}"
-          run cp -R "${storeApp}" "${signedApp}"
+          # -L: the package is a symlinkJoin; codesign needs real files.
+          run cp -RL "${storeApp}" "${signedApp}"
           run chmod -R u+w "${signedApp}"
           # No hardened runtime: it would need extra entitlements for Location.
           run /usr/bin/codesign --force --deep \
