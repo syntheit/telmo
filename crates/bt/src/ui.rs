@@ -325,7 +325,7 @@ fn draw_help(app: &App, frame: &mut Frame) {
         ("j k ↑ ↓", "move between devices"),
         ("tab", "jump to the next list"),
         ("s", "start or stop scanning"),
-        ("i", "details, trust, rename, forget"),
+        ("i", "details, auto-connect, rename, forget"),
         ("p", "turn Bluetooth on or off"),
         ("esc q", "close, then quit"),
     ];
@@ -354,25 +354,44 @@ fn draw_details(app: &App, frame: &mut Frame, id: &str) {
     }
     rows.push(("type", vec![Span::raw(kind_name(device.kind))]));
     rows.push(("address", vec![Span::raw(device.id.clone())]));
+    let auto_row = rows.len() as u16 + 1;
+    rows.push(("auto-connect", auto_connect_value(device.auto_connect)));
 
     let inner = open_dialog(app, frame, &app.device_name(id), 56, rows.len() as u16 + 6);
     let mut lines = vec![Line::raw("")];
     for (label, value) in rows {
-        let mut spans = vec![Span::styled(format!("   {label:<7}    "), theme::dim())];
+        let mut spans = vec![Span::styled(format!("   {label:<12}  "), theme::dim())];
         spans.extend(value);
         lines.push(Line::from(spans));
     }
-    let trust = if device.trusted { "untrust" } else { "trust" };
-    let bindings = [
-        ("t", trust),
-        ("r", "rename"),
-        ("d", "forget"),
-        ("esc", "back"),
-    ];
+    let mut bindings = vec![("r", "rename"), ("d", "forget"), ("esc", "back")];
+    if let Some(on) = device.auto_connect {
+        let action = if on {
+            "auto-connect off"
+        } else {
+            "auto-connect on"
+        };
+        bindings.insert(0, ("a", action));
+        let row = Rect {
+            x: inner.x,
+            y: inner.y + auto_row,
+            width: inner.width,
+            height: 1,
+        };
+        app.hits.add(row, Click::Key(KeyCode::Char('a')));
+    }
     add_hint_hits(app, inner, lines.len() as u16 + 1, &bindings);
     let hint = padded_hint(&bindings);
     lines.extend([Line::raw(""), hint]);
     widgets::text(frame, inner, lines);
+}
+
+fn auto_connect_value(auto_connect: Option<bool>) -> Vec<Span<'static>> {
+    match auto_connect {
+        Some(true) => vec![Span::styled("on", theme::accent())],
+        Some(false) => vec![Span::raw("off")],
+        None => vec![Span::raw("automatic (macOS)")],
+    }
 }
 
 fn draw_pairing(
@@ -580,6 +599,32 @@ mod tests {
         let mut h = Harness::new(mock::snapshot());
         h.chars("i");
         insta::assert_snapshot!(h.render());
+    }
+
+    #[test]
+    fn auto_connect_row_toggles_by_key_and_click() {
+        let mut h = Harness::new(mock::snapshot());
+        h.chars("i");
+        h.render();
+        h.click_on("auto-connect");
+        assert_eq!(h.app.pending.len(), 1);
+        assert!(h.app.dialog.is_none());
+    }
+
+    #[test]
+    fn auto_connect_is_automatic_on_macos() {
+        let mut snapshot = mock::snapshot();
+        snapshot
+            .devices
+            .iter_mut()
+            .for_each(|d| d.auto_connect = None);
+        let mut h = Harness::new(snapshot);
+        h.chars("i");
+        let out = h.render();
+        assert!(out.contains("automatic (macOS)"));
+        h.chars("a");
+        assert!(h.app.pending.is_empty());
+        assert!(h.app.dialog.is_some());
     }
 
     #[test]

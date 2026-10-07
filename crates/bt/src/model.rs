@@ -38,7 +38,8 @@ pub struct Device {
     pub kind: Kind,
     pub paired: bool,
     pub connected: bool,
-    pub trusted: bool,
+    /// Reconnects on its own. None where the OS has no per-device setting.
+    pub auto_connect: Option<bool>,
     pub battery: Option<Battery>,
     /// Signal while discovering, in dBm.
     pub rssi: Option<i16>,

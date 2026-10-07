@@ -21,6 +21,9 @@ enum Wifi {
             let ssid = String(line.dropFirst("wifi-password ".count))
             guard !ssid.isEmpty, ssid != "wifi-password" else { return "error Missing network name." }
             return password(ssid: ssid)
+        case "wifi-forget-stored":
+            deleteStored(ssid: String(line.dropFirst("wifi-forget-stored ".count)))
+            return "ok"
         default: return "error unknown command: \(line)"
         }
     }
@@ -31,12 +34,43 @@ enum Wifi {
 
     private static let systemKeychain = "/Library/Keychains/System.keychain"
 
-    /// Touch ID (or the login password) first, then Telmo reads the item itself. The first read per network shows
-    /// macOS's own dialog; "Always Allow" binds the grant to Telmo's signature, so later reads need only Touch ID.
+    private static let service = "io.github.syntheit.telmo.wifi"
+
+    /// Touch ID (or the login password) first, then Telmo's own copy in the login keychain. A network Telmo hasn't
+    /// stored yet comes from the system keychain (macOS shows its own dialog once) and is saved for next time.
     /// The reply is "ok <password>" so a password that starts with "error " can't be mistaken for a failure.
     private static func password(ssid: String) -> String {
         guard authenticate(reason: "show the password for \(ssid)") else { return "error Cancelled." }
-        return keychainPassword(ssid: ssid)
+        if let data = storedData(ssid: ssid) { return "ok " + String(decoding: data, as: UTF8.self) }
+        let reply = keychainPassword(ssid: ssid)
+        if reply.hasPrefix("ok ") { _ = store(ssid: ssid, password: String(reply.dropFirst(3))) }
+        return reply
+    }
+
+    private static func storedQuery(_ ssid: String) -> [CFString: Any] {
+        [kSecClass: kSecClassGenericPassword, kSecAttrService: service, kSecAttrAccount: ssid]
+    }
+
+    private static func storedData(ssid: String) -> Data? {
+        var result: CFTypeRef?
+        let query = storedQuery(ssid).merging([kSecReturnData: true]) { $1 }
+        return SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess ? result as? Data : nil
+    }
+
+    private static func hasStored(ssid: String) -> Bool {
+        SecItemCopyMatching(storedQuery(ssid) as CFDictionary, nil) == errSecSuccess
+    }
+
+    /// Save or replace Telmo's copy. Nothing else ever sees the password.
+    @discardableResult
+    private static func store(ssid: String, password: String) -> Bool {
+        deleteStored(ssid: ssid)
+        let item = storedQuery(ssid).merging([kSecValueData: Data(password.utf8)]) { $1 }
+        return SecItemAdd(item as CFDictionary, nil) == errSecSuccess
+    }
+
+    private static func deleteStored(ssid: String) {
+        SecItemDelete(storedQuery(ssid) as CFDictionary)
     }
 
     /// Called on an IPC worker thread; the policy callback arrives elsewhere, so wait for it.
@@ -147,9 +181,14 @@ enum Wifi {
         }
         do {
             try iface.associate(to: network, password: password.isEmpty ? nil : password)
+            if !password.isEmpty { store(ssid: ssid, password: password) }
             return "ok"
         } catch let error as NSError {
             if !password.isEmpty && wrongPasswordCodes.contains(error.code) { return "error Wrong password for \(ssid)." }
+            if wrongPasswordCodes.contains(error.code) && hasStored(ssid: ssid) {
+                deleteStored(ssid: ssid)
+                return "error Saved password for \(ssid) no longer works. Enter it again."
+            }
             if password.isEmpty && security(network) != "open" && wrongPasswordCodes.contains(error.code) { return "error Enter the password for \(ssid)." }
             return "error Couldn't join \(ssid): \(error.localizedDescription)"
         }

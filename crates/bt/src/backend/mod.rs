@@ -23,7 +23,7 @@ pub enum Cmd {
     /// Answer to a `PairPrompt`: Some(pin) for EnterPin, None to reject,
     /// Some("") to accept a confirmation or passkey display.
     PairReply(Option<String>),
-    SetTrusted(String, bool),
+    SetAutoConnect(String, bool),
     Forget(String),
     Rename(String, String),
 }

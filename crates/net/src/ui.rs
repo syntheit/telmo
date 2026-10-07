@@ -144,7 +144,7 @@ fn help_lines(app: &App) -> Vec<(&'static str, &'static str)> {
     match app.pane() {
         Pane::Wifi => lines.extend([
             ("↵", "join the selected network"),
-            ("i", "details: password and QR (y), forget"),
+            ("i", "details: password, QR, auto-join, forget"),
             ("a", "show or hide saved networks out of range"),
             ("p", "turn Wi-Fi on or off"),
             ("r", "rescan"),
@@ -719,10 +719,11 @@ fn draw_details(app: &App, frame: &mut Frame, d: &DetailsDialog) {
     // The code is 16 rows or so: beside the numbers it needs a tall terminal.
     let code = d.qr().map(|qr| qr.lines());
     let code_rows = code.as_ref().map_or(0, |c| c.as_ref().map_or(1, Vec::len));
-    if code.is_some() && 12 + code_rows > frame.area().height as usize {
+    let rows = if d.network.saved { 13 } else { 12 };
+    if code.is_some() && rows + code_rows > frame.area().height as usize {
         return draw_share(app, frame, &name, &password, code.flatten(), &hint);
     }
-    let inner = open_dialog(app, frame, &name, 66, 12 + code_rows as u16);
+    let inner = open_dialog(app, frame, &name, 70, (rows + code_rows) as u16);
     let ipv4 = d.network.connected.then(|| app.wifi_ipv4()).flatten();
     let none = "—".to_string();
     let public_ip = match (&app.details, d.network.connected) {
@@ -741,6 +742,14 @@ fn draw_details(app: &App, frame: &mut Frame, d: &DetailsDialog) {
         ("signal", signal_summary(&d.network)),
         ("password", password),
     ];
+    let auto_join =
+        d.network.saved.then(
+            || match d.network.ssid.as_deref().and_then(|s| app.auto_join(s)) {
+                Some(true) => "on",
+                Some(false) => "off",
+                None => "—",
+            },
+        );
     let mut lines = vec![Line::raw("")];
     lines.extend(rows.map(|(label, value)| {
         Line::from(vec![
@@ -748,6 +757,20 @@ fn draw_details(app: &App, frame: &mut Frame, d: &DetailsDialog) {
             Span::raw(value),
         ])
     }));
+    if let Some(state) = auto_join {
+        app.hits.add(
+            Rect {
+                y: inner.y + lines.len() as u16,
+                height: 1,
+                ..inner
+            },
+            Click::DialogKey(KeyCode::Char('a')),
+        );
+        lines.push(Line::from(vec![
+            Span::styled(format!("   {}", fit("auto-join", 11)), theme::dim()),
+            Span::raw(state),
+        ]));
+    }
     lines.push(Line::raw(""));
     if let Some(code) = code {
         lines.extend(qr_lines(code));
@@ -767,7 +790,12 @@ fn details_hint(app: &App, d: &DetailsDialog) -> Vec<(&'static str, &'static str
             (false, true) => "show password (Touch ID)",
             (false, false) => "show password",
         };
-        vec![("y", reveal), ("c", "copy ip"), ("d", "forget")]
+        vec![
+            ("y", reveal),
+            ("c", "copy ip"),
+            ("a", "auto-join"),
+            ("d", "forget"),
+        ]
     } else if open {
         let qr = if d.open_qr {
             "hide QR code"
@@ -936,7 +964,7 @@ fn draw_help(app: &App, frame: &mut Frame) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::{Event, mock};
+    use crate::backend::{Cmd, Event, mock};
     use crossterm::event::{
         KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
     };
@@ -1224,6 +1252,21 @@ mod tests {
             modifiers: KeyModifiers::NONE,
         });
         assert!(app.dialog.is_none());
+    }
+
+    #[test]
+    fn a_toggles_auto_join_in_details() {
+        let (cmds, mut sent) = unbounded_channel();
+        let (events, _) = unbounded_channel();
+        let mut app = App::new(mock::data(), cmds, events, true);
+        press(&mut app, "i");
+        assert!(render(&app).contains("auto-join  on"));
+        click(&mut app, "auto-join  on");
+        assert!(matches!(sent.try_recv(), Ok(Cmd::Details)));
+        assert!(matches!(
+            sent.try_recv(),
+            Ok(Cmd::SetAutoJoin { ssid, on: false }) if ssid == "HomeNet-5G"
+        ));
     }
 
     #[test]

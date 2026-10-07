@@ -99,6 +99,9 @@ pub struct Network {
     pub security: Security,
     pub band: Option<Band>,
     pub saved: bool,
+    /// Whether the system joins this saved network by itself. None when unknown or not offered.
+    #[serde(default)]
+    pub auto_join: Option<bool>,
     pub connected: bool,
 }
 

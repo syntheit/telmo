@@ -290,13 +290,9 @@ impl App {
         let device = self.device(&id).cloned()?;
         match key.code {
             KeyCode::Esc => None,
-            KeyCode::Char('t') => {
-                let label = if device.trusted {
-                    "untrusting…"
-                } else {
-                    "trusting…"
-                };
-                self.start(&id, label, Cmd::SetTrusted(id.clone(), !device.trusted));
+            KeyCode::Char('a') if device.auto_connect.is_some() => {
+                let on = device.auto_connect != Some(true);
+                self.start(&id, "saving…", Cmd::SetAutoConnect(id.clone(), on));
                 None
             }
             KeyCode::Char('r') => Some(Dialog::Rename {

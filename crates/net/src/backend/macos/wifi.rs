@@ -314,6 +314,7 @@ pub fn assemble(mut entries: Vec<Entry>, current: Option<Current>, saved: &[Stri
             security: e.security,
             band: e.band,
             saved: e.ssid.as_ref().is_some_and(|s| saved.contains(s)),
+            auto_join: None,
             connected: e.connected,
         })
         .collect();

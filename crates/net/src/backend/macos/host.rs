@@ -135,6 +135,13 @@ pub fn reveal_password(ssid: &str) -> Result<String, String> {
     Ok(reply.strip_prefix("ok ").unwrap_or(&reply).to_string())
 }
 
+/// Drop Telmo's stored copy of a password. Best effort: the network is forgotten either way.
+pub fn forget_stored(ssid: &str) {
+    if running_in_host() && !ssid.contains('\n') {
+        let _ = command(&format!("wifi-forget-stored {ssid}"), QUICK);
+    }
+}
+
 fn password_line(ssid: &str) -> Result<String, String> {
     if ssid.contains('\n') {
         return Err("This network name can't be looked up.".to_string());

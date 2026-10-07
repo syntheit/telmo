@@ -15,6 +15,7 @@ pub fn data() -> Snapshot {
         security,
         band: Some(Band::G5),
         saved,
+        auto_join: saved.then_some(true),
         connected,
     };
     let wired =
@@ -226,6 +227,24 @@ async fn handle(system: &mut Snapshot, cmd: Cmd, events: &Tx) {
             set_ipv4(system, &interface, config);
             send(events, system);
             done(events, &interface, Ok("Settings saved.".to_string()));
+        }
+        Cmd::SetAutoJoin { ssid, on } => {
+            pause(300).await;
+            let found = system.wifi.as_mut().and_then(|w| {
+                w.networks
+                    .iter_mut()
+                    .find(|n| n.ssid.as_deref() == Some(&ssid))
+            });
+            if let Some(network) = found {
+                network.auto_join = Some(on);
+            }
+            send(events, system);
+            let state = if on { "on" } else { "off" };
+            done(
+                events,
+                &ssid,
+                Ok(format!("Auto-join is {state} for {ssid}.")),
+            );
         }
         Cmd::SetVpn { vpn, on } => {
             pause(900).await;

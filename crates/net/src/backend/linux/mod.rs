@@ -95,6 +95,7 @@ fn target(cmd: &Cmd) -> String {
         Cmd::Forget { ssid } | Cmd::RevealPassword { ssid } => ssid.clone(),
         Cmd::SetIpv4 { interface, .. } => interface.clone(),
         Cmd::SetVpn { vpn, .. } => vpn.clone(),
+        Cmd::SetAutoJoin { ssid, .. } => ssid.clone(),
         Cmd::Rescan | Cmd::SetWifiPower(_) | Cmd::Details | Cmd::RequestLocation => {
             "wifi".to_string()
         }
@@ -118,6 +119,7 @@ impl Backend {
             }
             Cmd::Forget { ssid } => wifi::forget(&self.conn, &ssid).await,
             Cmd::SetWifiPower(on) => wifi::set_power(&self.conn, on).await,
+            Cmd::SetAutoJoin { ssid, on } => wifi::set_auto_join(&self.conn, &ssid, on).await,
             Cmd::SetIpv4 { interface, config } => {
                 interfaces::set_ipv4(&self.conn, &interface, &config).await
             }

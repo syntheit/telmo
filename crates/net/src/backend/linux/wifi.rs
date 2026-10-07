@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 use tokio::time::{sleep, timeout};
 use zbus::Connection;
-use zbus::zvariant::{ObjectPath, OwnedObjectPath, Value};
+use zbus::zvariant::{ObjectPath, OwnedObjectPath, OwnedValue, Value};
 
 const JOIN_TIMEOUT: Duration = Duration::from_secs(30);
 const SCAN_TIMEOUT: Duration = Duration::from_secs(10);
@@ -52,10 +52,10 @@ pub async fn read(conn: &Connection, scanning: bool) -> zbus::Result<Option<Wifi
         return Ok(None);
     };
     let power = manager(conn).await?.wireless_enabled().await?;
-    let saved: Vec<String> = saved_connections(conn)
-        .await?
-        .into_iter()
-        .map(|(_, ssid)| ssid)
+    let profiles = saved_connections(conn).await?;
+    let saved: Vec<(String, bool)> = profiles
+        .iter()
+        .map(|p| (p.ssid.clone(), p.auto_join))
         .collect();
     let aps = if power {
         read_aps(conn, &path).await?
@@ -70,6 +70,7 @@ pub async fn read(conn: &Connection, scanning: bool) -> zbus::Result<Option<Wifi
     let networks = group_networks(&aps, active.as_deref(), &saved);
     let mut saved_elsewhere: Vec<String> = saved
         .into_iter()
+        .map(|(ssid, _)| ssid)
         .filter(|s| !networks.iter().any(|n| n.ssid.as_deref() == Some(s)))
         .collect();
     saved_elsewhere.sort();
@@ -154,7 +155,7 @@ fn channel_of(frequency: u32) -> Option<u32> {
 }
 
 /// One entry per SSID (the strongest AP), hidden networks together, strongest first.
-fn group_networks(aps: &[Ap], active: Option<&str>, saved: &[String]) -> Vec<Network> {
+fn group_networks(aps: &[Ap], active: Option<&str>, saved: &[(String, bool)]) -> Vec<Network> {
     let mut best: HashMap<Option<&str>, &Ap> = HashMap::new();
     for ap in aps {
         let slot = best.entry(ap.ssid.as_deref()).or_insert(ap);
@@ -164,24 +165,34 @@ fn group_networks(aps: &[Ap], active: Option<&str>, saved: &[String]) -> Vec<Net
     }
     let mut networks: Vec<Network> = best
         .into_iter()
-        .map(|(ssid, ap)| Network {
-            id: ssid.unwrap_or("hidden").to_string(),
-            ssid: ssid.map(str::to_string),
-            strength: ap.strength,
-            security: ap.security,
-            band: band_of(ap.frequency),
-            saved: ssid.is_some_and(|s| saved.iter().any(|x| x == s)),
-            connected: aps
-                .iter()
-                .any(|a| a.ssid.as_deref() == ssid && Some(a.path.as_str()) == active),
+        .map(|(ssid, ap)| {
+            let profile = saved.iter().find(|(s, _)| Some(s.as_str()) == ssid);
+            Network {
+                id: ssid.unwrap_or("hidden").to_string(),
+                ssid: ssid.map(str::to_string),
+                strength: ap.strength,
+                security: ap.security,
+                band: band_of(ap.frequency),
+                saved: profile.is_some(),
+                auto_join: profile.map(|(_, auto_join)| *auto_join),
+                connected: aps
+                    .iter()
+                    .any(|a| a.ssid.as_deref() == ssid && Some(a.path.as_str()) == active),
+            }
         })
         .collect();
     networks.sort_by(|a, b| b.strength.cmp(&a.strength).then_with(|| a.id.cmp(&b.id)));
     networks
 }
 
-/// Saved Wi-Fi profiles as (profile path, SSID).
-async fn saved_connections(conn: &Connection) -> zbus::Result<Vec<(OwnedObjectPath, String)>> {
+/// A saved Wi-Fi profile.
+struct Profile {
+    path: OwnedObjectPath,
+    ssid: String,
+    auto_join: bool,
+}
+
+async fn saved_connections(conn: &Connection) -> zbus::Result<Vec<Profile>> {
     let settings = settings(conn).await?;
     let mut saved = Vec::new();
     for path in settings.list_connections().await? {
@@ -190,10 +201,24 @@ async fn saved_connections(conn: &Connection) -> zbus::Result<Vec<(OwnedObjectPa
             continue;
         };
         if let Some(ssid) = wifi_ssid(&profile_settings) {
-            saved.push((path, ssid));
+            let auto_join = autoconnect(&profile_settings);
+            saved.push(Profile {
+                path,
+                ssid,
+                auto_join,
+            });
         }
     }
     Ok(saved)
+}
+
+/// NetworkManager joins a profile automatically unless it says otherwise.
+fn autoconnect(settings: &Settings) -> bool {
+    settings
+        .get("connection")
+        .and_then(|c| c.get("autoconnect"))
+        .and_then(|v| v.downcast_ref::<bool>().ok())
+        .unwrap_or(true)
 }
 
 fn wifi_ssid(settings: &Settings) -> Option<String> {
@@ -216,8 +241,8 @@ async fn profiles_for(conn: &Connection, ssid: &str) -> zbus::Result<Vec<OwnedOb
     Ok(saved_connections(conn)
         .await?
         .into_iter()
-        .filter(|(_, s)| s == ssid)
-        .map(|(path, _)| path)
+        .filter(|p| p.ssid == ssid)
+        .map(|p| p.path)
         .collect())
 }
 
@@ -264,6 +289,38 @@ pub async fn set_power(conn: &Connection, on: bool) -> Result<String, String> {
         .await
         .map_err(|e| explain(what, &e))?;
     Ok(if on { "Wi-Fi is on." } else { "Wi-Fi is off." }.to_string())
+}
+
+/// Flip `connection.autoconnect`. NM applies it to future joins, so nothing reconnects.
+pub async fn set_auto_join(conn: &Connection, ssid: &str, on: bool) -> Result<String, String> {
+    let what = format!("change auto-join for {ssid}");
+    let profiles = profiles_for(conn, ssid)
+        .await
+        .map_err(|e| explain(&what, &e))?;
+    if profiles.is_empty() {
+        return Err(format!("{ssid} isn't saved."));
+    }
+    for path in profiles {
+        let profile =
+            open!(SettingsConnectionProxy, conn, &path).map_err(|e| explain(&what, &e))?;
+        let mut settings = profile
+            .get_settings()
+            .await
+            .map_err(|e| explain(&what, &e))?;
+        settings
+            .entry("connection".to_string())
+            .or_default()
+            .insert("autoconnect".to_string(), OwnedValue::from(on));
+        // Flags 0: save to disk. Secrets stay where they are, as Update2 keeps them.
+        profile
+            .update2(settings, 0, HashMap::new())
+            .await
+            .map_err(|e| explain(&what, &e))?;
+    }
+    Ok(format!(
+        "Auto-join is {} for {ssid}.",
+        if on { "on" } else { "off" }
+    ))
 }
 
 pub async fn forget(conn: &Connection, ssid: &str) -> Result<String, String> {
@@ -542,7 +599,7 @@ mod tests {
             ap(None, 20, 2437),
             ap(None, 30, 2437),
         ];
-        let saved = ["Home".to_string()];
+        let saved = [("Home".to_string(), false)];
         let active = aps[0].path.clone();
         let networks = group_networks(&aps, Some(&active), &saved);
         let ids: Vec<_> = networks.iter().map(|n| n.id.as_str()).collect();
@@ -550,9 +607,20 @@ mod tests {
         assert_eq!(networks[0].strength, 80);
         assert_eq!(networks[0].band, Some(Band::G5));
         assert!(networks[0].saved && networks[0].connected);
+        assert_eq!(networks[0].auto_join, Some(false));
+        assert_eq!(networks[1].auto_join, None);
         assert!(!networks[1].saved && !networks[1].connected);
         assert_eq!(networks[2].ssid, None);
         assert_eq!(networks[2].strength, 30);
+    }
+
+    #[test]
+    fn autoconnect_defaults_to_on() {
+        let mut settings = Settings::new();
+        assert!(autoconnect(&settings));
+        let off = HashMap::from([("autoconnect".to_string(), OwnedValue::from(false))]);
+        settings.insert("connection".to_string(), off);
+        assert!(!autoconnect(&settings));
     }
 
     #[test]

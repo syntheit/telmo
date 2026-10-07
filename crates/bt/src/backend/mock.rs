@@ -21,7 +21,7 @@ fn device(id: &str, name: &str, kind: Kind) -> Device {
         kind,
         paired: true,
         connected: false,
-        trusted: true,
+        auto_connect: Some(true),
         battery: None,
         rssi: None,
     }
@@ -36,7 +36,7 @@ fn connected(mut device: Device, battery: Battery) -> Device {
 fn nearby(id: &str, name: &str, kind: Kind, rssi: i16) -> Device {
     Device {
         paired: false,
-        trusted: false,
+        auto_connect: Some(false),
         rssi: Some(rssi),
         ..device(id, name, kind)
     }
@@ -165,7 +165,7 @@ impl Mock {
             Cmd::StopScan => self.set_scanning(false),
             Cmd::Pair(id) => self.pair(&id, cmds).await,
             Cmd::PairReply(_) => {}
-            Cmd::SetTrusted(id, trusted) => self.set_trusted(&id, trusted).await,
+            Cmd::SetAutoConnect(id, on) => self.set_auto_connect(&id, on).await,
             Cmd::Forget(id) => self.forget(&id).await,
             Cmd::Rename(id, name) => self.rename(&id, name).await,
         }
@@ -249,7 +249,7 @@ impl Mock {
         }
         if let Some(device) = self.device(id) {
             device.paired = true;
-            device.trusted = true;
+            device.auto_connect = Some(true);
             device.connected = true;
             device.rssi = None;
         }
@@ -257,19 +257,15 @@ impl Mock {
         self.done(id, Ok(format!("Paired with {name}")));
     }
 
-    async fn set_trusted(&mut self, id: &str, trusted: bool) {
+    async fn set_auto_connect(&mut self, id: &str, on: bool) {
         sleep(ACTION_DELAY / 2).await;
         let name = self.name_of(id);
         if let Some(device) = self.device(id) {
-            device.trusted = trusted;
+            device.auto_connect = Some(on);
         }
         self.publish();
-        let verb = if trusted {
-            "Trusted"
-        } else {
-            "No longer trusting"
-        };
-        self.done(id, Ok(format!("{verb} {name}")));
+        let state = if on { "on" } else { "off" };
+        self.done(id, Ok(format!("Auto-connect {state} for {name}")));
     }
 
     async fn forget(&mut self, id: &str) {

@@ -287,6 +287,10 @@ fn handle(cmd: Cmd, shared: &Arc<Shared>) {
             shared.refresh();
             shared.done(&interface, result);
         }
+        Cmd::SetAutoJoin { ssid, .. } => {
+            let result = open_wifi_settings();
+            shared.done(&ssid, result);
+        }
         Cmd::SetVpn { vpn, on } => {
             let result = vpn::set(&vpn, on);
             update_vpns(shared);
@@ -362,7 +366,16 @@ fn join(network: &str, password: Option<&str>) -> Result<String, String> {
 
 fn forget(ssid: &str) -> Result<String, String> {
     wifi::forget(&wifi_device()?, ssid)?;
+    host::forget_stored(ssid);
     Ok(format!("Forgot {ssid}."))
+}
+
+/// macOS keeps per-network auto-join in a root-only file that airportd owns and offers no public
+/// API for it, so the switch lives in System Settings.
+fn open_wifi_settings() -> Result<String, String> {
+    let url = "x-apple.systempreferences:com.apple.wifi-settings-extension";
+    shell::run("/usr/bin/open", &[url], host::QUICK)?;
+    Ok("Change auto-join in Wi-Fi settings.".to_string())
 }
 
 fn set_power(on: bool) -> Result<String, String> {

@@ -439,7 +439,7 @@ impl Backend {
             name,
             paired,
             connected,
-            trusted: paired,
+            auto_connect: None,
             battery,
         })
     }
@@ -539,9 +539,10 @@ impl Backend {
             Cmd::StopScan => self.stop_scan(),
             Cmd::Pair(id) => self.pair(&id),
             Cmd::PairReply(reply) => self.pair_reply(reply),
-            Cmd::SetTrusted(id, _) => {
-                self.done(&id, Ok("macOS trusts paired devices automatically.".into()))
-            }
+            Cmd::SetAutoConnect(id, _) => self.done(
+                &id,
+                Err("macOS reconnects paired devices automatically.".into()),
+            ),
             Cmd::Forget(id) => self.forget(&id),
             Cmd::Rename(id, _) => self.done(&id, Err("Renaming isn't supported on macOS.".into())),
         }

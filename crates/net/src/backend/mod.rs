@@ -21,6 +21,10 @@ pub enum Cmd {
         ssid: String,
     },
     SetWifiPower(bool),
+    SetAutoJoin {
+        ssid: String,
+        on: bool,
+    },
     SetIpv4 {
         interface: String,
         config: Ipv4Config,

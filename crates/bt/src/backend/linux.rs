@@ -102,7 +102,7 @@ fn target(cmd: &Cmd) -> Option<String> {
         Cmd::Connect(id)
         | Cmd::Disconnect(id)
         | Cmd::Pair(id)
-        | Cmd::SetTrusted(id, _)
+        | Cmd::SetAutoConnect(id, _)
         | Cmd::Forget(id)
         | Cmd::Rename(id, _) => Some(id.clone()),
         Cmd::PairReply(_) => None,
@@ -279,16 +279,16 @@ async fn run_cmd(adapter: &BtAdapter, prompter: &Prompter, cmd: Cmd) -> Result<S
             Ok(format!("Disconnected from {name}"))
         }
         Cmd::Pair(id) => pair_device(adapter, prompter, &id).await,
-        Cmd::SetTrusted(id, trusted) => {
+        Cmd::SetAutoConnect(id, on) => {
             let (device, name) = open(adapter, &id).await?;
             device
-                .set_trusted(trusted)
+                .set_trusted(on)
                 .await
-                .map_err(|e| device_error(&name, "change trust for", &e))?;
-            Ok(if trusted {
-                format!("{name} is trusted and will reconnect on its own")
+                .map_err(|e| device_error(&name, "change auto-connect for", &e))?;
+            Ok(if on {
+                format!("{name} will reconnect on its own")
             } else {
-                format!("{name} is no longer trusted")
+                format!("{name} will no longer reconnect on its own")
             })
         }
         Cmd::Forget(id) => {
@@ -418,7 +418,8 @@ async fn read_device(adapter: &BtAdapter, address: Address) -> Option<Device> {
         kind: kind(icon.as_deref()),
         paired: device.is_paired().await.unwrap_or(false),
         connected: device.is_connected().await.unwrap_or(false),
-        trusted: device.is_trusted().await.unwrap_or(false),
+        // BlueZ reconnects trusted devices on its own.
+        auto_connect: Some(device.is_trusted().await.unwrap_or(false)),
         battery: device
             .battery_percentage()
             .await

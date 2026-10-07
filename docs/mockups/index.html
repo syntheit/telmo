@@ -654,7 +654,7 @@ pre.tree .c1 { color: #565f89; }
       const base = screen(hdr('Bluetooth', btStatus()), btBoxes(os, 0), btKeys);
       const m = box('AirPods Pro', [
         [], kv('battery', os === 'mac' ? 'left 82% · right 80% · case 45%' : '81%', 'fg', 11), kv('type', 'headphones', 'fg', 11), kv('address', '4C:87:5D:1A:0F:22', 'dim', 11), [],
-        cat(B(2), T('t', 'b'), T(' untrust   ', 'dim'), T('r', 'b'), T(' rename   ', 'dim'), T('d', 'b'), T(' forget   ', 'dim'), T('esc', 'b'), T(' back', 'dim')), []
+        cat(B(2), T('a', 'b'), T(' auto-connect   ', 'dim'), T('r', 'b'), T(' rename   ', 'dim'), T('d', 'b'), T(' forget   ', 'dim'), T('esc', 'b'), T(' back', 'dim')), []
       ], 56, { active: true });
       return overlay(base, m, 4);
     },

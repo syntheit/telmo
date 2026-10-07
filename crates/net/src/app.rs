@@ -298,6 +298,16 @@ impl App {
             .as_ref()
     }
 
+    /// Whether the system joins this saved network by itself, if known.
+    pub fn auto_join(&self, ssid: &str) -> Option<bool> {
+        let wifi = self.snapshot.wifi.as_ref()?;
+        let network = wifi
+            .networks
+            .iter()
+            .find(|n| n.ssid.as_deref() == Some(ssid))?;
+        network.auto_join
+    }
+
     pub fn is_pending(&self, id: &str) -> bool {
         self.pending.contains(id)
     }
@@ -579,6 +589,11 @@ impl App {
                 }
             }
             KeyCode::Char('y') if open => d.open_qr = !d.open_qr,
+            KeyCode::Char('a') if saved => {
+                let on = !self.auto_join(&ssid).unwrap_or(true);
+                self.pending.insert(ssid.clone());
+                self.send(Cmd::SetAutoJoin { ssid, on });
+            }
             KeyCode::Char('d') if saved => d.confirm_forget = true,
             _ => {}
         }

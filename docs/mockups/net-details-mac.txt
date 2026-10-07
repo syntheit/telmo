@@ -3,21 +3,21 @@
 
 ╭─ Interfaces ───────────╮╭─ Wi-Fi ─────────────────────────────────────────────── ● on ─╮
 │ ▌ Wi-Fi             ●  ││ ▌ HomeNet-5G                    ▂▄▆█   ● connected           │
-│   HomeNet-5G           ││   HomeNet                       ▂▄▆█   saved                 │
-│               ╭─ HomeNet-5G ───────────────────────────────────────────────────╮       │
-│   Ethernet    │                                                                │       │
-│   USB LAN · 1 │   ip         192.168.1.42                                      │       │
-│               │   router     192.168.1.1                                       │       │
-│   Thunderbolt │   dns        1.1.1.1, 1.0.0.1                                  │       │
-│   not connecte│   public ip  203.0.113.24                                      │       │
-│               │   signal     strong · 5 GHz · WPA3                             │       │
-│   iPhone USB  │   password   ••••••••••                                        │       │
-│   not connecte│                                                                │       │
-│               │ y show password (Touch ID)   c copy ip   d forget              │       │
-│   VPN         │                                                                │       │
-│   Tailscale   ╰────────────────────────────────────────────────────────────────╯       │
+│   HomeNe╭─ HomeNet-5G ───────────────────────────────────────────────────────╮         │
+│         │                                                                    │         │
+│   Ethern│   ip         192.168.1.42                                          │         │
+│   USB LA│   router     192.168.1.1                                           │         │
+│         │   dns        1.1.1.1, 1.0.0.1                                      │         │
+│   Thunde│   public ip  203.0.113.24                                          │         │
+│   not co│   signal     strong · 5 GHz · WPA3                                 │         │
+│         │   password   ••••••••••                                            │         │
+│   iPhone│   auto-join  on                                                    │         │
+│   not co│                                                                    │         │
+│         │ y show password (Touch ID)   c copy ip   a auto-join   d forget    │         │
+│   VPN   │                                                                    │         │
+│   Tailsc╰────────────────────────────────────────────────────────────────────╯         │
+│                        ││                                                              │
+│                        ││                                                              │
 ╰────────────────────────╯╰──────────────────────────────────────────────────────────────╯
-
-
 
  ↵ join  i details  r rescan  s speedtest  p power  ? more  esc close
