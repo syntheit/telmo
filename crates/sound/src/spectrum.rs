@@ -1,5 +1,10 @@
 //! Turns raw samples into bar heights: mono mixdown, Hann window, FFT, log
-//! spaced bins, dB, then a gentle auto-gain. Pure, so it is unit tested.
+//! spaced bins, dB, then per-bar whitening and an auto-sensitivity.
+//! Pure, so it is unit tested.
+//!
+//! The adaptive normalization follows cava (https://github.com/karlstav/cava,
+//! MIT, see cavacore.c): bars show energy relative to what each bar has been
+//! doing lately, and a global sensitivity keeps the tallest bars near the top.
 
 use rustfft::{Fft, FftPlanner, num_complex::Complex};
 use std::{f32::consts::PI, sync::Arc};
@@ -8,20 +13,35 @@ pub const BARS: usize = 64;
 pub const FFT_SIZE: usize = 2048;
 const LOW_HZ: f32 = 40.0;
 const HIGH_HZ: f32 = 16_000.0;
-/// What maps to 0.0 and 1.0 after the tilt below.
-const FLOOR_DB: f32 = -72.0;
-const CEIL_DB: f32 = -8.0;
+/// What maps to 0.0 and 1.0 after the tilt below. Wide, so quiet passages
+/// sit visibly lower and loud ones reach the top.
+const FLOOR_DB: f32 = -80.0;
+const CEIL_DB: f32 = -10.0;
 /// Music is loudest in the bass; lift the highs so the right side moves too.
 const TILT_DB_PER_OCTAVE: f32 = 2.5;
-const MAX_GAIN: f32 = 4.0;
-/// Share of each new frame mixed into the running average of the bars.
-const SMOOTHING: f32 = 0.5;
-/// Per frame: how fast the gain climbs, and how much of the way to the
-/// no-clipping gain it falls. Slow, so loudness changes don't pump.
-const GAIN_RISE: f32 = 1.002;
-const GAIN_FALL: f32 = 0.15;
-/// Frames quieter than this don't raise the gain, so silence stays flat.
-const QUIET: f32 = 0.08;
+/// Per frame: how fast each bar's running average follows its energy, and
+/// how fast its running peak sinks toward that average.
+const AVERAGE_RATE: f32 = 0.03;
+const PEAK_SINK: f32 = 0.01;
+/// Smallest peak-to-average distance, so a flat tone doesn't blow up noise.
+const MIN_RANGE: f32 = 0.1;
+/// Where a bar sits while it matches its own recent average.
+const SETTLE: f32 = 0.3;
+/// Share of the whitened value in the output; the rest is plain energy, so
+/// loud bars stay taller than quiet ones.
+const WHITE_SHARE: f32 = 0.7;
+/// Energy below this fades the whitened part out, so silence stays at zero.
+const GATE: f32 = 0.15;
+/// Auto-sensitivity: the tallest bar should land just under the top.
+const TARGET: f32 = 0.9;
+const SENS_RISE: f32 = 1.003;
+const SENS_FALL: f32 = 0.95;
+const SENS_MIN: f32 = 0.3;
+const SENS_MAX: f32 = 4.0;
+/// Frames quieter than this don't raise the sensitivity.
+const QUIET: f32 = 0.05;
+/// Mild curve on the final height: quiet is lower, peaks keep their reach.
+const GAMMA: f32 = 1.25;
 
 pub struct Analyzer {
     bin_hz: f32,
@@ -30,9 +50,11 @@ pub struct Analyzer {
     /// The latest `FFT_SIZE` mono samples, oldest first.
     mono: Vec<f32>,
     buffer: Vec<Complex<f32>>,
-    gain: f32,
-    /// Running average of the bars, so frames blend into each other.
-    smooth: Vec<f32>,
+    /// Global auto-sensitivity.
+    sensitivity: f32,
+    /// Each bar's slow average and slowly sinking peak of energy.
+    average: Vec<f32>,
+    peak: Vec<f32>,
 }
 
 impl Analyzer {
@@ -46,8 +68,9 @@ impl Analyzer {
             window,
             mono: vec![0.0; FFT_SIZE],
             buffer: vec![Complex::default(); FFT_SIZE],
-            gain: 1.0,
-            smooth: vec![0.0; BARS],
+            sensitivity: 1.0,
+            average: vec![0.0; BARS],
+            peak: vec![0.0; BARS],
         }
     }
 
@@ -79,15 +102,9 @@ impl Analyzer {
             .iter()
             .map(|c| c.norm() * scale)
             .collect();
-        let bars: Vec<f32> = (0..BARS).map(|i| self.bar(&magnitudes, i)).collect();
-        let bars = self.apply_gain(bars);
-        for (smooth, bar) in self.smooth.iter_mut().zip(&bars) {
-            *smooth += (bar - *smooth) * SMOOTHING;
-            if *smooth < 1e-3 && *bar == 0.0 {
-                *smooth = 0.0;
-            }
-        }
-        self.smooth.clone()
+        let energy: Vec<f32> = (0..BARS).map(|i| self.bar(&magnitudes, i)).collect();
+        let bars = self.whiten(&energy);
+        self.apply_sensitivity(bars)
     }
 
     fn bar(&self, magnitudes: &[f32], i: usize) -> f32 {
@@ -105,21 +122,51 @@ impl Analyzer {
         ((db - FLOOR_DB) / (CEIL_DB - FLOOR_DB)).clamp(0.0, 1.0)
     }
 
-    /// Quiet music is lifted, loud music is pulled back. Both move slowly; the
-    /// clamp below catches the first loud frame.
-    fn apply_gain(&mut self, mut bars: Vec<f32>) -> Vec<f32> {
-        let peak = bars.iter().copied().fold(0.0, f32::max);
-        if peak * self.gain > 0.95 {
-            let safe = (0.95 / peak).max(1.0);
-            self.gain += (safe - self.gain) * GAIN_FALL;
-        } else if peak > QUIET {
-            self.gain = (self.gain * GAIN_RISE).min(MAX_GAIN);
-        }
-        for bar in &mut bars {
-            *bar = (*bar * self.gain).clamp(0.0, 1.0);
+    /// Shows each bar's energy relative to its own recent average and peak:
+    /// a steady tone settles low, a hit or a change jumps.
+    fn whiten(&mut self, energy: &[f32]) -> Vec<f32> {
+        let mut bars = Vec::with_capacity(BARS);
+        for (i, e) in energy.iter().copied().enumerate() {
+            if self.average[i] == 0.0 {
+                self.average[i] = e;
+            }
+            let (average, peak) = (self.average[i], self.peak[i].max(e));
+            bars.push(whitened(e, average, peak));
+            self.average[i] += (e - average) * AVERAGE_RATE;
+            self.peak[i] = peak - (peak - self.average[i]) * PEAK_SINK;
         }
         bars
     }
+
+    /// Overshoot cuts the sensitivity fast, a quiet stretch raises it slowly.
+    fn apply_sensitivity(&mut self, bars: Vec<f32>) -> Vec<f32> {
+        let tallest = bars.iter().copied().fold(0.0, f32::max) * self.sensitivity;
+        self.sensitivity = next_sensitivity(self.sensitivity, tallest);
+        bars.iter()
+            .map(|b| (b * self.sensitivity).clamp(0.0, 1.0).powf(GAMMA))
+            .collect()
+    }
+}
+
+/// One bar's height before sensitivity, from its energy `e` and its running
+/// `average` and `peak`. Zero for silence.
+pub fn whitened(e: f32, average: f32, peak: f32) -> f32 {
+    let range = (peak - average).max(MIN_RANGE);
+    let relative = (SETTLE + (e - average) / range).max(0.0);
+    let mixed = WHITE_SHARE * relative + (1.0 - WHITE_SHARE) * e;
+    mixed * (e / GATE).min(1.0)
+}
+
+/// The sensitivity after a frame whose tallest bar came out at `tallest`.
+pub fn next_sensitivity(sensitivity: f32, tallest: f32) -> f32 {
+    let next = if tallest > 1.0 {
+        sensitivity * SENS_FALL
+    } else if tallest > QUIET && tallest < TARGET {
+        sensitivity * SENS_RISE
+    } else {
+        sensitivity
+    };
+    next.clamp(SENS_MIN, SENS_MAX)
 }
 
 /// Frequency where bar `i` starts. Bars are evenly spaced on a log scale.
@@ -179,7 +226,7 @@ mod tests {
             let bars = settled(&mut analyzer);
             let at = loudest(&bars);
             assert!(at.abs_diff(bar_for(hz)) <= 1, "{hz} Hz lit bar {at}");
-            assert!(bars[at] > 0.5, "{hz} Hz only reached {}", bars[at]);
+            assert!(bars[at] > 0.25, "{hz} Hz only reached {}", bars[at]);
             let far = bars[(at + BARS / 2) % BARS];
             assert!(far < bars[at] / 2.0, "{hz} Hz leaked to {far}");
         }
@@ -212,14 +259,69 @@ mod tests {
         );
     }
 
+    /// Pushes one 30 fps frame of a 1 kHz tone and returns the bars.
+    fn step(analyzer: &mut Analyzer, amplitude: f32, n: usize) -> Vec<f32> {
+        let frame = 1600;
+        let start = n * frame;
+        let samples: Vec<f32> = (0..frame * 2)
+            .map(|k| {
+                let t = (start + k / 2) as f32 / RATE;
+                amplitude * (2.0 * PI * 1000.0 * t).sin()
+            })
+            .collect();
+        analyzer.push(&samples, 2);
+        analyzer.frame()
+    }
+
     #[test]
-    fn a_sudden_beat_arrives_over_several_frames() {
+    fn bursts_jump_and_the_tone_settles_back_down() {
         let mut analyzer = Analyzer::new(RATE);
-        analyzer.push(&sine(1000.0, 0.5, FFT_SIZE), 2);
         let at = bar_for(1000.0);
-        let first = analyzer.frame()[at];
-        let steady = settled(&mut analyzer)[at];
-        assert!(first > 0.0 && first < 0.6 * steady, "{first} vs {steady}");
+        let mut n = 0;
+        for cycle in 0..5 {
+            let mut calm = 0.0;
+            for _ in 0..45 {
+                calm = step(&mut analyzer, 0.1, n)[at];
+                n += 1;
+            }
+            let mut burst: f32 = 0.0;
+            for _ in 0..6 {
+                burst = burst.max(step(&mut analyzer, 0.7, n)[at]);
+                n += 1;
+            }
+            if cycle >= 1 {
+                assert!(burst - calm > 0.35, "burst {burst} vs calm {calm}");
+                assert!(calm < 0.6, "steady tone sits at {calm}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_steady_tone_settles_low() {
+        let mut analyzer = Analyzer::new(RATE);
+        let at = bar_for(1000.0);
+        let steady = (0..90)
+            .map(|n| step(&mut analyzer, 0.3, n)[at])
+            .last()
+            .unwrap_or_default();
+        assert!(steady < 0.7, "{steady}");
+    }
+
+    #[test]
+    fn whitening_is_zero_for_silence_and_grows_with_surprise() {
+        assert_eq!(whitened(0.0, 0.0, 0.0), 0.0);
+        let steady = whitened(0.5, 0.5, 0.5);
+        assert!(whitened(0.8, 0.5, 0.8) > steady + 0.3);
+        assert!(whitened(0.2, 0.5, 0.8) < steady);
+    }
+
+    #[test]
+    fn sensitivity_drops_fast_and_climbs_slowly() {
+        let down = 1.0 - next_sensitivity(1.0, 1.2);
+        let up = next_sensitivity(1.0, 0.5) - 1.0;
+        assert!(down > 10.0 * up && up > 0.0);
+        assert_eq!(next_sensitivity(1.0, 0.0), 1.0);
+        assert_eq!(next_sensitivity(SENS_MAX, 0.5), SENS_MAX);
     }
 
     #[test]

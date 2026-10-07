@@ -671,11 +671,13 @@ mod tests {
     }
 
     #[test]
-    fn a_jump_in_the_spectrum_is_not_a_jump_on_screen() {
+    fn a_jump_in_the_spectrum_lands_within_a_few_frames() {
         let mut app = app(mock::linux(), "");
         app.motion.set_target(&vec![1.0; BARS]);
         run(&mut app, 1);
-        assert!(app.motion.bars[10] < 0.4);
+        assert!(app.motion.bars[10] < 1.0);
+        run(&mut app, 2);
+        assert!(app.motion.bars[10] > 0.95);
     }
 
     #[test]
