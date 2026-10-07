@@ -81,11 +81,18 @@ fn draw_readout(app: &App, frame: &mut Frame, area: Rect) {
     } else {
         theme::faint()
     };
+    // The unit sits beside the bottom row; pad the rows above by the same
+    // width so all three stay aligned when centered.
+    let unit = format!("  {}", app.unit_label());
     let mut digits = widgets::big_digits(&app.readout(), style);
-    digits[2].spans.push(Span::styled(
-        format!("  {}", app.unit_label()),
-        theme::dim(),
-    ));
+    for (i, row) in digits.iter_mut().enumerate() {
+        let tail = if i == 2 {
+            unit.clone()
+        } else {
+            " ".repeat(unit.chars().count())
+        };
+        row.spans.push(Span::styled(tail, theme::dim()));
+    }
 
     let mut lines = vec![Line::raw("")];
     lines.extend(digits);
