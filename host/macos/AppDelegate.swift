@@ -4,6 +4,7 @@ import CoreLocation
 final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDelegate {
     private let popup = PopupPanel()
     private let dim = DimWindows()
+    private let bluetooth = BluetoothGuard()
     private var hotkeys: Hotkeys?
     private var ipc: IPCServer?
     private var locationManager: CLLocationManager?
@@ -31,6 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
             signalSources.append(source)
         }
 
+        bluetooth.start()
         hotkeys = Hotkeys { [weak self] module in self?.toggle(module) }
     }
 
@@ -52,7 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
             if case .failure(let error) = Popups.resolve(words[1]) { return "error \(error.message)" }
             if words[0] == "toggle" { toggle(words[1]) } else { show(words[1]) }
             return "ok"
-        default: return "error unknown command: \(line)"
+        default: return bluetooth.handle(words) ?? "error unknown command: \(line)"
         }
     }
 

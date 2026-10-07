@@ -7,6 +7,7 @@
 mod battery;
 mod classify;
 mod handler;
+mod host;
 
 use super::{Cmd, Event, Rx, Tx};
 use crate::model::{Adapter, Device, PairPrompt, Snapshot};
@@ -396,6 +397,7 @@ impl Backend {
 
     fn devices(&self) -> Vec<Device> {
         let hid = battery::hid_batteries();
+        let no_auto = host::no_auto_connect();
         let mut seen = HashSet::new();
         let mut devices = Vec::new();
         let paired = devices_in(unsafe { IOBluetoothDevice::pairedDevices() });
@@ -404,7 +406,7 @@ impl Backend {
             .iter()
             .flat_map(|inquiry| devices_in(unsafe { inquiry.foundDevices() }));
         for device in paired.into_iter().chain(found) {
-            if let Some(device) = self.describe(&device, &hid)
+            if let Some(device) = self.describe(&device, &hid, no_auto.as_deref())
                 && seen.insert(device.id.clone())
             {
                 devices.push(device);
@@ -417,7 +419,12 @@ impl Backend {
         devices
     }
 
-    fn describe(&self, device: &IOBluetoothDevice, hid: &[HidBattery]) -> Option<Device> {
+    fn describe(
+        &self,
+        device: &IOBluetoothDevice,
+        hid: &[HidBattery],
+        no_auto: Option<&[String]>,
+    ) -> Option<Device> {
         let id = address_of(device)?;
         let name = device_name(device);
         let paired = unsafe { device.isPaired() };
@@ -432,6 +439,7 @@ impl Backend {
                     .or_else(|| battery::single_battery(hid, &id, &name))
             })
             .flatten();
+        let auto_connect = no_auto.map(|list| !list.contains(&id));
         Some(Device {
             kind: classify::kind(unsafe { device.classOfDevice() }),
             rssi: if paired { None } else { rssi_of(device) },
@@ -439,7 +447,7 @@ impl Backend {
             name,
             paired,
             connected,
-            auto_connect: None,
+            auto_connect,
             battery,
         })
     }
@@ -539,10 +547,7 @@ impl Backend {
             Cmd::StopScan => self.stop_scan(),
             Cmd::Pair(id) => self.pair(&id),
             Cmd::PairReply(reply) => self.pair_reply(reply),
-            Cmd::SetAutoConnect(id, _) => self.done(
-                &id,
-                Err("macOS reconnects paired devices automatically.".into()),
-            ),
+            Cmd::SetAutoConnect(id, on) => self.set_auto_connect(&id, on),
             Cmd::Forget(id) => self.forget(&id),
             Cmd::Rename(id, _) => self.done(&id, Err("Renaming isn't supported on macOS.".into())),
         }
@@ -562,6 +567,18 @@ impl Backend {
         Some((device, name))
     }
 
+    fn set_auto_connect(&mut self, id: &str, on: bool) {
+        let name = find_device(id).map_or_else(|| id.to_string(), |d| display_name(&d, id));
+        match host::set_auto_connect(id, on) {
+            Ok(()) => {
+                self.mark_dirty();
+                let state = if on { "on" } else { "off" };
+                self.done(id, Ok(format!("Auto-connect {state} for {name}")));
+            }
+            Err(message) => self.done(id, Err(message)),
+        }
+    }
+
     fn connect(&mut self, id: &str) {
         let Some((device, name)) = self.require_device(id) else {
             return;
@@ -569,6 +586,7 @@ impl Backend {
         if unsafe { device.isConnected() } {
             return self.done(id, Ok(format!("Connected to {name}")));
         }
+        host::allow(id);
         let status = unsafe {
             device.openConnection_withPageTimeout_authenticationRequired(
                 Some(self.delegate()),
@@ -753,6 +771,7 @@ impl Backend {
         if unsafe { device.isPaired() } {
             return self.done(id, Ok(format!("{name} is already paired")));
         }
+        host::allow(id);
         let Some(pair) = (unsafe { IOBluetoothDevicePair::pairWithDevice(Some(&device)) }) else {
             return self.done(id, Err(pairing_failed(&name)));
         };

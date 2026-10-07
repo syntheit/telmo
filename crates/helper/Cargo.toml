@@ -1,0 +1,9 @@
+[package]
+name = "telmo-helper"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+plist = "1"
+serde_json.workspace = true

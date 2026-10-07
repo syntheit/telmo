@@ -768,7 +768,11 @@ fn details_hint(app: &App, d: &DetailsDialog) -> Vec<(&'static str, &'static str
             (false, true) => "show password (Touch ID)",
             (false, false) => "show password",
         };
-        let copy = if d.password.is_some() { "copy password" } else { "copy ip" };
+        let copy = if d.password.is_some() {
+            "copy password"
+        } else {
+            "copy ip"
+        };
         vec![
             ("y", reveal),
             ("c", copy),

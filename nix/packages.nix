@@ -39,6 +39,19 @@ rec {
   telmo-sound = module "sound" "Sound popup";
   telmo-display = module "display" "Display popup: brightness, Night Shift, scaling";
   telmo-power = module "power" "Power popup: battery, Low Power Mode, keep awake";
+  telmo-helper = craneLib.buildPackage (
+    common
+    // {
+      inherit cargoArtifacts;
+      pname = "telmo-helper";
+      cargoExtraArgs = "-p telmo-helper";
+      doCheck = false;
+      meta = {
+        description = "Privileged helper for Wi-Fi auto-join (macOS, optional)";
+        mainProgram = "telmo-helper";
+      };
+    }
+  );
   telmo-scale = module "scale" "Weigh things on a Force Touch trackpad";
   telmo = pkgs.symlinkJoin {
     name = "telmo";

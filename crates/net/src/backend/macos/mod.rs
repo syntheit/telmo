@@ -3,6 +3,7 @@
 //! snapshot. Slow work (scans, joins, shelling out) runs on short-lived worker
 //! threads that ask that thread for a new snapshot when they finish.
 
+mod helper;
 mod host;
 mod interfaces;
 mod sc;
@@ -187,7 +188,10 @@ fn snapshot(
     });
     let current = radio.and_then(|r| r.current(record));
     let scanning = lock(&shared.scan).running;
-    let wifi_state = radio.map(|r| r.read(current.clone(), scanning));
+    let mut wifi_state = radio.map(|r| r.read(current.clone(), scanning));
+    if let Some(wifi) = &mut wifi_state {
+        apply_auto_join(shared, wifi);
+    }
     let brief = WifiBrief {
         power: wifi_state.as_ref().is_some_and(|w| w.power),
         ssid: current.and_then(|c| c.ssid),
@@ -211,6 +215,23 @@ fn snapshot(
         },
     };
     (snapshot, problem)
+}
+
+/// Fill in auto-join from the privileged helper's cache, and refresh that cache
+/// off-thread when it is old. Without the helper nothing changes.
+fn apply_auto_join(shared: &Arc<Shared>, wifi: &mut crate::model::Wifi) {
+    let known = helper::cached();
+    for network in wifi.networks.iter_mut().filter(|n| n.saved) {
+        network.auto_join = network.ssid.as_ref().and_then(|s| known.get(s).copied());
+    }
+    if helper::claim_refresh() {
+        let shared = shared.clone();
+        thread::spawn(move || {
+            if helper::refresh() {
+                shared.refresh();
+            }
+        });
+    }
 }
 
 /// Wired speeds come from `ifconfig`, so measure each connection once, off-thread.
@@ -287,8 +308,9 @@ fn handle(cmd: Cmd, shared: &Arc<Shared>) {
             shared.refresh();
             shared.done(&interface, result);
         }
-        Cmd::SetAutoJoin { ssid, .. } => {
-            let result = open_wifi_settings();
+        Cmd::SetAutoJoin { ssid, on } => {
+            let result = set_auto_join(&ssid, on);
+            shared.refresh();
             shared.done(&ssid, result);
         }
         Cmd::SetVpn { vpn, on } => {
@@ -371,7 +393,18 @@ fn forget(ssid: &str) -> Result<String, String> {
 }
 
 /// macOS keeps per-network auto-join in a root-only file that airportd owns and offers no public
-/// API for it, so the switch lives in System Settings.
+/// API for it. The optional helper can change it; without the helper the switch lives in System Settings.
+fn set_auto_join(ssid: &str, on: bool) -> Result<String, String> {
+    match helper::set(ssid, on) {
+        Ok(()) => Ok(format!(
+            "Auto-join is {} for {ssid}.",
+            if on { "on" } else { "off" }
+        )),
+        Err(_) => open_wifi_settings(),
+    }
+}
+
+/// The fallback: System Settings' Wi-Fi pane.
 fn open_wifi_settings() -> Result<String, String> {
     let url = "x-apple.systempreferences:com.apple.wifi-settings-extension";
     shell::run("/usr/bin/open", &[url], host::QUICK)?;

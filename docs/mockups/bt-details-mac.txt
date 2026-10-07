@@ -8,9 +8,9 @@
 ╭─ Paired ───────│   battery       left 82% · right 80% · case 45%      │────────────────╮
 │   MX Master 3S │   type          headphones                           │                │
 │   Sony WH-1000X│   address       4C:87:5D:1A:0F:22                    │                │
-│   Xbox Wireless│   auto-connect  automatic (macOS)                    │                │
+│   Xbox Wireless│   auto-connect  on                                   │                │
 ╰────────────────│                                                      │────────────────╯
-                 │  r rename   d forget   esc back                      │
+                 │  a auto-connect off   r rename   d forget   esc back │
                  │                                                      │
                  ╰──────────────────────────────────────────────────────╯
 

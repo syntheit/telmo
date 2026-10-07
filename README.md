@@ -65,6 +65,25 @@ programs.telmo = {
 
 Building `Telmo.app` uses the Xcode Command Line Tools' `swiftc` (macOS 26 SDK).
 
+## Privileged helper (optional)
+
+macOS keeps per-network Wi-Fi auto-join in a root-only file. `telmo-helper` is a
+small root launchd daemon that lets the net popup show and toggle it without a
+prompt. It listens on `/var/run/telmo-helper.sock` (mode 0600, owned by you),
+checks the connecting process's user and its Developer ID code signature (your
+team ID), and answers exactly two requests: list auto-join per saved network,
+and set it for a network that's already saved. Without it the popup opens
+Wi-Fi settings instead.
+
+```nix
+# nix-darwin
+imports = [ inputs.telmo.darwinModules.default ];
+services.telmo-helper = { enable = true; user = "you"; teamId = "ABCDE12345"; };
+```
+
+`user` needs an explicit `users.users.<name>.uid`. Telmo.app must be signed with
+that team's Developer ID (see `signingIdentity` above).
+
 ## Keys
 
 `j`/`k` move · `↵` primary action · `tab` next pane · `i` details · `?` all keys ·
