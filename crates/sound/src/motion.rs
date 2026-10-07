@@ -1,0 +1,190 @@
+//! What the visualizer shows, eased toward the latest spectrum a little every
+//! frame. Spectrum frames only set targets; drawing never sees a jump.
+
+use crate::spectrum::BARS;
+
+/// Frames a second the constants below are tuned for.
+pub const FPS: f32 = 30.0;
+/// Share of the gap a bar closes per frame when rising.
+const ATTACK: f32 = 0.35;
+/// Share of the gap a bar closes per frame when falling.
+const RELEASE: f32 = 0.08;
+/// Falling never slows below this, so bars really reach the floor.
+const MIN_FALL: f32 = 0.004;
+/// Frames a peak cap stays put, then how fast it drops per frame.
+const PEAK_HOLD: f32 = 12.0;
+const PEAK_FALL: f32 = 0.012;
+/// Hue degrees the rainbow drifts each second.
+const DRIFT_PER_SECOND: f32 = 18.0;
+/// Below this a bar counts as zero.
+const EPSILON: f32 = 0.004;
+
+pub struct Motion {
+    pub bars: Vec<f32>,
+    pub peaks: Vec<f32>,
+    hold: Vec<f32>,
+    target: Vec<f32>,
+    /// Hue offset in degrees; the whole gradient slides by this much.
+    pub phase: f32,
+}
+
+impl Motion {
+    pub fn new() -> Self {
+        Self {
+            bars: vec![0.0; BARS],
+            peaks: vec![0.0; BARS],
+            hold: vec![0.0; BARS],
+            target: vec![0.0; BARS],
+            phase: 0.0,
+        }
+    }
+
+    pub fn set_target(&mut self, frame: &[f32]) {
+        self.target = blur(frame);
+    }
+
+    pub fn silence(&mut self) {
+        self.target.fill(0.0);
+    }
+
+    /// Advances by `frames` (1.0 is one frame at `FPS`).
+    pub fn step(&mut self, frames: f32) {
+        for i in 0..self.bars.len() {
+            self.bars[i] = ease(self.bars[i], self.target[i], frames);
+            (self.peaks[i], self.hold[i]) =
+                step_peak(self.peaks[i], self.hold[i], self.bars[i], frames);
+        }
+        self.phase = (self.phase + DRIFT_PER_SECOND * frames / FPS) % 360.0;
+    }
+
+    /// Nothing is lit and nothing will move, so no more frames are needed.
+    pub fn settled(&self) -> bool {
+        self.bars.iter().chain(&self.peaks).all(|v| *v == 0.0)
+            && self.target.iter().all(|v| *v == 0.0)
+    }
+
+    pub fn lit(&self) -> bool {
+        self.bars.iter().any(|b| *b > 0.0)
+    }
+
+    /// Jumps straight to `levels`, for tests of drawing.
+    #[cfg(test)]
+    pub fn show(&mut self, levels: &[f32]) {
+        self.bars = levels.to_vec();
+        self.peaks = levels.to_vec();
+        self.target = levels.to_vec();
+    }
+}
+
+/// Moves `current` toward `target`: quickly up, slowly and steadily down.
+pub fn ease(current: f32, target: f32, frames: f32) -> f32 {
+    let gap = target - current;
+    let next = if gap > 0.0 {
+        current + gap * (1.0 - (1.0 - ATTACK).powf(frames))
+    } else {
+        let fall = (-gap * (1.0 - (1.0 - RELEASE).powf(frames))).max(MIN_FALL * frames);
+        (current - fall).max(target)
+    };
+    if next < EPSILON && target == 0.0 {
+        0.0
+    } else {
+        next
+    }
+}
+
+/// A peak cap: follows its bar up, waits, then sinks, never below the bar.
+/// Returns the new cap height and the frames of waiting left.
+pub fn step_peak(peak: f32, hold: f32, bar: f32, frames: f32) -> (f32, f32) {
+    if bar >= peak {
+        (bar, PEAK_HOLD)
+    } else if hold > 0.0 {
+        (peak, (hold - frames).max(0.0))
+    } else {
+        let next = (peak - PEAK_FALL * frames).max(bar);
+        (if next < EPSILON { 0.0 } else { next }, 0.0)
+    }
+}
+
+/// Blends every value with its neighbours, so single spikes spread out.
+pub fn blur(values: &[f32]) -> Vec<f32> {
+    let at = |i: isize| values[i.clamp(0, values.len() as isize - 1) as usize];
+    (0..values.len() as isize)
+        .map(|i| 0.25 * at(i - 1) + 0.5 * at(i) + 0.25 * at(i + 1))
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rises_faster_than_it_falls() {
+        let up = ease(0.0, 1.0, 1.0);
+        let down = 1.0 - ease(1.0, 0.0, 1.0);
+        assert!((up - 0.35).abs() < 1e-6);
+        assert!(down < up / 3.0);
+    }
+
+    #[test]
+    fn easing_never_overshoots_and_reaches_zero() {
+        assert_eq!(ease(0.5, 0.5, 1.0), 0.5);
+        assert!(ease(0.0, 1.0, 100.0) <= 1.0);
+        let mut v = 1.0;
+        for _ in 0..200 {
+            v = ease(v, 0.0, 1.0);
+        }
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn two_half_steps_match_one_whole() {
+        let whole = ease(0.0, 1.0, 1.0);
+        let halves = ease(ease(0.0, 1.0, 0.5), 1.0, 0.5);
+        assert!((whole - halves).abs() < 1e-5);
+    }
+
+    #[test]
+    fn peak_holds_then_falls_but_not_below_the_bar() {
+        let (mut peak, mut hold) = step_peak(0.0, 0.0, 0.8, 1.0);
+        assert_eq!((peak, hold), (0.8, PEAK_HOLD));
+        for _ in 0..PEAK_HOLD as usize {
+            (peak, hold) = step_peak(peak, hold, 0.2, 1.0);
+            assert_eq!(peak, 0.8);
+        }
+        (peak, hold) = step_peak(peak, hold, 0.2, 1.0);
+        assert!(peak < 0.8 && peak > 0.7);
+        for _ in 0..100 {
+            (peak, hold) = step_peak(peak, hold, 0.2, 1.0);
+        }
+        assert_eq!(peak, 0.2);
+    }
+
+    #[test]
+    fn blur_spreads_a_spike_and_keeps_flat_runs() {
+        assert_eq!(blur(&[0.0, 1.0, 0.0]), vec![0.25, 0.5, 0.25]);
+        assert_eq!(blur(&[0.6, 0.6, 0.6]), vec![0.6, 0.6, 0.6]);
+    }
+
+    #[test]
+    fn settles_after_the_sound_stops() {
+        let mut motion = Motion::new();
+        assert!(motion.settled());
+        motion.set_target(&vec![1.0; BARS]);
+        motion.step(1.0);
+        assert!(!motion.settled() && motion.lit());
+        motion.silence();
+        for _ in 0..400 {
+            motion.step(1.0);
+        }
+        assert!(motion.settled() && !motion.lit());
+    }
+
+    #[test]
+    fn the_rainbow_drifts_and_wraps() {
+        let mut motion = Motion::new();
+        motion.step(FPS);
+        assert!((motion.phase - DRIFT_PER_SECOND).abs() < 1e-3);
+        motion.step(FPS * 20.0);
+        assert!(motion.phase < 360.0);
+    }
+}

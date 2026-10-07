@@ -2,6 +2,8 @@ mod app;
 mod backend;
 mod capture;
 mod model;
+mod motion;
+mod rainbow;
 mod spectrum;
 mod ui;
 

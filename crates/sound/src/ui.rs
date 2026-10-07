@@ -2,11 +2,12 @@
 
 use crate::app::{App, Click, Dialog, Pane};
 use crate::model::Device;
+use crate::rainbow;
 use ratatui::{
     Frame,
     crossterm::event::KeyCode,
     layout::{Constraint, Layout, Rect},
-    style::{Color, Style},
+    style::Style,
     text::{Line, Span, Text},
 };
 use telmo_kit::{theme, widgets};
@@ -100,14 +101,15 @@ const BLOCKED_NOTE: &str =
     "Allow System Audio Recording for Telmo in System Settings to see the visualizer.";
 
 /// Bars one cell wide with one cell between, as many as fit, stacked eighth
-/// blocks for height and a cyan to blue to magenta gradient across.
+/// blocks for height, a drifting rainbow across and a peak cap on each.
 fn draw_visualizer(app: &App, frame: &mut Frame, area: Rect) {
     let width = area.width as usize;
     let count = width.div_ceil(2);
     if count < 2 {
         return;
     }
-    let levels = resample(&app.bars, count);
+    let levels = resample(&app.motion.bars, count);
+    let peaks = resample(&app.motion.peaks, count);
     let indent = (width - (count * 2 - 1)) / 2;
     let rows = area.height as usize;
     let lines: Vec<Line> = (0..rows)
@@ -118,13 +120,14 @@ fn draw_visualizer(app: &App, frame: &mut Frame, area: Rect) {
                 if i > 0 {
                     spans.push(Span::raw(" "));
                 }
-                spans.push(cell(*level, row, rows, i as f32 / (count - 1) as f32));
+                let across = i as f32 / (count - 1) as f32;
+                spans.push(cell(*level, peaks[i], row, rows, across, app.motion.phase));
             }
             Line::from(spans)
         })
         .collect();
     frame.render_widget(Text::from(lines), area);
-    if app.blocked && !app.bars.iter().any(|b| *b > 0.0) && rows >= 2 {
+    if app.blocked && !app.motion.lit() && rows >= 2 {
         let note = Rect {
             y: area.y + area.height - 2,
             height: 1,
@@ -136,34 +139,25 @@ fn draw_visualizer(app: &App, frame: &mut Frame, area: Rect) {
 }
 
 /// One cell of a bar, counting rows from the bottom. The bottom row always
-/// shows at least a faint baseline.
-fn cell(level: f32, row: usize, rows: usize, across: f32) -> Span<'static> {
-    let eighths = (level * (rows * 8) as f32).round() as usize;
-    let fill = eighths.saturating_sub(row * 8).min(8);
-    match (fill, row) {
-        (0, 0) => Span::styled("▁", theme::faint()),
-        (0, _) => Span::raw(" "),
-        _ => Span::styled(
-            BLOCKS[fill - 1].to_string(),
-            Style::new().fg(gradient(across)),
-        ),
+/// shows at least a faint baseline. A peak cap floats above a bar that has
+/// fallen away from it.
+fn cell(level: f32, peak: f32, row: usize, rows: usize, across: f32, phase: f32) -> Span<'static> {
+    let eighths = |v: f32| (v * (rows * 8) as f32).round() as usize;
+    let fill = eighths(level).saturating_sub(row * 8).min(8);
+    let height = row as f32 / (rows - 1).max(1) as f32;
+    let top = fill > 0 && eighths(level) <= (row + 1) * 8;
+    if fill > 0 {
+        let color = rainbow::bar_color(across, phase, height, top);
+        return Span::styled(BLOCKS[fill - 1].to_string(), Style::new().fg(color));
     }
-}
-
-fn gradient(t: f32) -> Color {
-    if t < 0.5 {
-        mix(theme::CYAN, theme::BLUE, t * 2.0)
-    } else {
-        mix(theme::BLUE, theme::MAGENTA, t * 2.0 - 1.0)
+    let cap_row = eighths(peak).saturating_sub(1) / 8;
+    if eighths(peak) > 0 && cap_row == row {
+        return Span::styled("▔", Style::new().fg(rainbow::cap_color(across, phase)));
     }
-}
-
-fn mix(from: Color, to: Color, t: f32) -> Color {
-    let (Color::Rgb(r1, g1, b1), Color::Rgb(r2, g2, b2)) = (from, to) else {
-        return to;
-    };
-    let lerp = |a: u8, b: u8| (a as f32 + (b as f32 - a as f32) * t).round() as u8;
-    Color::Rgb(lerp(r1, r2), lerp(g1, g2), lerp(b1, b2))
+    match row {
+        0 => Span::styled("▁", theme::faint()),
+        _ => Span::raw(" "),
+    }
 }
 
 /// `count` heights spread over `bars`, linearly interpolated.
@@ -643,27 +637,45 @@ mod tests {
         app
     }
 
+    /// Runs the visualizer for `frames` frames at 30 a second.
+    fn run(app: &mut App, frames: usize) {
+        for _ in 0..frames {
+            app.motion.step(1.0);
+        }
+    }
+
     #[test]
     fn animates_only_while_audio_flows_or_fades() {
         let mut app = stopped(app(mock::linux(), ""));
         assert!(!app.animating());
         app.event(Event::Spectrum(canned()));
         assert!(app.animating());
-        for _ in 0..40 {
+        for _ in 0..400 {
             app.tick();
+            run(&mut app, 1);
         }
         assert!(!app.animating());
-        assert!(app.bars.iter().all(|b| *b == 0.0));
+        assert!(!app.motion.lit());
     }
 
     #[test]
     fn bars_rise_fast_and_fall_slowly() {
         let mut app = app(mock::linux(), "");
-        app.event(Event::Spectrum(vec![1.0; BARS]));
-        let risen = app.bars[0];
-        assert!(risen > 0.6);
-        app.event(Event::Spectrum(vec![0.0; BARS]));
-        assert!(app.bars[0] > 0.5 * risen);
+        app.motion.set_target(&vec![1.0; BARS]);
+        run(&mut app, 3);
+        let risen = app.motion.bars[10];
+        assert!(risen > 0.7);
+        app.motion.set_target(&vec![0.0; BARS]);
+        run(&mut app, 3);
+        assert!(app.motion.bars[10] > 0.7 * risen);
+    }
+
+    #[test]
+    fn a_jump_in_the_spectrum_is_not_a_jump_on_screen() {
+        let mut app = app(mock::linux(), "");
+        app.motion.set_target(&vec![1.0; BARS]);
+        run(&mut app, 1);
+        assert!(app.motion.bars[10] < 0.4);
     }
 
     #[test]
@@ -697,7 +709,7 @@ mod tests {
     #[test]
     fn visualizer_fills_the_width() {
         let mut app = app(mock::linux(), "");
-        app.bars = canned();
+        app.motion.show(&canned());
         let screen = render(&app);
         let row = screen.lines().nth(19).unwrap_or_default();
         assert!(
@@ -712,17 +724,35 @@ mod tests {
         assert_eq!(resample(&bars, 5), vec![0.0, 0.25, 0.5, 0.75, 1.0]);
     }
 
+    /// Caps a little above some bars, with a fixed rainbow offset.
+    fn raise_caps(app: &mut App) {
+        for (i, peak) in app.motion.peaks.iter_mut().enumerate() {
+            *peak = (*peak + 0.12 * (i % 3) as f32).min(1.0);
+        }
+        app.motion.phase = 40.0;
+    }
+
+    #[test]
+    fn caps_float_above_fallen_bars() {
+        let mut app = app(mock::linux(), "j");
+        app.motion.show(&canned());
+        raise_caps(&mut app);
+        assert!(render(&app).contains('▔'));
+    }
+
     #[test]
     fn visualizer_playing_linux() {
         let mut app = app(mock::linux(), "j");
-        app.bars = canned();
+        app.motion.show(&canned());
+        raise_caps(&mut app);
         insta::assert_snapshot!(render(&app));
     }
 
     #[test]
     fn visualizer_playing_mac() {
         let mut app = app(mock::mac(), "j");
-        app.bars = canned();
+        app.motion.show(&canned());
+        raise_caps(&mut app);
         insta::assert_snapshot!(render(&app));
     }
 

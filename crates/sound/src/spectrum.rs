@@ -14,6 +14,12 @@ const CEIL_DB: f32 = -8.0;
 /// Music is loudest in the bass; lift the highs so the right side moves too.
 const TILT_DB_PER_OCTAVE: f32 = 2.5;
 const MAX_GAIN: f32 = 4.0;
+/// Share of each new frame mixed into the running average of the bars.
+const SMOOTHING: f32 = 0.5;
+/// Per frame: how fast the gain climbs, and how much of the way to the
+/// no-clipping gain it falls. Slow, so loudness changes don't pump.
+const GAIN_RISE: f32 = 1.002;
+const GAIN_FALL: f32 = 0.15;
 /// Frames quieter than this don't raise the gain, so silence stays flat.
 const QUIET: f32 = 0.08;
 
@@ -25,6 +31,8 @@ pub struct Analyzer {
     mono: Vec<f32>,
     buffer: Vec<Complex<f32>>,
     gain: f32,
+    /// Running average of the bars, so frames blend into each other.
+    smooth: Vec<f32>,
 }
 
 impl Analyzer {
@@ -39,6 +47,7 @@ impl Analyzer {
             mono: vec![0.0; FFT_SIZE],
             buffer: vec![Complex::default(); FFT_SIZE],
             gain: 1.0,
+            smooth: vec![0.0; BARS],
         }
     }
 
@@ -71,7 +80,14 @@ impl Analyzer {
             .map(|c| c.norm() * scale)
             .collect();
         let bars: Vec<f32> = (0..BARS).map(|i| self.bar(&magnitudes, i)).collect();
-        self.apply_gain(bars)
+        let bars = self.apply_gain(bars);
+        for (smooth, bar) in self.smooth.iter_mut().zip(&bars) {
+            *smooth += (bar - *smooth) * SMOOTHING;
+            if *smooth < 1e-3 && *bar == 0.0 {
+                *smooth = 0.0;
+            }
+        }
+        self.smooth.clone()
     }
 
     fn bar(&self, magnitudes: &[f32], i: usize) -> f32 {
@@ -89,13 +105,15 @@ impl Analyzer {
         ((db - FLOOR_DB) / (CEIL_DB - FLOOR_DB)).clamp(0.0, 1.0)
     }
 
-    /// Quiet music is lifted, loud music is pulled back. Falls fast, rises slowly.
+    /// Quiet music is lifted, loud music is pulled back. Both move slowly; the
+    /// clamp below catches the first loud frame.
     fn apply_gain(&mut self, mut bars: Vec<f32>) -> Vec<f32> {
         let peak = bars.iter().copied().fold(0.0, f32::max);
         if peak * self.gain > 0.95 {
-            self.gain = (0.95 / peak).max(1.0);
+            let safe = (0.95 / peak).max(1.0);
+            self.gain += (safe - self.gain) * GAIN_FALL;
         } else if peak > QUIET {
-            self.gain = (self.gain * 1.01).min(MAX_GAIN);
+            self.gain = (self.gain * GAIN_RISE).min(MAX_GAIN);
         }
         for bar in &mut bars {
             *bar = (*bar * self.gain).clamp(0.0, 1.0);
@@ -127,6 +145,11 @@ mod tests {
             .collect()
     }
 
+    /// The bars after the running average has caught up with a steady sound.
+    fn settled(analyzer: &mut Analyzer) -> Vec<f32> {
+        (0..20).map(|_| analyzer.frame()).last().unwrap_or_default()
+    }
+
     fn loudest(bars: &[f32]) -> usize {
         let mut best = 0;
         for (i, bar) in bars.iter().enumerate() {
@@ -153,7 +176,7 @@ mod tests {
         for hz in [100.0, 440.0, 1000.0, 5000.0, 12_000.0] {
             let mut analyzer = Analyzer::new(RATE);
             analyzer.push(&sine(hz, 0.5, FFT_SIZE), 2);
-            let bars = analyzer.frame();
+            let bars = settled(&mut analyzer);
             let at = loudest(&bars);
             assert!(at.abs_diff(bar_for(hz)) <= 1, "{hz} Hz lit bar {at}");
             assert!(bars[at] > 0.5, "{hz} Hz only reached {}", bars[at]);
@@ -182,7 +205,21 @@ mod tests {
         }
         assert!(last > first);
         analyzer.push(&sine(1000.0, 1.0, FFT_SIZE), 2);
-        assert!(analyzer.frame().iter().all(|b| (0.0..=1.0).contains(b)));
+        assert!(
+            settled(&mut analyzer)
+                .iter()
+                .all(|b| (0.0..=1.0).contains(b))
+        );
+    }
+
+    #[test]
+    fn a_sudden_beat_arrives_over_several_frames() {
+        let mut analyzer = Analyzer::new(RATE);
+        analyzer.push(&sine(1000.0, 0.5, FFT_SIZE), 2);
+        let at = bar_for(1000.0);
+        let first = analyzer.frame()[at];
+        let steady = settled(&mut analyzer)[at];
+        assert!(first > 0.0 && first < 0.6 * steady, "{first} vs {steady}");
     }
 
     #[test]

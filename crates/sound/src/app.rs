@@ -3,9 +3,9 @@
 use crate::backend::{Cmd, Event, Tx};
 use crate::capture::Capture;
 use crate::model::{Device, Direction, Snapshot, Target};
-use crate::spectrum::BARS;
+use crate::motion::{FPS, Motion};
 use ratatui::crossterm::event::{KeyCode, KeyModifiers};
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, time::Instant};
 use telmo_kit::{
     App as _, Flow,
     hits::Hits,
@@ -15,11 +15,8 @@ use telmo_kit::{
 use tokio::sync::mpsc::UnboundedSender;
 
 const STEP: f32 = 0.05;
-const ATTACK: f32 = 0.7;
-/// Per frame (~30 a second) while playing.
-const DECAY: f32 = 0.92;
-/// Per tick (10 a second) after playback stopped.
-const FADE: f32 = 0.7;
+/// A long pause (a stalled terminal) must not make the bars lurch.
+const MAX_ELAPSED: f32 = 0.25;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Pane {
@@ -69,13 +66,15 @@ pub struct App {
     pub dialog: Option<Dialog>,
     pub toast: Option<Toast>,
     pub hits: Hits<Click>,
-    /// Smoothed bar heights (0.0-1.0) of the visualizer.
-    pub bars: Vec<f32>,
+    /// Eased bars, peak caps and colors of the visualizer.
+    pub motion: Motion,
     /// The system refused to let us listen, so the band explains how to allow it.
     pub blocked: bool,
     /// Listening to the audio; exists only while something plays.
     capture: Option<Capture>,
     mock: bool,
+    /// When the visualizer last moved, to step it by real elapsed time.
+    moved: Option<Instant>,
     events: Tx,
     cmds: UnboundedSender<Cmd>,
     /// The last snapshot the backend sent, for the cache on exit.
@@ -97,10 +96,11 @@ impl App {
             dialog: None,
             toast: None,
             hits: Hits::default(),
-            bars: vec![0.0; BARS],
+            motion: Motion::new(),
             blocked: false,
             capture: None,
             mock,
+            moved: None,
             events,
             cmds,
             last,
@@ -232,24 +232,19 @@ impl App {
         }
     }
 
-    /// Rises fast, falls slowly.
-    fn smooth(&mut self, frame: &[f32]) {
-        for (bar, new) in self.bars.iter_mut().zip(frame) {
-            *bar = if new > bar {
-                *bar + (new - *bar) * ATTACK
-            } else {
-                new.max(*bar * DECAY)
-            };
-        }
+    /// Moves the visualizer by the time since it last moved. Called on every
+    /// spectrum frame and tick, so it runs as often as the screen redraws.
+    fn animate(&mut self) {
+        let now = Instant::now();
+        let elapsed = self.moved.replace(now).map_or(0.0, |last| {
+            now.duration_since(last).as_secs_f32().min(MAX_ELAPSED)
+        });
+        self.motion.step(elapsed * FPS);
     }
 
     #[cfg(test)]
     pub fn capture_running(&self) -> bool {
         self.capture.is_some()
-    }
-
-    fn fading(&self) -> bool {
-        self.bars.iter().any(|b| *b > 0.0)
     }
 
     fn select(&mut self, pane: Pane, index: usize) {
@@ -542,7 +537,8 @@ impl telmo_kit::App for App {
                 if frame.iter().any(|b| *b > 0.0) {
                     self.blocked = false;
                 }
-                self.smooth(&frame);
+                self.motion.set_target(&frame);
+                self.animate();
             }
             Event::VisualizerBlocked => self.blocked = true,
             Event::Failed(message) => {
@@ -561,14 +557,13 @@ impl telmo_kit::App for App {
             self.toast = None;
         }
         if !self.playing() {
-            for bar in &mut self.bars {
-                *bar = if *bar < 0.02 { 0.0 } else { *bar * FADE };
-            }
+            self.motion.silence();
         }
+        self.animate();
         Flow::Continue
     }
 
     fn animating(&self) -> bool {
-        self.toast.is_some() || (!self.playing() && self.fading())
+        self.toast.is_some() || !self.motion.settled()
     }
 }
