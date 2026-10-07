@@ -1,0 +1,26 @@
+---
+source: crates/display/src/ui.rs
+expression: "render(&app(mock::mac(), \"?\"))"
+---
+ Display
+
+╭─ Displays ─────────────────────────────────────────────────────────────────────────────╮
+│ ▌   MacBook Air Built-in           ━━━━━━━━━━━━━━━━━━────────────    60%               │
+│     LG UltraFine                   ━━━━━━━━━━━━━━────────────────    45%               │
+│     Keyboar╭─ Keys ───────────────────────────────────────────────────────╮            │
+╰────────────│  tab  switch between displays and Night Shift                │────────────╯
+╭─ Night Shif│  j k  move up and down                                       │────────────╮
+│     Warmth │  h l  brightness or warmth down and up by 5%                 │            │
+╰────────────│  ↵    pick a size, or switch Night Shift on or off           │────────────╯
+             │  n    Night Shift on or off                                  │
+             │  i    details: resolution, refresh rate, connection          │
+             │  ?    this help                                              │
+             │  esc  close a dialog, or quit                                │
+             │  q    quit                                                   │
+             ╰──────────────────────────────────────────────────────────────╯
+
+
+
+
+
+ ←→ brightness  ↵ size  i details  n night shift  ? more  esc close

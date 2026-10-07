@@ -7,7 +7,45 @@ use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Command, ExitCode};
 
-const MODULES: [&str; 3] = ["net", "bt", "sound"];
+/// Popups from `popups.json` (`{"perf": {"command": ["btop"], ...}}`): name and command.
+/// A missing file means none; an unreadable one is an error worth showing.
+pub fn custom_popups() -> Result<Vec<(String, Vec<String>)>, String> {
+    let dir = match env::var_os("XDG_CONFIG_HOME").filter(|d| !d.is_empty()) {
+        Some(dir) => PathBuf::from(dir),
+        None => PathBuf::from(env::var_os("HOME").ok_or("HOME is not set")?).join(".config"),
+    };
+    let path = dir.join("telmo/popups.json");
+    let text = match std::fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(format!("cannot read {}: {e}", path.display())),
+    };
+    let json: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|e| format!("{} is not valid JSON: {e}", path.display()))?;
+    let entries = json
+        .as_object()
+        .ok_or_else(|| format!("{} must be a JSON object of popups", path.display()))?;
+    entries
+        .iter()
+        .map(|(name, entry)| {
+            let command: Vec<String> = entry["command"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|word| word.as_str().map(String::from))
+                .collect();
+            if command.is_empty() {
+                return Err(format!(
+                    "popup '{name}' in {} needs a non-empty \"command\" list",
+                    path.display()
+                ));
+            }
+            Ok((name.clone(), command))
+        })
+        .collect()
+}
+
+const MODULES: [&str; 6] = ["net", "bt", "sound", "display", "power", "scale"];
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -63,11 +101,17 @@ fn list() -> Result<(), String> {
         .iter()
         .filter(|m| find_module(m).is_some())
         .collect();
-    if found.is_empty() {
-        return Err("no modules installed (looked for telmo-net, telmo-bt, telmo-sound next to telmo and on PATH)".into());
+    let custom = custom_popups()?;
+    if found.is_empty() && custom.is_empty() {
+        return Err(
+            "no modules installed (looked for telmo-<module> next to telmo and on PATH)".into(),
+        );
     }
     for module in found {
         println!("{module}");
+    }
+    for (name, _) in custom {
+        println!("{name}");
     }
     Ok(())
 }

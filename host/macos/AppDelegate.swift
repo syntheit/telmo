@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
     func applicationDidFinishLaunching(_ note: Notification) {
         if IPCServer.isRunning() { exit(0) }
         popup.onExit = { [weak self] in self?.close() }
+        popup.onEscape = { [weak self] in self?.hide() }
         dim.onClick = { [weak self] in self?.hide() }
 
         let server = IPCServer { [weak self] line in self?.handle(line) ?? "error shutting down" }
@@ -48,7 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
         case ("location-status", 1): return locationStatus()
         case ("request-location", 1): return requestLocation()
         case ("toggle", 2), ("show", 2):
-            guard ModuleLookup.find(words[1]) != nil else { return "error module not found: telmo-\(words[1])" }
+            if case .failure(let error) = Popups.resolve(words[1]) { return "error \(error.message)" }
             if words[0] == "toggle" { toggle(words[1]) } else { show(words[1]) }
             return "ok"
         default: return "error unknown command: \(line)"
@@ -60,12 +61,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
     }
 
     private func show(_ module: String) {
-        guard let exe = ModuleLookup.find(module) else {
-            NSLog("telmo: telmo-\(module) not found")
+        guard case .success(let launch) = Popups.resolve(module) else {
+            NSLog("telmo: popup '\(module)' not found")
             return
         }
         self.module = module
-        popup.run(executable: exe)
+        popup.run(launch)
         dim.show(below: popup)
         popup.show()
         FileHandle.standardError.write(Data("telmo: popup key=\(popup.isKeyWindow) active=\(NSApp.isActive)\n".utf8))

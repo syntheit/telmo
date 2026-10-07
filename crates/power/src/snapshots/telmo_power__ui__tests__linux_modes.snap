@@ -1,0 +1,26 @@
+---
+source: crates/power/src/ui.rs
+expression: h.render()
+---
+ Power                                                                     82% · charging
+
+╭─ Battery ──────────────────────────────────────────────────────────────────────────────╮
+│   █▀█ ▀▀█         charging · 1h 05m until full                                         │
+│   █▀█ █▀▀         AC adapter                                                           │
+│   ▀▀▀ ▀▀▀ %                                                                            │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Settings ─────────────╭─ Power mode ─────────────────────────╮────────────────────────╮
+│ ▌ Power mode           │                                      │                        │
+│   Keep awake           │     power saver                      │                        │
+╰────────────────────────│ ▌ ● balanced                         │────────────────────────╯
+                         │     performance                      │
+                         │                                      │
+                         │  ↵ choose   esc cancel               │
+                         ╰──────────────────────────────────────╯
+
+
+
+
+
+
+ ↵ change  i details  ? more  esc close

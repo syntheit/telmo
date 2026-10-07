@@ -20,6 +20,12 @@ enum ModuleLookup {
         return dirs.map { "\($0)/\(name)" }.first { FileManager.default.isExecutableFile(atPath: $0) }
     }
 
+    /// A program from a popup command: a path as given, or a name looked up like the modules.
+    static func findExecutable(_ program: String) -> String? {
+        if program.contains("/") { return FileManager.default.isExecutableFile(atPath: program) ? program : nil }
+        return searchPath.map { "\($0)/\(program)" }.first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
     private static func pathHelperDirs() -> [String] {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/libexec/path_helper")

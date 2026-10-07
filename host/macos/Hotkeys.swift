@@ -7,7 +7,10 @@ final class Hotkeys {
     private var refs: [EventHotKeyRef] = []
     private let onModule: (String) -> Void
 
-    private static let defaults = ["net": "ctrl+opt+cmd+n", "bt": "ctrl+opt+cmd+b", "sound": "ctrl+opt+cmd+m"]
+    private static let defaults = [
+        "net": "ctrl+opt+cmd+n", "bt": "ctrl+opt+cmd+b", "sound": "ctrl+opt+cmd+m",
+        "display": "ctrl+opt+cmd+d", "power": "ctrl+opt+cmd+u",
+    ]
     private static let modifiers: [String: Int] = ["ctrl": controlKey, "opt": optionKey, "alt": optionKey, "cmd": cmdKey, "shift": shiftKey]
     private static let keyCodes: [Character: Int] = [
         "a": kVK_ANSI_A, "b": kVK_ANSI_B, "c": kVK_ANSI_C, "d": kVK_ANSI_D, "e": kVK_ANSI_E, "f": kVK_ANSI_F,

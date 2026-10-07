@@ -37,9 +37,12 @@ rec {
   telmo-net = module "net" "Network popup: Wi-Fi, Ethernet, VPN, speedtest";
   telmo-bt = module "bt" "Bluetooth popup";
   telmo-sound = module "sound" "Sound popup";
+  telmo-display = module "display" "Display popup: brightness, Night Shift, scaling";
+  telmo-power = module "power" "Power popup: battery, Low Power Mode, keep awake";
+  telmo-scale = module "scale" "Weigh things on a Force Touch trackpad";
   telmo = pkgs.symlinkJoin {
     name = "telmo";
-    paths = [ telmo-cli telmo-net telmo-bt telmo-sound ] ++ lib.optional stdenv.hostPlatform.isDarwin telmo-host;
+    paths = [ telmo-cli telmo-net telmo-bt telmo-sound telmo-display telmo-power telmo-scale ] ++ lib.optional stdenv.hostPlatform.isDarwin telmo-host;
     meta.mainProgram = "telmo";
   };
   default = telmo;

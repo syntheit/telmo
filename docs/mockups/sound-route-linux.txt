@@ -1,23 +1,23 @@
 # Sound · Move an app · linux
- Sound                                                                               ▁▄▄▄
+ Sound
 
 ╭─ Output ───────────────────────────────────────────────────────────────────────────────╮
-│   ● Built-in Audio           ▁▄▄▄ ━━━━━━━━━━━━━━━━━━━━━─────────    70%                │
-│     AirPods Pro                   ━━━━━━━━━━━━━━────────────────    45%                │
-│     Mac mini speakers             ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━   100%                │
-│     LG UltraFine  ╭─ Play Zen Browser on ──────────────────────────╮00%                │
+│   ● Built-in Audio            ━━━━━━━━━━━━━━━━━━━━━─────────    70%                    │
+│     AirPods Pro               ━━━━━━━━━━━━━━────────────────    45%                    │
+│     Mac mini speakers         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━   100%                    │
+│     LG UltraFine  ╭─ Play Zen Browser on ──────────────────────────╮                   │
 ╰───────────────────│                                                │───────────────────╯
 ╭─ Input ───────────│     Built-in Audio                             │───────────────────╮
-│   ● Blue Snowball │ ▌ ● AirPods Pro                                │80%                │
+│   ● Blue Snowball │ ▌ ● AirPods Pro                                │                   │
 ╰───────────────────│     Mac mini speakers                          │───────────────────╯
 ╭─ Playing ─────────│     LG UltraFine                               │───────────────────╮
-│     Spotify       │                                                │80%                │
-│ ▌   Zen Browser   │  ↵ move   esc cancel                           │00%  → AirPods Pro │
-│     Discord       │                                                │ted                │
+│     Spotify       │                                                │                   │
+│ ▌   Zen Browser   │  ↵ move   esc cancel                           │ → AirPods Pro     │
+│     Discord       │                                                │                   │
 ╰───────────────────╰────────────────────────────────────────────────╯───────────────────╯
 
 
 
-
+▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁
 
  ←→ volume  m mute  o output  ? more  esc close

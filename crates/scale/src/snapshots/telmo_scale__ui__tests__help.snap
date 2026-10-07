@@ -1,0 +1,26 @@
+---
+source: crates/scale/src/ui.rs
+expression: render(&app)
+---
+ Scale                                                                         ● touching
+
+╭─ Weight ───────────────────────────────────────────────────────────────────────────────╮
+│                                                                                        │
+│                                    ▀█  ▀▀█ █ █   █▀▀                                   │
+│                                     █  █▀▀ ▀▀█   ▀▀█                                   │
+│                                  ▀▀▀ ▀▀▀   ▀ ▀ ▀▀▀  g                                  │
+│                   ╭─ Keys ─────────────────────────────────────────╮                   │
+│                   │                                                │                   │
+│                   │  space    zero the scale                       │                   │
+│        Rest a fing│  u        switch between grams and ounces      │ep touching.       │
+│                   │  esc q    close                                │                   │
+╰───────────────────│                                                │───────────────────╯
+                    ╰────────────────────────────────────────────────╯
+
+
+
+
+
+
+
+ space zero  u ounces  ? more  esc close

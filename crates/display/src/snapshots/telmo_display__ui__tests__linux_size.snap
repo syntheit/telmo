@@ -1,0 +1,26 @@
+---
+source: crates/display/src/ui.rs
+expression: "render(&app(mock::linux(), \"\\n\"))"
+---
+ Display
+
+╭─ Displays ─────────────────────────────────────────────────────────────────────────────╮
+│ ▌   Dell S2722DGM                  ━━━━━━━━━━━━━━────────────────    45%               │
+│     LG 24MK430H                    brightness not adjustable                           │
+╰─────────╭─ Dell S2722DGM size ───────────────────────────────────────────────╮─────────╯
+╭─ Night S│                                                                    │─────────╮
+│   ● Warm│ ▌ ● 1x            1920 × 1080                                      │         │
+╰─────────│     1.25x         1536 × 864                                       │─────────╯
+          │     1.5x          1280 × 720                                       │
+          │                                                                    │
+          │   Resets on Hyprland reload. Save it in hyprland.conf to keep it.  │
+          │                                                                    │
+          │  ↵ apply   esc cancel                                              │
+          │                                                                    │
+          ╰────────────────────────────────────────────────────────────────────╯
+
+
+
+
+
+ ←→ brightness  ↵ size  i details  n night shift  ? more  esc close

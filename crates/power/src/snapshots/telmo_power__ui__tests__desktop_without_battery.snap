@@ -1,0 +1,26 @@
+---
+source: crates/power/src/ui.rs
+expression: "Harness::new(desktop()).render()"
+---
+ Power                                                                        on AC power
+
+╭─ Settings ─────────────────────────────────────────────────────────────────────────────╮
+│ ▌ Power mode            balanced                                                       │
+│   Keep awake            off                                                            │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ ↵ change  ? more  esc close

@@ -25,6 +25,27 @@ runs one; `telmo popup <module>` opens it as a popup.
 - **Linux (Hyprland):** `telmo popup net` toggles a terminal window with class
   `telmo.net`; the home-manager module adds the window rules and binds.
 
+## Custom popups
+
+Any TUI can open as a popup. Describe it in `~/.config/telmo/popups.json`
+(hand-editable; re-read on every open) or let home-manager write it:
+
+```nix
+programs.telmo = {
+  popups.perf = { command = [ "btop" ]; size = "large"; escape = "close"; };
+  hyprland.binds.perf = "SUPER, P";
+};
+```
+
+Then `telmo popup perf` toggles it, `telmo list` shows it, and on macOS
+`perf = ctrl+opt+cmd+p` in `~/.config/telmo/hotkeys` binds it.
+
+- `command`: program and arguments, found like the built-in modules (PATH).
+- `size`: `normal` (90×22 cells, default) or `large` (80% of the screen's
+  visible width and height).
+- `escape`: `pass` (default, the TUI handles Esc) or `close` (macOS: the host
+  closes the popup on Esc; for TUIs like btop whose own Esc opens a menu).
+
 ## Install (Nix)
 
 ```nix

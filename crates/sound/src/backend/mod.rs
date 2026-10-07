@@ -23,6 +23,11 @@ pub enum Event {
     Snapshot(Snapshot),
     /// Only failures are reported; successes show up in the next snapshot.
     Failed(String),
+    /// Bar heights (0.0-1.0, low to high pitch) of what is playing, ~30 a second.
+    Spectrum(Vec<f32>),
+    /// The OS won't let us listen to what is playing (macOS permission).
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    VisualizerBlocked,
 }
 
 pub type Tx = UnboundedSender<Event>;

@@ -9,7 +9,19 @@ let
   cfg = config.programs.telmo;
   inherit (lib) mkEnableOption mkIf mkMerge mkOption types;
   isDarwin = pkgs.stdenv.hostPlatform.isDarwin;
-  modules = [ "net" "bt" "sound" ];
+  builtIns = [ "net" "bt" "sound" "display" "power" "scale" ];
+  customNames = lib.attrNames cfg.popups;
+
+  # Hyprland size per custom popup: "large" is 80% of the monitor.
+  hyprSize = popup: if popup.size == "large" then "(monitor_w*0.8) (monitor_h*0.8)" else cfg.hyprland.size;
+  popupRules = name: size: map (rule: "${rule}, match:class ^(telmo\\.${name})$") [
+    "float 1"
+    "center 1"
+    "size ${size}"
+    "rounding 24"
+    "dim_around 1"
+    "stay_focused 1"
+  ];
 
   # Where the app is run from. With a signing identity it's a signed copy in
   # ~/Applications, so macOS keeps Location/Bluetooth permissions across
@@ -39,6 +51,37 @@ in
       '';
     };
 
+    popups = mkOption {
+      default = { };
+      example = { perf = { command = [ "btop" ]; size = "large"; escape = "close"; }; };
+      description = ''
+        Custom popups: any TUI, opened with `telmo popup <name>`. Written to
+        ~/.config/telmo/popups.json. Hotkeys (macOS) and `hyprland.binds` may
+        use these names too.
+      '';
+      type = types.attrsOf (types.submodule {
+        options = {
+          command = mkOption {
+            type = types.listOf types.str;
+            description = "Program and arguments, looked up on PATH.";
+          };
+          size = mkOption {
+            type = types.enum [ "normal" "large" ];
+            default = "normal";
+            description = "normal is 90×22 cells; large is 80% of the screen.";
+          };
+          escape = mkOption {
+            type = types.enum [ "pass" "close" ];
+            default = "pass";
+            description = ''
+              pass: the TUI handles Esc. close: Esc closes the popup (macOS
+              host), for TUIs like btop whose own Esc opens a menu.
+            '';
+          };
+        };
+      });
+    };
+
     hyprland = {
       enable = mkOption {
         type = types.bool;
@@ -61,6 +104,10 @@ in
 
   config = mkIf cfg.enable (mkMerge [
     { home.packages = [ cfg.package ]; }
+
+    (mkIf (cfg.popups != { }) {
+      xdg.configFile."telmo/popups.json".text = builtins.toJSON cfg.popups;
+    })
 
     (mkIf isDarwin {
       launchd.agents.telmo = {
@@ -96,14 +143,9 @@ in
 
     (mkIf (!isDarwin && cfg.hyprland.enable) {
       wayland.windowManager.hyprland.settings = {
-        windowrule = lib.concatMap (m: [
-          "float 1, match:class ^(telmo\\.${m})$"
-          "center 1, match:class ^(telmo\\.${m})$"
-          "size ${cfg.hyprland.size}, match:class ^(telmo\\.${m})$"
-          "rounding 24, match:class ^(telmo\\.${m})$"
-          "dim_around 1, match:class ^(telmo\\.${m})$"
-          "stay_focused 1, match:class ^(telmo\\.${m})$"
-        ]) modules;
+        windowrule =
+          lib.concatMap (m: popupRules m cfg.hyprland.size) builtIns
+          ++ lib.concatMap (m: popupRules m (hyprSize cfg.popups.${m})) customNames;
         bind = lib.mapAttrsToList (m: key: "${key}, exec, telmo popup ${m}") cfg.hyprland.binds;
       };
     })

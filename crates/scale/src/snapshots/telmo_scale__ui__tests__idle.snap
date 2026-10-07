@@ -1,0 +1,26 @@
+---
+source: crates/scale/src/ui.rs
+expression: "render(&app_with(mock::idle()))"
+---
+ Scale                                                                         ○ no touch
+
+╭─ Weight ───────────────────────────────────────────────────────────────────────────────╮
+│                                                                                        │
+│                                        █▀█   █▀█                                       │
+│                                        █ █   █ █                                       │
+│                                      ▀▀▀ ▀ ▀▀▀  g                                      │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│        Rest a finger on the trackpad, then set the object on it — keep touching.       │
+│                                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+
+
+
+
+
+
+ space zero  u ounces  ? more  esc close

@@ -1,0 +1,21 @@
+[package]
+name = "telmo-power"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+telmo-kit.workspace = true
+ratatui.workspace = true
+tokio = { workspace = true, features = ["process"] }
+crossterm.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+libc = "0.2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = { version = "5", default-features = false, features = ["tokio"] }
+futures-util.workspace = true
+
+[dev-dependencies]
+insta.workspace = true

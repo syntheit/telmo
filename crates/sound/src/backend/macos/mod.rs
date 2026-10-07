@@ -3,7 +3,7 @@
 
 use super::{Cmd, Event, Rx, Tx};
 use crate::model::{Caps, Device, Direction, Snapshot, Target};
-mod hal;
+pub mod hal;
 
 use hal::*;
 use objc2_core_audio::*;
@@ -12,7 +12,7 @@ use std::time::Duration;
 
 const DEBOUNCE: Duration = Duration::from_millis(30);
 
-enum Msg {
+pub enum Msg {
     Cmd(Cmd),
     Changed,
     Closed,
@@ -238,6 +238,7 @@ mod tests {
             match events.try_recv() {
                 Ok(Event::Snapshot(s)) => return Some(s),
                 Ok(Event::Failed(text)) => panic!("{text}"),
+                Ok(_) => {}
                 Err(_) => std::thread::sleep(Duration::from_millis(20)),
             }
         }

@@ -1,0 +1,18 @@
+[package]
+name = "telmo-display"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+telmo-kit.workspace = true
+ratatui.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"

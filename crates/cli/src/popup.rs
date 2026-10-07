@@ -100,7 +100,7 @@ mod linux {
     use std::os::unix::process::CommandExt;
     use std::process::{Command, Stdio};
 
-    use crate::find_module;
+    use crate::{custom_popups, find_module};
 
     /// Arguments that set the window class and introduce the command, per terminal.
     fn terminal_args(terminal: &str, class: &str) -> Vec<String> {
@@ -149,6 +149,14 @@ mod linux {
         Ok(found.and_then(|c| c["address"].as_str()).map(String::from))
     }
 
+    fn custom_command(name: &str) -> Result<Vec<String>, String> {
+        custom_popups()?
+            .into_iter()
+            .find(|(popup, _)| popup == name)
+            .map(|(_, command)| command)
+            .ok_or_else(|| format!("unknown module '{name}'; run `telmo list`"))
+    }
+
     pub fn toggle(module: &str) -> Result<(), String> {
         let class = format!("telmo.{module}");
         if let Some(address) = existing_window(&class)? {
@@ -159,12 +167,14 @@ mod linux {
                 .map_err(|e| format!("cannot run hyprctl: {e}"))
                 .map(|_| ());
         }
-        let binary = find_module(module)
-            .ok_or_else(|| format!("unknown module '{module}'; run `telmo list`"))?;
+        let command = match find_module(module) {
+            Some(binary) => vec![binary.to_string_lossy().into_owned()],
+            None => custom_command(module)?,
+        };
         let terminal = find_terminal()?;
         Command::new(&terminal)
             .args(terminal_args(&terminal, &class))
-            .arg(binary)
+            .args(command)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())

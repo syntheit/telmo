@@ -1,0 +1,23 @@
+# Scale · Tare without touch · mac
+ Scale                                                                         ○ no touch
+
+╭─ Weight ───────────────────────────────────────────────────────────────────────────────╮
+│                                                                                        │
+│                                        █▀█   █▀█                                       │
+│                                        █ █   █ █                                       │
+│                                      ▀▀▀ ▀ ▀▀▀  g                                      │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│        Rest a finger on the trackpad, then set the object on it — keep touching.       │
+│                                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+
+
+
+
+
+  ✗  Nothing to zero. Rest a finger on the trackpad first.
+ space zero  u ounces  ? more  esc close

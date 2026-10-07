@@ -1,6 +1,8 @@
 mod app;
 mod backend;
+mod capture;
 mod model;
+mod spectrum;
 mod ui;
 
 use app::App;
@@ -19,7 +21,7 @@ async fn main() {
     let (cmd_tx, cmd_rx) = unbounded_channel();
     let (event_tx, event_rx) = unbounded_channel();
     let last = Rc::new(RefCell::new(cached.clone()));
-    let app = App::new(cached, cmd_tx, last.clone());
+    let app = App::new(cached, cmd_tx, last.clone(), event_tx.clone(), args.mock);
     backend::spawn(args.mock, cmd_rx, event_tx);
 
     let result = telmo_kit::run(app, event_rx).await;

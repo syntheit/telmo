@@ -1,7 +1,9 @@
 //! State and key handling. No drawing here.
 
-use crate::backend::{Cmd, Event};
+use crate::backend::{Cmd, Event, Tx};
+use crate::capture::Capture;
 use crate::model::{Device, Direction, Snapshot, Target};
+use crate::spectrum::BARS;
 use ratatui::crossterm::event::{KeyCode, KeyModifiers};
 use std::{cell::RefCell, rc::Rc};
 use telmo_kit::{
@@ -13,6 +15,11 @@ use telmo_kit::{
 use tokio::sync::mpsc::UnboundedSender;
 
 const STEP: f32 = 0.05;
+const ATTACK: f32 = 0.7;
+/// Per frame (~30 a second) while playing.
+const DECAY: f32 = 0.92;
+/// Per tick (10 a second) after playback stopped.
+const FADE: f32 = 0.7;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Pane {
@@ -62,8 +69,14 @@ pub struct App {
     pub dialog: Option<Dialog>,
     pub toast: Option<Toast>,
     pub hits: Hits<Click>,
-    /// Counts ticks while something plays; drives the equalizer.
-    pub frame: u64,
+    /// Smoothed bar heights (0.0-1.0) of the visualizer.
+    pub bars: Vec<f32>,
+    /// The system refused to let us listen, so the band explains how to allow it.
+    pub blocked: bool,
+    /// Listening to the audio; exists only while something plays.
+    capture: Option<Capture>,
+    mock: bool,
+    events: Tx,
     cmds: UnboundedSender<Cmd>,
     /// The last snapshot the backend sent, for the cache on exit.
     last: Rc<RefCell<Option<Snapshot>>>,
@@ -74,6 +87,8 @@ impl App {
         cached: Option<Snapshot>,
         cmds: UnboundedSender<Cmd>,
         last: Rc<RefCell<Option<Snapshot>>>,
+        events: Tx,
+        mock: bool,
     ) -> Self {
         Self {
             snapshot: cached.unwrap_or_default(),
@@ -82,7 +97,11 @@ impl App {
             dialog: None,
             toast: None,
             hits: Hits::default(),
-            frame: 0,
+            bars: vec![0.0; BARS],
+            blocked: false,
+            capture: None,
+            mock,
+            events,
             cmds,
             last,
         }
@@ -197,10 +216,40 @@ impl App {
         self.send(Cmd::SetVolume(target, volume));
     }
 
-    /// Whether anything is making sound, which is when the equalizer moves.
+    /// Whether anything is making sound, which is when the visualizer moves.
     pub fn playing(&self) -> bool {
         self.snapshot.outputs.iter().any(|d| d.playing)
             || self.snapshot.streams.iter().any(|s| s.playing)
+    }
+
+    /// Listens only while something plays. After the system said no we don't
+    /// ask again, which would only bring the permission prompt back.
+    fn sync_capture(&mut self) {
+        if !self.playing() {
+            self.capture = None;
+        } else if self.capture.is_none() && !self.blocked {
+            self.capture = Some(Capture::start(self.mock, self.events.clone()));
+        }
+    }
+
+    /// Rises fast, falls slowly.
+    fn smooth(&mut self, frame: &[f32]) {
+        for (bar, new) in self.bars.iter_mut().zip(frame) {
+            *bar = if new > bar {
+                *bar + (new - *bar) * ATTACK
+            } else {
+                new.max(*bar * DECAY)
+            };
+        }
+    }
+
+    #[cfg(test)]
+    pub fn capture_running(&self) -> bool {
+        self.capture.is_some()
+    }
+
+    fn fading(&self) -> bool {
+        self.bars.iter().any(|b| *b > 0.0)
     }
 
     fn select(&mut self, pane: Pane, index: usize) {
@@ -487,7 +536,15 @@ impl telmo_kit::App for App {
                     let last = self.len(pane).saturating_sub(1);
                     self.selected[pane as usize] = self.selected(pane).min(last);
                 }
+                self.sync_capture();
             }
+            Event::Spectrum(frame) => {
+                if frame.iter().any(|b| *b > 0.0) {
+                    self.blocked = false;
+                }
+                self.smooth(&frame);
+            }
+            Event::VisualizerBlocked => self.blocked = true,
             Event::Failed(message) => {
                 // Drop optimistic edits the backend refused.
                 if let Some(last) = self.last.borrow().clone() {
@@ -500,14 +557,18 @@ impl telmo_kit::App for App {
     }
 
     fn tick(&mut self) -> Flow {
-        self.frame = self.frame.wrapping_add(1);
         if self.toast.as_ref().is_some_and(Toast::expired) {
             self.toast = None;
+        }
+        if !self.playing() {
+            for bar in &mut self.bars {
+                *bar = if *bar < 0.02 { 0.0 } else { *bar * FADE };
+            }
         }
         Flow::Continue
     }
 
     fn animating(&self) -> bool {
-        self.toast.is_some() || self.playing()
+        self.toast.is_some() || (!self.playing() && self.fading())
     }
 }

@@ -1,0 +1,23 @@
+# Display · Details · mac
+ Display
+
+╭─ Displays ─────────────────────────────────────────────────────────────────────────────╮
+│     MacBook Air Built-in           ━━━━━━━━━━━━━━━━━━────────────    60%               │
+│ ▌   LG UltraFine                   ━━━━━━━━━━━━━━────────────────    45%               │
+│     Keyboard                       ━━━━━━━━━─────────────────────    30%               │
+╰──────────────────╭─ LG UltraFine ───────────────────────────────────╮──────────────────╯
+╭─ Night Shift ────│                                                  │──────────────────╮
+│     Warmth       │   Resolution    5120 × 2880                      │off               │
+╰──────────────────│   Refresh rate  60 Hz                            │──────────────────╯
+                   │   Scale         2x                               │
+                   │   Connection    Thunderbolt                      │
+                   │                                                  │
+                   │  esc back                                        │
+                   │                                                  │
+                   ╰──────────────────────────────────────────────────╯
+
+
+
+
+
+ ←→ brightness  ↵ size  i details  n night shift  ? more  esc close

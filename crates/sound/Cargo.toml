@@ -10,6 +10,7 @@ ratatui.workspace = true
 tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+rustfft = "6"
 
 [dev-dependencies]
 insta.workspace = true
@@ -19,6 +20,8 @@ objc2-core-audio = "0.3"
 objc2-core-audio-types = "0.3"
 objc2-core-foundation = "0.3"
 block2 = "0.6"
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSDictionary", "NSObject", "NSString", "NSUUID", "NSValue"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libpulse-binding = "2.30"

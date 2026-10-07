@@ -6,34 +6,17 @@ use ratatui::{
     Frame,
     crossterm::event::KeyCode,
     layout::{Constraint, Layout, Rect},
-    text::{Line, Span},
+    style::{Color, Style},
+    text::{Line, Span, Text},
 };
 use telmo_kit::{theme, widgets};
 
 const NAME_WIDTH: usize = 25;
-/// Room after the name for the equalizer of a playing row.
-const EQ_SLOT: usize = 5;
 const GAUGE_WIDTH: usize = 30;
-const EQ_BARS: usize = 4;
-/// Columns before the gauge: selection marker, dot, name and equalizer slot.
-const GAUGE_X: u16 = (3 + 2 + NAME_WIDTH + EQ_SLOT) as u16;
-
-/// A small equalizer. Each bar rises and falls on its own period, so the
-/// pattern looks irregular but only depends on the frame counter.
-fn equalizer(frame: u64) -> Vec<Span<'static>> {
-    const LEVELS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
-    const PERIODS: [u64; EQ_BARS] = [10, 14, 8, 12];
-    (0..EQ_BARS)
-        .map(|i| {
-            let period = PERIODS[i];
-            let phase = (frame + 3 * i as u64) % period;
-            let half = period / 2;
-            let up = if phase < half { phase } else { period - phase };
-            let level = (up * 7 / half) as usize;
-            Span::styled(LEVELS[level].to_string(), theme::accent())
-        })
-        .collect()
-}
+/// Columns before the gauge: selection marker, dot, name and a space.
+const GAUGE_X: u16 = (3 + 2 + NAME_WIDTH + 1) as u16;
+/// The visualizer takes whatever the panes leave, up to this many rows.
+const VIZ_ROWS: u16 = 5;
 
 fn key_code(key: &str) -> Option<KeyCode> {
     match key {
@@ -66,12 +49,7 @@ fn key_hits(app: &App, areas: Vec<Rect>, bindings: &[(&str, &str)], dialog: bool
 pub fn draw(app: &App, frame: &mut Frame) {
     app.hits.clear();
     let screen = widgets::screen(frame.area());
-    let status = if app.playing() {
-        Line::from(equalizer(app.frame))
-    } else {
-        Line::default()
-    };
-    widgets::header(frame, screen.header, "Sound", status);
+    widgets::header(frame, screen.header, "Sound", Line::default());
     draw_panes(app, frame, screen.body);
     if let Some(toast) = app.toast.as_ref().filter(|t| !t.expired()) {
         toast.render(frame, screen.toast);
@@ -100,13 +78,106 @@ fn key_bar(app: &App) -> Vec<(&'static str, &'static str)> {
 
 fn draw_panes(app: &App, frame: &mut Frame, body: Rect) {
     let panes = app.panes();
-    let heights = panes
+    let heights: Vec<u16> = panes
         .iter()
-        .map(|p| Constraint::Length(row_count(app, *p) as u16 + 2));
-    let areas = Layout::vertical(heights.chain([Constraint::Fill(1)])).split(body);
+        .map(|p| row_count(app, *p) as u16 + 2)
+        .collect();
+    let spare = body.height.saturating_sub(heights.iter().sum());
+    let viz = if spare >= 2 { spare.min(VIZ_ROWS) } else { 0 };
+    let constraints = heights.iter().map(|h| Constraint::Length(*h));
+    let areas = Layout::vertical(constraints.chain([Constraint::Fill(1), Constraint::Length(viz)]))
+        .split(body);
     for (pane, area) in panes.into_iter().zip(areas.iter()) {
         draw_pane(app, frame, *area, pane);
     }
+    if viz > 0 {
+        draw_visualizer(app, frame, areas[areas.len() - 1]);
+    }
+}
+
+const BLOCKS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+const BLOCKED_NOTE: &str =
+    "Allow System Audio Recording for Telmo in System Settings to see the visualizer.";
+
+/// Bars one cell wide with one cell between, as many as fit, stacked eighth
+/// blocks for height and a cyan to blue to magenta gradient across.
+fn draw_visualizer(app: &App, frame: &mut Frame, area: Rect) {
+    let width = area.width as usize;
+    let count = width.div_ceil(2);
+    if count < 2 {
+        return;
+    }
+    let levels = resample(&app.bars, count);
+    let indent = (width - (count * 2 - 1)) / 2;
+    let rows = area.height as usize;
+    let lines: Vec<Line> = (0..rows)
+        .rev()
+        .map(|row| {
+            let mut spans = vec![Span::raw(" ".repeat(indent))];
+            for (i, level) in levels.iter().enumerate() {
+                if i > 0 {
+                    spans.push(Span::raw(" "));
+                }
+                spans.push(cell(*level, row, rows, i as f32 / (count - 1) as f32));
+            }
+            Line::from(spans)
+        })
+        .collect();
+    frame.render_widget(Text::from(lines), area);
+    if app.blocked && !app.bars.iter().any(|b| *b > 0.0) && rows >= 2 {
+        let note = Rect {
+            y: area.y + area.height - 2,
+            height: 1,
+            ..area
+        };
+        let line = Line::styled(BLOCKED_NOTE, theme::dim()).centered();
+        frame.render_widget(line, note);
+    }
+}
+
+/// One cell of a bar, counting rows from the bottom. The bottom row always
+/// shows at least a faint baseline.
+fn cell(level: f32, row: usize, rows: usize, across: f32) -> Span<'static> {
+    let eighths = (level * (rows * 8) as f32).round() as usize;
+    let fill = eighths.saturating_sub(row * 8).min(8);
+    match (fill, row) {
+        (0, 0) => Span::styled("▁", theme::faint()),
+        (0, _) => Span::raw(" "),
+        _ => Span::styled(
+            BLOCKS[fill - 1].to_string(),
+            Style::new().fg(gradient(across)),
+        ),
+    }
+}
+
+fn gradient(t: f32) -> Color {
+    if t < 0.5 {
+        mix(theme::CYAN, theme::BLUE, t * 2.0)
+    } else {
+        mix(theme::BLUE, theme::MAGENTA, t * 2.0 - 1.0)
+    }
+}
+
+fn mix(from: Color, to: Color, t: f32) -> Color {
+    let (Color::Rgb(r1, g1, b1), Color::Rgb(r2, g2, b2)) = (from, to) else {
+        return to;
+    };
+    let lerp = |a: u8, b: u8| (a as f32 + (b as f32 - a as f32) * t).round() as u8;
+    Color::Rgb(lerp(r1, r2), lerp(g1, g2), lerp(b1, b2))
+}
+
+/// `count` heights spread over `bars`, linearly interpolated.
+fn resample(bars: &[f32], count: usize) -> Vec<f32> {
+    let last = bars.len() - 1;
+    (0..count)
+        .map(|i| {
+            let at = i as f32 * last as f32 / (count - 1) as f32;
+            let lo = (at.floor() as usize).min(last);
+            let hi = (lo + 1).min(last);
+            let t = at - lo as f32;
+            bars[lo] * (1.0 - t) + bars[hi] * t
+        })
+        .collect()
 }
 
 fn row_count(app: &App, pane: Pane) -> usize {
@@ -131,11 +202,7 @@ fn draw_pane(app: &App, frame: &mut Frame, area: Rect, pane: Pane) {
 
     let lines = match pane {
         Pane::Playing => stream_lines(app),
-        _ => app
-            .devices(pane)
-            .iter()
-            .map(|d| device_line(d, app.frame))
-            .collect(),
+        _ => app.devices(pane).iter().map(device_line).collect(),
     };
     if lines.is_empty() {
         let empty = match pane {
@@ -177,14 +244,13 @@ fn gauge_hits(app: &App, row: Rect, pane: Pane, i: usize) {
     }
 }
 
-fn device_line(device: &Device, frame: u64) -> Line<'static> {
+fn device_line(device: &Device) -> Line<'static> {
     let dot = if device.default {
         Span::styled("● ", theme::accent())
     } else {
         Span::raw("  ")
     };
-    let eq = device.playing.then(|| equalizer(frame));
-    level_line(dot, &device.name, eq, device.volume, device.muted, None)
+    level_line(dot, &device.name, device.volume, device.muted, None)
 }
 
 fn stream_lines(app: &App) -> Vec<Line<'static>> {
@@ -199,11 +265,9 @@ fn stream_lines(app: &App) -> Vec<Line<'static>> {
                 .filter(|d| Some(*d) != default.as_ref());
             let target = elsewhere.and_then(|id| app.snapshot.outputs.iter().find(|d| &d.id == id));
             let note = target.map(|d| format!("→ {}", d.name));
-            let eq = stream.playing.then(|| equalizer(app.frame));
             level_line(
                 Span::raw("  "),
                 &stream.app,
-                eq,
                 Some(stream.volume),
                 stream.muted,
                 note,
@@ -217,7 +281,6 @@ fn stream_lines(app: &App) -> Vec<Line<'static>> {
 fn level_line(
     dot: Span<'static>,
     name: &str,
-    eq: Option<Vec<Span<'static>>>,
     volume: Option<f32>,
     muted: bool,
     note: Option<String>,
@@ -226,7 +289,6 @@ fn level_line(
         dot,
         Span::styled(widgets::fit(name, NAME_WIDTH), theme::text()),
     ];
-    spans.extend(eq.unwrap_or_else(|| vec![Span::raw(" ".repeat(EQ_BARS))]));
     spans.push(Span::raw(" "));
     match volume {
         None => spans.push(Span::styled("fixed volume", theme::faint())),
@@ -429,8 +491,10 @@ fn draw_help(app: &App, frame: &mut Frame) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::mock;
+    use crate::backend::{Event, mock};
+    use crate::capture::mock::canned_at;
     use crate::model::Snapshot;
+    use crate::spectrum::BARS;
     use ratatui::crossterm::event::{KeyCode, KeyModifiers};
     use std::{cell::RefCell, rc::Rc};
     use telmo_kit::{App as _, runtime::KeyEvent};
@@ -441,7 +505,14 @@ mod tests {
 
     fn app(snapshot: Snapshot, keys: &str) -> App {
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
-        let mut app = App::new(Some(snapshot), tx, Rc::new(RefCell::new(None)));
+        let (events, _events_rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut app = App::new(
+            Some(snapshot),
+            tx,
+            Rc::new(RefCell::new(None)),
+            events,
+            true,
+        );
         for c in keys.chars() {
             let code = match c {
                 '\t' => KeyCode::Tab,
@@ -556,10 +627,11 @@ mod tests {
         assert_eq!(app.snapshot.streams[1].device.as_deref(), Some("builtin"));
     }
 
-    #[test]
-    fn animates_only_while_playing() {
-        let mut app = app(mock::linux(), "");
-        assert!(app.animating());
+    fn canned() -> Vec<f32> {
+        canned_at(0.0)
+    }
+
+    fn stopped(mut app: App) -> App {
         app.snapshot
             .outputs
             .iter_mut()
@@ -568,18 +640,97 @@ mod tests {
             .streams
             .iter_mut()
             .for_each(|s| s.playing = false);
-        assert!(!app.animating());
+        app
     }
 
     #[test]
-    fn equalizer_moves() {
-        let text = |frame| {
-            equalizer(frame)
-                .iter()
-                .map(|s| s.content.to_string())
-                .collect::<String>()
-        };
-        assert_ne!(text(0), text(3));
+    fn animates_only_while_audio_flows_or_fades() {
+        let mut app = stopped(app(mock::linux(), ""));
+        assert!(!app.animating());
+        app.event(Event::Spectrum(canned()));
+        assert!(app.animating());
+        for _ in 0..40 {
+            app.tick();
+        }
+        assert!(!app.animating());
+        assert!(app.bars.iter().all(|b| *b == 0.0));
+    }
+
+    #[test]
+    fn bars_rise_fast_and_fall_slowly() {
+        let mut app = app(mock::linux(), "");
+        app.event(Event::Spectrum(vec![1.0; BARS]));
+        let risen = app.bars[0];
+        assert!(risen > 0.6);
+        app.event(Event::Spectrum(vec![0.0; BARS]));
+        assert!(app.bars[0] > 0.5 * risen);
+    }
+
+    #[test]
+    fn blocked_clears_when_sound_arrives() {
+        let mut app = app(mock::mac(), "");
+        app.event(Event::VisualizerBlocked);
+        assert!(app.blocked);
+        app.event(Event::Spectrum(canned()));
+        assert!(!app.blocked);
+    }
+
+    #[test]
+    fn playing_listens_and_stopping_lets_go() {
+        let mut live = app(mock::linux(), "");
+        live.event(Event::Snapshot(mock::linux()));
+        assert!(live.capture_running());
+        let quiet = stopped(app(mock::linux(), "")).snapshot;
+        live.event(Event::Snapshot(quiet));
+        let app = live;
+        assert!(!app.capture_running());
+    }
+
+    #[test]
+    fn denied_capture_is_not_retried() {
+        let mut app = app(mock::mac(), "");
+        app.event(Event::VisualizerBlocked);
+        app.event(Event::Snapshot(mock::mac()));
+        assert!(!app.capture_running());
+    }
+
+    #[test]
+    fn visualizer_fills_the_width() {
+        let mut app = app(mock::linux(), "");
+        app.bars = canned();
+        let screen = render(&app);
+        let row = screen.lines().nth(19).unwrap_or_default();
+        assert!(
+            row.chars().filter(|c| BLOCKS.contains(c)).count() >= 40,
+            "{row}"
+        );
+    }
+
+    #[test]
+    fn resample_keeps_the_ends() {
+        let bars = [0.0, 0.5, 1.0];
+        assert_eq!(resample(&bars, 5), vec![0.0, 0.25, 0.5, 0.75, 1.0]);
+    }
+
+    #[test]
+    fn visualizer_playing_linux() {
+        let mut app = app(mock::linux(), "j");
+        app.bars = canned();
+        insta::assert_snapshot!(render(&app));
+    }
+
+    #[test]
+    fn visualizer_playing_mac() {
+        let mut app = app(mock::mac(), "j");
+        app.bars = canned();
+        insta::assert_snapshot!(render(&app));
+    }
+
+    #[test]
+    fn visualizer_blocked_mac() {
+        let mut app = app(mock::mac(), "j");
+        app.blocked = true;
+        insta::assert_snapshot!(render(&app));
     }
 
     #[test]

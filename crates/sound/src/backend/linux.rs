@@ -635,6 +635,7 @@ mod tests {
             match events.recv().await {
                 Some(Event::Snapshot(s)) => s,
                 Some(Event::Failed(m)) => panic!("failed: {m}"),
+                Some(_) => panic!("the backend only sends spectra to the visualizer"),
                 None => panic!("backend stopped"),
             }
         };

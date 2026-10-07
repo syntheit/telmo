@@ -2,12 +2,12 @@
 source: crates/sound/src/ui.rs
 expression: "render(&app(mock::mac(), \"jP\"))"
 ---
- Sound                                                                               ▁▄▄▄
+ Sound
 
 ╭─ Output ───────────────────────────────────────────────────────────────────────────────╮
-│   ● MacBook Pro Speakers     ▁▄▄▄ ━━━━━━━━━━━━━━━━━━━───────────    62%                │
-│ ▌   AirPods Pro                   ━━━━━━━━━━━━──────────────────    40%                │
-│     LG UltraFine                  fixed volume                                         │
+│   ● MacBook Pro Speakers      ━━━━━━━━━━━━━━━━━━━───────────    62%                    │
+│ ▌   AirPods Pro               ━━━━━━━━━━━━──────────────────    40%                    │
+│     LG UltraFine              fixed volume                                             │
 ╰────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Input ────────╭─ AirPods Pro mode ───────────────────────────────────╮────────────────╮
 │   ● MacBook Pro│                                                      │                │
@@ -21,6 +21,6 @@ expression: "render(&app(mock::mac(), \"jP\"))"
 
 
 
-
+▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁
 
  ←→ volume  m mute  ↵ set default  ? more  esc close
