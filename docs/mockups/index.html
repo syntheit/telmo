@@ -631,7 +631,7 @@ pre.tree .c1 { color: #565f89; }
       box('Paired', [devRow(sel === 2, 'MX Master 3S', o.pending === 2 ? T('◜ connecting…', 'y') : []), devRow(sel === 3, 'Sony WH-1000XM5'), devRow(sel === 4, 'Xbox Wireless Controller')], W),
     );
   }
-  const btKeys = keys([['↵', 'connect'], ['s', 'scan'], ['i', 'details'], ['?', 'more'], ['esc', 'close']]);
+  const btKeys = keys([['↵', 'connect'], ['s', 'scan'], ['i', 'details'], ['p', 'turn off'], ['?', 'more'], ['esc', 'close']]);
   function nearby(sel) {
     const row = (i, n, s, c = 'fg') => { const cells = cat(mark(sel === i), col(n, 40, c), bars(s)); return sel === i ? S(cells) : cells; };
     return box('Nearby', [row(0, 'Keychron Q1', 3), row(1, 'Galaxy Buds2 Pro', 3), row(2, 'Bose QC45', 2), row(3, 'Unnamed device', 1, 'dim')], W, { active: true, right: T('◜ scanning', 'y') });
@@ -639,7 +639,7 @@ pre.tree .c1 { color: #565f89; }
   const BT = {
     devices: os => screen(hdr('Bluetooth', btStatus()), btBoxes(os, 0), btKeys),
     connecting: os => screen(hdr('Bluetooth', btStatus()), btBoxes(os, 2, { pending: 2 }), btKeys),
-    scan: os => screen(hdr('Bluetooth', btStatus()), cat(btBoxes(os, -1, { scan: true }), nearby(0)), keys([['↵', 'pair'], ['s', 'stop scan'], ['tab', 'pane'], ['esc', 'close']])),
+    scan: os => screen(hdr('Bluetooth', btStatus()), cat(btBoxes(os, -1, { scan: true }), nearby(0)), keys([['↵', 'pair'], ['s', 'stop scan'], ['p', 'turn off'], ['?', 'more'], ['esc', 'close']])),
     pair: os => {
       const base = screen(hdr('Bluetooth', btStatus()), cat(btBoxes(os, -1, { scan: true }), nearby(0)), btKeys);
       const code = big('482913', 'c');
@@ -658,7 +658,7 @@ pre.tree .c1 { color: #565f89; }
       ], 56, { active: true });
       return overlay(base, m, 4);
     },
-    off: os => screen(hdr('Bluetooth', btStatus(false)), box('Bluetooth is off', [[], cat(B(2), T('p', 'b'), T(' turn on', 'dim')), []], W), keys([['p', 'power'], ['esc', 'close']])),
+    off: os => screen(hdr('Bluetooth', btStatus(false)), box('Bluetooth is off', [[], cat(B(2), T('p', 'b'), T(' turn on', 'dim')), []], W), keys([['p', 'turn on'], ['esc', 'close']])),
   };
 
   /* ---------------- Sound ---------------- */

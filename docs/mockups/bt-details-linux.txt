@@ -20,4 +20,4 @@
 
 
 
- ↵ connect  s scan  i details  ? more  esc close
+ ↵ connect  s scan  i details  p turn off  ? more  esc close

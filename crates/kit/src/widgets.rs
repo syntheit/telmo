@@ -102,7 +102,14 @@ fn pane_colored<'a>(
 
 /// Draw selectable rows. Each row gets the selection marker column; the
 /// selected row gets a full-width background. Scrolls to keep it visible.
-pub fn rows(frame: &mut Frame, area: Rect, lines: Vec<Line>, selected: Option<usize>) {
+/// Returns the index and area of every row drawn, for click handling.
+pub fn rows(
+    frame: &mut Frame,
+    area: Rect,
+    lines: Vec<Line>,
+    selected: Option<usize>,
+) -> Vec<(usize, Rect)> {
+    let mut drawn = Vec::new();
     let height = area.height as usize;
     let offset = match selected {
         Some(s) if s >= height => s + 1 - height,
@@ -114,6 +121,7 @@ pub fn rows(frame: &mut Frame, area: Rect, lines: Vec<Line>, selected: Option<us
             height: 1,
             ..area
         };
+        drawn.push((i, rect));
         let is_selected = selected == Some(i);
         let marker = if is_selected {
             Span::styled(" ▌ ", theme::accent())
@@ -129,6 +137,7 @@ pub fn rows(frame: &mut Frame, area: Rect, lines: Vec<Line>, selected: Option<us
         }
         frame.render_widget(line, rect);
     }
+    drawn
 }
 
 /// Pad or cut a string to exactly `width` columns.
@@ -218,8 +227,9 @@ pub fn big_digits(text: &str, style: Style) -> [Line<'static>; 3] {
     rows.map(|r| Line::styled(r, style))
 }
 
-/// The bottom key bar: `key label  key label ...`.
-pub fn keys(frame: &mut Frame, area: Rect, bindings: &[(&str, &str)]) {
+/// The bottom key bar: `key label  key label ...`. Returns the area of each
+/// binding, in order, so a click can trigger the same action as the key.
+pub fn keys(frame: &mut Frame, area: Rect, bindings: &[(&str, &str)]) -> Vec<Rect> {
     let mut spans = vec![Span::raw(" ")];
     for (i, (key, label)) in bindings.iter().enumerate() {
         if i > 0 {
@@ -230,6 +240,33 @@ pub fn keys(frame: &mut Frame, area: Rect, bindings: &[(&str, &str)]) {
         spans.push(Span::styled(*label, theme::dim()));
     }
     frame.render_widget(Line::from(spans), area);
+    binding_areas(area, bindings, 1, 2)
+}
+
+/// Where each `key label` pair lands on a line that starts with `lead`
+/// spaces and separates pairs with `gap` spaces.
+fn binding_areas(area: Rect, bindings: &[(&str, &str)], lead: u16, gap: u16) -> Vec<Rect> {
+    let mut x = area.x + lead;
+    let mut out = Vec::new();
+    for (key, label) in bindings {
+        let width = (key.chars().count() + 1 + label.chars().count()) as u16;
+        out.push(
+            Rect {
+                x,
+                y: area.y,
+                width,
+                height: 1,
+            }
+            .intersection(area),
+        );
+        x += width + gap;
+    }
+    out
+}
+
+/// Areas of the bindings in a dialog `hint` line drawn at `area`.
+pub fn hint_areas(area: Rect, bindings: &[(&str, &str)]) -> Vec<Rect> {
+    binding_areas(area, bindings, 1, 3)
 }
 
 /// A short message above the key bar that expires on its own.

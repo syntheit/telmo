@@ -70,6 +70,7 @@ struct Dev {
     bluetooth: bool,
     card: Option<u32>,
     index: u32,
+    running: bool,
 }
 
 struct Input {
@@ -78,6 +79,7 @@ struct Input {
     volume: ChannelVolumes,
     muted: bool,
     sink: u32,
+    corked: bool,
 }
 
 struct Card {
@@ -371,6 +373,7 @@ fn sink_dev(info: &SinkInfo) -> Option<Dev> {
         bluetooth: is_bluetooth(&info.proplist),
         card: info.card,
         index: info.index,
+        running: info.state == libpulse_binding::def::SinkState::Running,
     })
 }
 
@@ -383,6 +386,7 @@ fn source_dev(info: &SourceInfo) -> Option<Dev> {
         bluetooth: is_bluetooth(&info.proplist),
         card: info.card,
         index: info.index,
+        running: info.state == libpulse_binding::def::SourceState::Running,
     })
 }
 
@@ -399,6 +403,7 @@ fn input(info: &SinkInputInfo) -> Input {
         volume: info.volume,
         muted: info.mute,
         sink: info.sink,
+        corked: info.corked,
     }
 }
 
@@ -466,6 +471,7 @@ fn device(d: &Dev, default: bool, cards: &[Card]) -> Device {
         muted: d.muted,
         bluetooth: d.bluetooth,
         profiles,
+        playing: d.running,
     }
 }
 
@@ -502,6 +508,7 @@ fn stream(i: &Input, sinks: &[Dev]) -> Stream {
             .iter()
             .find(|s| s.index == i.sink)
             .map(|s| s.name.clone()),
+        playing: !i.corked,
     }
 }
 

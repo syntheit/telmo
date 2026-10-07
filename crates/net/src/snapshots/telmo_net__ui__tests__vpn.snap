@@ -23,4 +23,4 @@ expression: render(&app)
 │                        ││                                                              │
 ╰────────────────────────╯╰──────────────────────────────────────────────────────────────╯
 
- ↵ connect/disconnect  i details  tab interfaces  ? more  esc close
+ ↵ connect/disconnect  i details  ? more  esc close

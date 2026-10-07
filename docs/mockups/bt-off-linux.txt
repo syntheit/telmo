@@ -20,4 +20,4 @@
 
 
 
- p power  esc close
+ p turn on  esc close

@@ -1,12 +1,13 @@
 //! Drawing for telmo-net: a pure function of the app state.
 
 use crate::app::{
-    App, DetailsDialog, Dialog, DnsForm, Focus, Ipv4Form, Join, Meter, Pane, Qr, Screen, WifiRow,
+    App, Click, DetailsDialog, Dialog, DnsForm, Focus, Ipv4Form, Join, Meter, Pane, Screen, WifiRow,
 };
 use crate::model::*;
 use ratatui::{
     Frame,
-    layout::{Constraint, Layout, Rect},
+    crossterm::event::KeyCode,
+    layout::{Constraint, Layout, Margin, Rect},
     style::Style,
     text::{Line, Span},
 };
@@ -18,6 +19,7 @@ use telmo_kit::{
 use telmo_speed::Phase;
 
 pub fn draw(app: &App, frame: &mut Frame) {
+    app.hits.clear();
     let screen = widgets::screen(frame.area());
     match app.screen {
         Screen::Main => {
@@ -37,7 +39,13 @@ pub fn draw(app: &App, frame: &mut Frame) {
     if let Some(toast) = app.toast.as_ref().filter(|t| !t.expired()) {
         toast.render(frame, screen.toast);
     }
-    widgets::keys(frame, screen.keys, &key_bar(app));
+    let bar = key_bar(app);
+    let areas = widgets::keys(frame, screen.keys, &bar);
+    for ((key, _), area) in bar.iter().zip(areas) {
+        if let Some(code) = key_code(key) {
+            app.hits.add(area, Click::Key(code));
+        }
+    }
     if let Some(dialog) = &app.dialog {
         draw_dialog(app, frame, dialog);
     }
@@ -75,15 +83,33 @@ fn dot(on: bool) -> Span<'static> {
 
 // --- key bar and help ---
 
+/// The key a label in a key bar or hint stands for.
+fn key_code(label: &str) -> Option<KeyCode> {
+    let mut chars = label.chars();
+    match (label, chars.next(), chars.next()) {
+        ("↵", ..) => Some(KeyCode::Enter),
+        ("esc", ..) => Some(KeyCode::Esc),
+        ("tab", ..) => Some(KeyCode::Tab),
+        (_, Some(c), None) => Some(KeyCode::Char(c)),
+        _ => None,
+    }
+}
+
 fn key_bar(app: &App) -> Vec<(&'static str, &'static str)> {
     let mut keys: Vec<(&str, &str)> = match app.screen {
         Screen::Speed => return vec![("↵", "run again"), ("c", "copy result"), ("esc", "back")],
         Screen::Main if app.focus == Focus::Sidebar => {
-            vec![("↵", "open"), ("s", "speedtest"), ("tab", "pane")]
+            vec![("↵", "open"), ("s", "speedtest")]
         }
         Screen::Main => match app.pane() {
             Pane::Wifi if wifi_off(app) => vec![("p", "turn on"), ("s", "speedtest")],
-            Pane::Wifi => vec![("↵", "join"), ("i", "details"), ("s", "speedtest")],
+            Pane::Wifi => vec![
+                ("↵", "join"),
+                ("i", "details"),
+                ("r", "rescan"),
+                ("s", "speedtest"),
+                ("p", "power"),
+            ],
             Pane::Wired(i) if app.has_settings(&app.snapshot.interfaces[i]) => {
                 vec![("↵", "edit")]
             }
@@ -91,9 +117,6 @@ fn key_bar(app: &App) -> Vec<(&'static str, &'static str)> {
             Pane::Wired(_) | Pane::Empty => vec![("s", "speedtest")],
         },
     };
-    if app.screen == Screen::Main && app.focus == Focus::Pane {
-        keys.push(("tab", "interfaces"));
-    }
     keys.extend([("?", "more"), ("esc", "close")]);
     keys
 }
@@ -116,11 +139,12 @@ fn help_lines(app: &App) -> Vec<(&'static str, &'static str)> {
         ("tab", "switch between interfaces and the pane"),
         ("h l ← →", "interfaces / pane"),
         ("s", "speedtest"),
+        ("click", "select, click again to act, wheel scrolls"),
     ];
     match app.pane() {
         Pane::Wifi => lines.extend([
             ("↵", "join the selected network"),
-            ("i", "details, password, QR, forget"),
+            ("i", "details: password and QR (y), forget"),
             ("a", "show or hide saved networks out of range"),
             ("p", "turn Wi-Fi on or off"),
             ("r", "rescan"),
@@ -152,6 +176,7 @@ fn draw_sidebar(app: &App, frame: &mut Frame, area: Rect) {
     let block = widgets::pane("Interfaces", app.focus == Focus::Sidebar, None, None);
     let inner = block.inner(area);
     frame.render_widget(block, area);
+    app.hits.add(area, Click::Pane(Focus::Sidebar));
     let mut lines = Vec::new();
     for interface in &app.snapshot.interfaces {
         lines.push(entry_line(&interface.name, interface.connected));
@@ -171,7 +196,10 @@ fn draw_sidebar(app: &App, frame: &mut Frame, area: Rect) {
         connected.join(", ")
     };
     lines.push(summary_line(&summary));
-    widgets::rows(frame, inner, lines, Some(app.sel * 3));
+    let drawn = widgets::rows(frame, inner, lines, Some(app.sel * 3));
+    for (line, rect) in drawn {
+        app.hits.add(rect, Click::Row(Focus::Sidebar, line / 3));
+    }
 }
 
 fn entry_line(name: &str, on: bool) -> Line<'static> {
@@ -212,6 +240,7 @@ fn draw_wifi(app: &App, frame: &mut Frame, area: Rect) {
     let block = widgets::pane("Wi-Fi", active, None, Some(right));
     let inner = block.inner(area);
     frame.render_widget(block, area);
+    app.hits.add(area, Click::Pane(Focus::Pane));
     if !wifi.power {
         let lines = vec![
             Line::raw(""),
@@ -229,6 +258,7 @@ fn draw_wifi_hidden(app: &App, frame: &mut Frame, area: Rect) {
     let block = widgets::warning_pane("Wi-Fi names hidden");
     let inner = block.inner(area);
     frame.render_widget(block, area);
+    app.hits.add(area, Click::Pane(Focus::Pane));
     let intro = vec![
         Line::styled("macOS hides network names until Location is", theme::text()),
         Line::styled("allowed for Telmo.", theme::text()),
@@ -279,7 +309,17 @@ fn draw_wifi_rows(app: &App, frame: &mut Frame, area: Rect, intro: Vec<Line<'sta
         ]));
     }
     let selected = (app.focus == Focus::Pane).then_some(offset + app.row);
-    widgets::rows(frame, area, lines, selected);
+    let drawn = widgets::rows(frame, area, lines, selected);
+    add_row_hits(app, &drawn, offset, app.wifi_rows().len());
+}
+
+/// Rows of the pane start at line `first` and there are `count` of them.
+fn add_row_hits(app: &App, drawn: &[(usize, Rect)], first: usize, count: usize) {
+    for &(line, rect) in drawn {
+        if (first..first + count).contains(&line) {
+            app.hits.add(rect, Click::Row(Focus::Pane, line - first));
+        }
+    }
 }
 
 fn network_line(app: &App, wifi: &Wifi, network: &Network) -> Line<'static> {
@@ -329,6 +369,7 @@ fn draw_wired(app: &App, frame: &mut Frame, area: Rect, interface: &Interface) {
     let block = widgets::pane(&interface.name, app.focus == Focus::Pane, None, Some(right));
     let inner = block.inner(area);
     frame.render_widget(block, area);
+    app.hits.add(area, Click::Pane(Focus::Pane));
 
     let mut lines = vec![Line::raw("")];
     match &interface.ipv4 {
@@ -343,6 +384,7 @@ fn draw_wired(app: &App, frame: &mut Frame, area: Rect, interface: &Interface) {
         None => lines.push(Line::styled("not connected", theme::dim())),
     }
     let mut selected = None;
+    let mut settings_start = None;
     if app.has_settings(interface) {
         let rule = "─".repeat((inner.width as usize).saturating_sub(16));
         lines.push(Line::raw(""));
@@ -350,12 +392,16 @@ fn draw_wired(app: &App, frame: &mut Frame, area: Rect, interface: &Interface) {
             Span::styled("settings ", theme::dim()),
             Span::styled(rule, theme::faint()),
         ]));
+        settings_start = Some(lines.len());
         if app.focus == Focus::Pane {
             selected = Some(lines.len() + app.row);
         }
         lines.extend(setting_lines(app, interface));
     }
-    widgets::rows(frame, inner, lines, selected);
+    let drawn = widgets::rows(frame, inner, lines, selected);
+    if let Some(first) = settings_start {
+        add_row_hits(app, &drawn, first, 2);
+    }
 }
 
 fn info_line(label: &str, value: &str) -> Line<'static> {
@@ -398,6 +444,7 @@ fn draw_vpn(app: &App, frame: &mut Frame, area: Rect) {
     let block = widgets::pane("VPN", app.focus == Focus::Pane, None, None);
     let inner = block.inner(area);
     frame.render_widget(block, area);
+    app.hits.add(area, Click::Pane(Focus::Pane));
     if app.snapshot.vpns.is_empty() {
         let lines = vec![
             Line::raw(""),
@@ -420,7 +467,8 @@ fn draw_vpn(app: &App, frame: &mut Frame, area: Rect) {
         lines.push(Line::from(vec![Span::raw(fit(&vpn.name, 30)), tag]));
     }
     let selected = (app.focus == Focus::Pane).then_some(1 + app.row);
-    widgets::rows(frame, inner, lines, selected);
+    let drawn = widgets::rows(frame, inner, lines, selected);
+    add_row_hits(app, &drawn, 1, app.snapshot.vpns.len());
 }
 
 // --- speedtest ---
@@ -579,11 +627,34 @@ fn ago(at: u64) -> String {
 
 // --- dialogs ---
 
+/// `widgets::dialog` plus the click areas: a click inside does nothing, a
+/// click anywhere else closes it.
+fn open_dialog(app: &App, frame: &mut Frame, title: &str, width: u16, height: u16) -> Rect {
+    let inner = widgets::dialog(frame, title, width, height);
+    app.hits.add(frame.area(), Click::Outside);
+    app.hits.add(inner.outer(Margin::new(1, 1)), Click::Inside);
+    inner
+}
+
+/// A hint line at `row` inside the dialog whose items can be clicked.
+fn dialog_hint(app: &App, inner: Rect, row: usize, bindings: &[(&str, &str)]) -> Line<'static> {
+    let line = Rect {
+        y: inner.y + row as u16,
+        height: 1,
+        ..inner
+    };
+    for ((key, _), area) in bindings.iter().zip(widgets::hint_areas(line, bindings)) {
+        if let Some(code) = key_code(key) {
+            app.hits.add(area, Click::DialogKey(code));
+        }
+    }
+    widgets::hint(bindings)
+}
+
 fn draw_dialog(app: &App, frame: &mut Frame, dialog: &Dialog) {
     match dialog {
-        Dialog::Join(d) => draw_join(frame, d),
+        Dialog::Join(d) => draw_join(app, frame, d),
         Dialog::Details(d) => draw_details(app, frame, d),
-        Dialog::Qr(d) => draw_qr(frame, d),
         Dialog::Ipv4(d) => draw_ipv4(app, frame, d),
         Dialog::Dns(d) => draw_dns(app, frame, d),
         Dialog::Help => draw_help(app, frame),
@@ -596,9 +667,10 @@ fn field_line(label: &str, input: &TextInput, width: usize, focused: bool) -> Li
     Line::from(spans)
 }
 
-fn draw_join(frame: &mut Frame, d: &Join) {
-    let inner = widgets::dialog(frame, &d.title, 50, 7);
-    let hint = widgets::hint(&[("↵", "join"), ("tab", "show password"), ("esc", "cancel")]);
+fn draw_join(app: &App, frame: &mut Frame, d: &Join) {
+    let inner = open_dialog(app, frame, &d.title, 50, 7);
+    let bindings = [("↵", "join"), ("tab", "show password"), ("esc", "cancel")];
+    let hint = dialog_hint(app, inner, 3, &bindings);
     let lines = vec![
         Line::raw(""),
         field_line("password", &d.input, 32, true),
@@ -632,24 +704,31 @@ fn signal_summary(network: &Network) -> String {
 }
 
 fn draw_details(app: &App, frame: &mut Frame, d: &DetailsDialog) {
-    let title = d
+    let name = d
         .network
         .ssid
         .clone()
         .unwrap_or_else(|| "hidden network".to_string());
-    let inner = widgets::dialog(frame, &title, 66, 12);
+    let password = match (&d.password, d.network.saved) {
+        (Some(password), _) => password.clone(),
+        (None, true) => "••••••••••".to_string(),
+        (None, false) if d.network.security == Security::Open => "none (open network)".to_string(),
+        (None, false) => "not saved".to_string(),
+    };
+    let hint = details_hint(app, d);
+    // The code is 16 rows or so: beside the numbers it needs a tall terminal.
+    let code = d.qr().map(|qr| qr.lines());
+    let code_rows = code.as_ref().map_or(0, |c| c.as_ref().map_or(1, Vec::len));
+    if code.is_some() && 12 + code_rows > frame.area().height as usize {
+        return draw_share(app, frame, &name, &password, code.flatten(), &hint);
+    }
+    let inner = open_dialog(app, frame, &name, 66, 12 + code_rows as u16);
     let ipv4 = d.network.connected.then(|| app.wifi_ipv4()).flatten();
     let none = "—".to_string();
     let public_ip = match (&app.details, d.network.connected) {
         (Some(details), _) => details.public_ip.clone().unwrap_or(none.clone()),
         (None, true) => "…".to_string(),
         (None, false) => none.clone(),
-    };
-    let password = match (&d.password, d.network.saved) {
-        (Some(password), _) => password.clone(),
-        (None, true) => "••••••••••".to_string(),
-        (None, false) if d.network.security == Security::Open => "none (open network)".to_string(),
-        (None, false) => "not saved".to_string(),
     };
     let rows = [
         ("ip", ipv4.map_or(none.clone(), |v| v.address.clone())),
@@ -670,53 +749,106 @@ fn draw_details(app: &App, frame: &mut Frame, d: &DetailsDialog) {
         ])
     }));
     lines.push(Line::raw(""));
-    lines.push(if d.confirm_forget {
-        let name = d.network.ssid.clone().unwrap_or_default();
-        Line::from(vec![
-            Span::styled(format!(" Forget {name}?   "), theme::warn()),
-            Span::styled("y", theme::accent()),
-            Span::styled(" yes   ", theme::dim()),
-            Span::styled("n", theme::accent()),
-            Span::styled(" no", theme::dim()),
-        ])
-    } else if d.network.saved {
+    if let Some(code) = code {
+        lines.extend(qr_lines(code));
+        lines.push(Line::raw(""));
+    }
+    let row = lines.len();
+    lines.push(details_footer(app, inner, row, d, hint));
+    widgets::text(frame, inner, lines);
+}
+
+/// What the footer of the details dialog says and offers.
+fn details_hint(app: &App, d: &DetailsDialog) -> Vec<(&'static str, &'static str)> {
+    let open = d.network.security == Security::Open;
+    if d.network.saved {
         let reveal = match (d.password.is_some(), app.snapshot.caps.reveal_touch_id) {
             (true, _) => "hide password",
             (false, true) => "show password (Touch ID)",
             (false, false) => "show password",
         };
-        widgets::hint(&[
-            ("y", reveal),
-            ("c", "copy ip"),
-            ("Q", "QR code"),
-            ("d", "forget"),
-        ])
-    } else if d.network.security == Security::Open {
-        widgets::hint(&[("c", "copy ip"), ("Q", "QR code"), ("esc", "close")])
+        vec![("y", reveal), ("c", "copy ip"), ("d", "forget")]
+    } else if open {
+        let qr = if d.open_qr {
+            "hide QR code"
+        } else {
+            "show QR code"
+        };
+        vec![("y", qr), ("c", "copy ip"), ("esc", "close")]
     } else {
-        widgets::hint(&[("c", "copy ip"), ("esc", "close")])
-    });
-    widgets::text(frame, inner, lines);
+        vec![("c", "copy ip"), ("esc", "close")]
+    }
 }
 
-fn draw_qr(frame: &mut Frame, d: &Qr) {
-    let Some(code) = d.lines() else {
-        let inner = widgets::dialog(frame, &d.ssid, 50, 5);
-        let message = Line::styled(" The password is too long for a QR code.", theme::err());
-        return widgets::text(frame, inner, vec![Line::raw(""), message]);
-    };
-    let width = code.first().map_or(0, |l| l.chars().count()) as u16;
-    let inner = widgets::dialog(frame, &d.ssid, (width + 4).max(34), code.len() as u16 + 4);
-    let mut lines: Vec<Line> = code
-        .into_iter()
-        .map(|l| Line::styled(format!(" {l}"), Style::new().fg(theme::FG)))
-        .collect();
-    lines.push(widgets::hint(&[("esc", "close")]));
+fn details_footer(
+    app: &App,
+    inner: Rect,
+    row: usize,
+    d: &DetailsDialog,
+    hint: Vec<(&'static str, &'static str)>,
+) -> Line<'static> {
+    if !d.confirm_forget {
+        return dialog_hint(app, inner, row, &hint);
+    }
+    let name = d.network.ssid.clone().unwrap_or_default();
+    Line::from(vec![
+        Span::styled(format!(" Forget {name}?   "), theme::warn()),
+        Span::styled("y", theme::accent()),
+        Span::styled(" yes   ", theme::dim()),
+        Span::styled("n", theme::accent()),
+        Span::styled(" no", theme::dim()),
+    ])
+}
+
+/// The code as text lines, or why there is none.
+fn qr_lines(code: Option<Vec<String>>) -> Vec<Line<'static>> {
+    match code {
+        Some(code) => code
+            .into_iter()
+            .map(|l| Line::styled(format!(" {l}"), Style::new().fg(theme::FG)))
+            .collect(),
+        None => vec![Line::styled(
+            "   The password is too long for a QR code.",
+            theme::err(),
+        )],
+    }
+}
+
+/// Details without room for the code: the password above the code alone.
+fn draw_share(
+    app: &App,
+    frame: &mut Frame,
+    name: &str,
+    password: &str,
+    code: Option<Vec<String>>,
+    hint: &[(&str, &str)],
+) {
+    let code = qr_lines(code);
+    let width = code.first().map_or(0, Line::width) as u16;
+    let height = code.len() as u16 + 4;
+    let inner = open_dialog(
+        app,
+        frame,
+        &format!("Share {name}"),
+        (width + 4).max(50),
+        height,
+    );
+    let mut lines = vec![Line::from(vec![
+        Span::styled("   password  ", theme::dim()),
+        Span::raw(password.to_string()),
+    ])];
+    let pad = " ".repeat(inner.width.saturating_sub(width) as usize / 2);
+    lines.extend(code.into_iter().map(|mut line| {
+        line.spans.insert(0, Span::raw(pad.clone()));
+        line
+    }));
+    let row = lines.len();
+    lines.push(dialog_hint(app, inner, row, hint));
     widgets::text(frame, inner, lines);
 }
 
 fn draw_ipv4(app: &App, frame: &mut Frame, d: &Ipv4Form) {
-    let inner = widgets::dialog(frame, &format!("IPv4 · {}", d.name), 50, 13);
+    let inner = open_dialog(app, frame, &format!("IPv4 · {}", d.name), 50, 13);
     let option = |text: &str, chosen: bool| {
         let style = if chosen {
             Style::new().bg(theme::FIELD).fg(theme::BLUE).bold()
@@ -756,13 +888,18 @@ fn draw_ipv4(app: &App, frame: &mut Frame, d: &Ipv4Form) {
         Line::raw(""),
         note,
         Line::raw(""),
-        widgets::hint(&[("↵", "save"), ("tab", "next field"), ("esc", "cancel")]),
+        dialog_hint(
+            app,
+            inner,
+            9,
+            &[("↵", "save"), ("tab", "next field"), ("esc", "cancel")],
+        ),
     ];
     widgets::text(frame, inner, lines);
 }
 
 fn draw_dns(app: &App, frame: &mut Frame, d: &DnsForm) {
-    let inner = widgets::dialog(frame, &format!("DNS · {}", d.name), 56, 11);
+    let inner = open_dialog(app, frame, &format!("DNS · {}", d.name), 56, 11);
     let note = match (&d.error, app.snapshot.caps.edit_needs_admin) {
         (Some(error), _) => Line::styled(format!("  {error}"), theme::err()),
         (None, true) => Line::styled("  saving asks for your admin password", theme::dim()),
@@ -778,14 +915,14 @@ fn draw_dns(app: &App, frame: &mut Frame, d: &DnsForm) {
         Line::raw(""),
         note,
         Line::raw(""),
-        widgets::hint(&[("↵", "save"), ("esc", "cancel")]),
+        dialog_hint(app, inner, 6, &[("↵", "save"), ("esc", "cancel")]),
     ];
     widgets::text(frame, inner, lines);
 }
 
 fn draw_help(app: &App, frame: &mut Frame) {
     let keys = help_lines(app);
-    let inner = widgets::dialog(frame, "Keys", 58, keys.len() as u16 + 4);
+    let inner = open_dialog(app, frame, "Keys", 58, keys.len() as u16 + 4);
     let mut lines = vec![Line::raw("")];
     lines.extend(keys.into_iter().map(|(key, what)| {
         Line::from(vec![
@@ -800,7 +937,9 @@ fn draw_help(app: &App, frame: &mut Frame) {
 mod tests {
     use super::*;
     use crate::backend::{Event, mock};
-    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use crossterm::event::{
+        KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
+    };
     use telmo_kit::App as _;
     use telmo_speed::{Record, Update};
     use tokio::sync::mpsc::unbounded_channel;
@@ -853,7 +992,7 @@ mod tests {
     #[test]
     fn qr() {
         let mut app = app();
-        press(&mut app, "iQ");
+        press(&mut app, "iy");
         app.event(Event::Password {
             ssid: "HomeNet-5G".to_string(),
             password: Ok("correct-horse-battery".to_string()),
@@ -1001,5 +1140,104 @@ mod tests {
         let mut app = app();
         app.event(Event::Snapshot(snapshot));
         insta::assert_snapshot!(render(&app));
+    }
+
+    /// Cell of the first match of `text` on the drawn screen.
+    fn find(app: &App, text: &str) -> (u16, u16) {
+        for (row, line) in render(app).lines().enumerate() {
+            if let Some(byte) = line.find(text) {
+                return (line[..byte].chars().count() as u16, row as u16);
+            }
+        }
+        panic!("{text:?} isn't on screen");
+    }
+
+    fn mouse(app: &mut App, kind: MouseEventKind, text: &str) {
+        let (column, row) = find(app, text);
+        app.mouse(MouseEvent {
+            kind,
+            column,
+            row,
+            modifiers: KeyModifiers::NONE,
+        });
+    }
+
+    fn click(app: &mut App, text: &str) {
+        mouse(app, MouseEventKind::Down(MouseButton::Left), text);
+    }
+
+    #[test]
+    fn clicking_a_row_selects_it_and_clicking_again_acts() {
+        let mut app = app();
+        click(&mut app, "Tanaka-AP");
+        assert_eq!(app.row, 3);
+        assert!(app.dialog.is_none());
+        click(&mut app, "Tanaka-AP");
+        assert!(matches!(app.dialog, Some(Dialog::Join(_))));
+    }
+
+    #[test]
+    fn clicking_the_sidebar_selects_an_interface() {
+        let mut app = app();
+        click(&mut app, "Ethernet");
+        assert_eq!((app.sel, app.focus), (1, Focus::Sidebar));
+        assert_eq!(app.pane(), Pane::Wired(1));
+        click(&mut app, "Ethernet");
+        assert_eq!(app.focus, Focus::Pane);
+    }
+
+    #[test]
+    fn the_wheel_moves_the_selection_under_the_cursor() {
+        let mut app = app();
+        let down = MouseEventKind::ScrollDown;
+        mouse(&mut app, down, "HomeNet-5G");
+        mouse(&mut app, down, "HomeNet-5G");
+        assert_eq!(app.row, 2);
+        mouse(&mut app, MouseEventKind::ScrollUp, "HomeNet-5G");
+        assert_eq!(app.row, 1);
+        mouse(&mut app, down, "Ethernet");
+        assert_eq!((app.sel, app.focus), (1, Focus::Sidebar));
+    }
+
+    #[test]
+    fn clicking_the_key_bar_presses_the_key() {
+        let mut app = app();
+        click(&mut app, "rescan");
+        assert!(app.pending.contains("wifi"));
+        click(&mut app, "more");
+        assert!(matches!(app.dialog, Some(Dialog::Help)));
+    }
+
+    #[test]
+    fn clicking_a_dialog_hint_presses_the_key_and_outside_closes() {
+        let mut app = app();
+        press(&mut app, "i");
+        click(&mut app, "copy ip");
+        assert!(app.toast.is_some());
+        assert!(app.dialog.is_some());
+        click(&mut app, "signal");
+        assert!(app.dialog.is_some());
+        app.mouse(MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 0,
+            row: 0,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert!(app.dialog.is_none());
+    }
+
+    #[test]
+    fn showing_the_password_shows_the_code_too() {
+        let mut app = app();
+        press(&mut app, "i");
+        click(&mut app, "show password");
+        app.event(Event::Password {
+            ssid: "HomeNet-5G".to_string(),
+            password: Ok("correct-horse-battery".to_string()),
+        });
+        let screen = render(&app);
+        assert!(screen.contains("Share HomeNet-5G"));
+        assert!(screen.contains("correct-horse-battery"));
+        assert!(!screen.contains("QR code"));
     }
 }

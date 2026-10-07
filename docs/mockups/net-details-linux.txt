@@ -13,11 +13,11 @@
 │               │   signal     strong · 5 GHz · WPA3                             │       │
 │   VPN         │   password   ••••••••••                                        │       │
 │   Tailscale   │                                                                │       │
-╰───────────────│ y show password   c copy ip   Q QR code   d forget             │───────╯
+╰───────────────│ y show password   c copy ip   d forget                         │───────╯
                 │                                                                │
                 ╰────────────────────────────────────────────────────────────────╯
 
 
 
 
- ↵ join  i details  s speedtest  tab interfaces  ? more  esc close
+ ↵ join  i details  r rescan  s speedtest  p power  ? more  esc close

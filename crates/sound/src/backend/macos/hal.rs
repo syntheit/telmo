@@ -260,7 +260,7 @@ impl Drop for Listeners {
 }
 
 pub fn device_addresses() -> Vec<AudioObjectPropertyAddress> {
-    let mut addresses = Vec::new();
+    let mut addresses = vec![global(kAudioDevicePropertyDeviceIsRunningSomewhere)];
     for scope in [
         kAudioObjectPropertyScopeOutput,
         kAudioObjectPropertyScopeInput,

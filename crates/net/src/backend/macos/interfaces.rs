@@ -135,7 +135,7 @@ pub fn build(
 ) -> Built {
     let mut counts: HashMap<&str, u32> = HashMap::new();
     let mut interfaces = Vec::new();
-    for service in services {
+    for service in services.iter().filter(|s| shown(store, s)) {
         let name = display_name(service, &mut counts);
         interfaces.push(interface(store, service, name, wifi, speeds));
     }
@@ -152,6 +152,27 @@ pub fn build(
         interfaces,
         primary,
     }
+}
+
+/// Wi-Fi and the odd kinds always show; a wired service shows only while its
+/// adapter exists and has a link or an address.
+fn shown(store: &Store, service: &Service) -> bool {
+    let wired = matches!(
+        service.kind,
+        InterfaceKind::Ethernet | InterfaceKind::Thunderbolt | InterfaceKind::Usb
+    );
+    if !wired {
+        return true;
+    }
+    let state = |key: &str| store.value(&format!("State:/Network/Interface/{}/{key}", service.bsd));
+    let link = state("Link")
+        .and_then(|l| l.get("Active").and_then(Value::as_bool))
+        .unwrap_or(false);
+    wired_visible(device_exists(&service.bsd), link, state("IPv4").is_some())
+}
+
+fn wired_visible(exists: bool, link_active: bool, has_ipv4: bool) -> bool {
+    exists && (link_active || has_ipv4)
 }
 
 /// "Wi-Fi", "Ethernet", "Ethernet 2", "Thunderbolt", "iPhone USB", ...
@@ -315,6 +336,14 @@ mod tests {
         assert_eq!(parse_link_rate("\tlink rate: 1.0 Gbps\n"), Some(1000));
         assert_eq!(parse_link_rate("\tlink rate: 673.92 Mbps\n"), Some(674));
         assert_eq!(parse_link_rate("nothing"), None);
+    }
+
+    #[test]
+    fn hides_idle_wired() {
+        assert!(wired_visible(true, true, false));
+        assert!(wired_visible(true, false, true));
+        assert!(!wired_visible(true, false, false));
+        assert!(!wired_visible(false, true, true));
     }
 
     #[test]

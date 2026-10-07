@@ -86,7 +86,11 @@ async fn read_interface(
     let Some(kind) = classify(device.device_type().await?, &driver, &name) else {
         return Ok(None);
     };
-    let connected = device.state().await? == STATE_ACTIVATED;
+    let state = device.state().await?;
+    if hidden_wired(kind, state) {
+        return Ok(None);
+    }
+    let connected = state == STATE_ACTIVATED;
     let link_mbps = match (kind, connected) {
         (InterfaceKind::Ethernet | InterfaceKind::Usb, true) => wired_speed(conn, path).await,
         _ => None,
@@ -108,6 +112,12 @@ async fn read_interface(
         link_mbps,
         config,
     }))
+}
+
+/// Wired adapters in UNAVAILABLE (no carrier) have no cable and no address.
+fn hidden_wired(kind: InterfaceKind, state: u32) -> bool {
+    const UNAVAILABLE: u32 = 20;
+    matches!(kind, InterfaceKind::Ethernet | InterfaceKind::Usb) && state == UNAVAILABLE
 }
 
 fn classify(device_type: u32, driver: &str, name: &str) -> Option<InterfaceKind> {
@@ -442,6 +452,14 @@ mod tests {
         assert_eq!(format_speed(1000), "1 Gbps");
         assert_eq!(format_speed(2500), "2.5 Gbps");
         assert_eq!(format_speed(100), "100 Mbps");
+    }
+
+    #[test]
+    fn hides_cableless_wired() {
+        assert!(hidden_wired(InterfaceKind::Ethernet, 20));
+        assert!(!hidden_wired(InterfaceKind::Ethernet, 30));
+        assert!(!hidden_wired(InterfaceKind::Ethernet, 100));
+        assert!(!hidden_wired(InterfaceKind::Wifi, 20));
     }
 
     #[test]

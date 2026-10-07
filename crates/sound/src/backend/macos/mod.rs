@@ -142,6 +142,13 @@ fn device_row(info: &Info, direction: Direction, default: bool) -> Device {
         muted,
         bluetooth: info.bluetooth,
         profiles: Vec::new(),
+        playing: direction == Direction::Output
+            && get::<u32>(
+                info.id,
+                global(kAudioDevicePropertyDeviceIsRunningSomewhere),
+            )
+            .unwrap_or(0)
+                != 0,
     }
 }
 

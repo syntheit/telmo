@@ -2,9 +2,9 @@
 
 use crate::backend::{Cmd, Event};
 use crate::model::{Device, PairPrompt, Snapshot};
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use std::collections::HashMap;
-use telmo_kit::{Flow, input::TextInput, widgets::Toast};
+use telmo_kit::{Flow, hits::Hits, input::TextInput, widgets::Toast};
 use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -24,6 +24,19 @@ impl Pane {
             Pane::Nearby => "Nearby",
         }
     }
+}
+
+/// What a click on a drawn area does.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Click {
+    /// Index into `App::rows()`.
+    Row(usize),
+    /// Same as pressing the key (key bar and dialog hints).
+    Key(KeyCode),
+    /// Inside a dialog: swallows the click.
+    Inside,
+    /// Outside the open dialog: closes it.
+    Outside,
 }
 
 pub enum Dialog {
@@ -52,6 +65,7 @@ pub struct App {
     pub dialog: Option<Dialog>,
     pub toast: Option<Toast>,
     pub tick: u64,
+    pub hits: Hits<Click>,
     cmds: UnboundedSender<Cmd>,
     save_on_exit: bool,
 }
@@ -66,6 +80,7 @@ impl App {
             dialog: None,
             toast: None,
             tick: 0,
+            hits: Hits::default(),
             cmds,
             save_on_exit: false,
         }
@@ -150,6 +165,22 @@ impl App {
             .saturating_add_signed(offset)
             .min(rows.len().saturating_sub(1));
         self.selected = rows.get(next).map(|d| d.id.clone());
+    }
+
+    fn press(&mut self, code: KeyCode) -> Flow {
+        telmo_kit::App::key(self, KeyEvent::new(code, KeyModifiers::NONE))
+    }
+
+    /// Clicking the selected row does what Enter does.
+    fn click_row(&mut self, index: usize) -> Flow {
+        let Some(id) = self.rows().get(index).map(|d| d.id.clone()) else {
+            return Flow::Continue;
+        };
+        if self.selected_device().is_some_and(|d| d.id == id) {
+            return self.press(KeyCode::Enter);
+        }
+        self.selected = Some(id);
+        Flow::Continue
     }
 
     fn next_pane(&mut self) {
@@ -367,6 +398,22 @@ impl telmo_kit::App for App {
                 Flow::Continue
             }
             None => self.main_key(key),
+        }
+    }
+
+    fn mouse(&mut self, event: MouseEvent) -> Flow {
+        match event.kind {
+            MouseEventKind::Down(MouseButton::Left) => {
+                match self.hits.at(event.column, event.row) {
+                    Some(Click::Row(index)) => self.click_row(index),
+                    Some(Click::Key(code)) => self.press(code),
+                    Some(Click::Outside) => self.press(KeyCode::Esc),
+                    Some(Click::Inside) | None => Flow::Continue,
+                }
+            }
+            MouseEventKind::ScrollDown if self.dialog.is_none() => self.press(KeyCode::Down),
+            MouseEventKind::ScrollUp if self.dialog.is_none() => self.press(KeyCode::Up),
+            _ => Flow::Continue,
         }
     }
 

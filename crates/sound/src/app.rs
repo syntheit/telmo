@@ -2,9 +2,14 @@
 
 use crate::backend::{Cmd, Event};
 use crate::model::{Device, Direction, Snapshot, Target};
-use ratatui::crossterm::event::KeyCode;
+use ratatui::crossterm::event::{KeyCode, KeyModifiers};
 use std::{cell::RefCell, rc::Rc};
-use telmo_kit::{Flow, runtime::KeyEvent, widgets::Toast};
+use telmo_kit::{
+    App as _, Flow,
+    hits::Hits,
+    runtime::{KeyEvent, MouseButton, MouseEvent, MouseEventKind},
+    widgets::Toast,
+};
 use tokio::sync::mpsc::UnboundedSender;
 
 const STEP: f32 = 0.05;
@@ -14,6 +19,22 @@ pub enum Pane {
     Output,
     Input,
     Playing,
+}
+
+/// What a click or scroll can land on, recorded while drawing.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Click {
+    Row(Pane, usize),
+    Pane(Pane),
+    /// A gauge cell: the volume (0.0-1.0) it stands for.
+    Volume(Pane, usize, f32),
+    Key(KeyCode),
+    DialogKey(KeyCode),
+    /// A row of a pick list in a dialog.
+    DialogRow(usize),
+    /// The dialog itself, so clicks inside it are not "outside".
+    Dialog,
+    Outside,
 }
 
 pub enum Dialog {
@@ -40,6 +61,9 @@ pub struct App {
     pub selected: [usize; 3],
     pub dialog: Option<Dialog>,
     pub toast: Option<Toast>,
+    pub hits: Hits<Click>,
+    /// Counts ticks while something plays; drives the equalizer.
+    pub frame: u64,
     cmds: UnboundedSender<Cmd>,
     /// The last snapshot the backend sent, for the cache on exit.
     last: Rc<RefCell<Option<Snapshot>>>,
@@ -57,6 +81,8 @@ impl App {
             selected: [0; 3],
             dialog: None,
             toast: None,
+            hits: Hits::default(),
+            frame: 0,
             cmds,
             last,
         }
@@ -133,30 +159,116 @@ impl App {
         }
     }
 
-    fn change_volume(&mut self, direction: f32) {
+    /// The selected row's volume, or a toast when it has none.
+    fn current_volume(&mut self) -> Option<f32> {
         let i = self.selected(self.pane);
         let (current, name) = match self.pane {
-            Pane::Playing => match self.snapshot.streams.get(i) {
-                Some(s) => (Some(s.volume), s.app.clone()),
-                None => return,
-            },
-            _ => match self.devices(self.pane).get(i) {
-                Some(d) => (d.volume, d.name.clone()),
-                None => return,
-            },
+            Pane::Playing => {
+                let s = self.snapshot.streams.get(i)?;
+                (Some(s.volume), s.app.clone())
+            }
+            _ => {
+                let d = self.devices(self.pane).get(i)?;
+                (d.volume, d.name.clone())
+            }
         };
-        let Some(current) = current else {
+        if current.is_none() {
             self.error(format!("{name} has a fixed volume. Use its own controls."));
+        }
+        current
+    }
+
+    fn change_volume(&mut self, direction: f32) {
+        let Some(current) = self.current_volume() else {
             return;
         };
         let max = if current > 1.0 { 1.5 } else { 1.0 };
-        let volume = (((current + direction * STEP) * 100.0).round() / 100.0).clamp(0.0, max);
+        self.set_volume((current + direction * STEP).clamp(0.0, max));
+    }
+
+    fn set_volume(&mut self, volume: f32) {
+        let volume = (volume * 100.0).round() / 100.0;
+        let i = self.selected(self.pane);
         let Some(target) = self.target() else { return };
         match &target {
             Target::Stream(_) => self.snapshot.streams[i].volume = volume,
             Target::Device(..) => self.device_mut(i).volume = Some(volume),
         }
         self.send(Cmd::SetVolume(target, volume));
+    }
+
+    /// Whether anything is making sound, which is when the equalizer moves.
+    pub fn playing(&self) -> bool {
+        self.snapshot.outputs.iter().any(|d| d.playing)
+            || self.snapshot.streams.iter().any(|s| s.playing)
+    }
+
+    fn select(&mut self, pane: Pane, index: usize) {
+        if self.panes().contains(&pane) {
+            self.pane = pane;
+            self.selected[pane as usize] = index;
+        }
+    }
+
+    fn click(&mut self, at: Option<Click>) -> Flow {
+        if self.dialog.is_some() {
+            return self.click_dialog(at);
+        }
+        let mut flow = Flow::Continue;
+        match at {
+            Some(Click::Row(pane, i)) if self.pane == pane && self.selected(pane) == i => {
+                self.set_default()
+            }
+            Some(Click::Row(pane, i)) => self.select(pane, i),
+            Some(Click::Pane(pane)) => self.select(pane, self.selected(pane)),
+            Some(Click::Volume(pane, i, volume)) => {
+                self.select(pane, i);
+                self.set_volume(volume);
+            }
+            Some(Click::Key(code)) => flow = self.key(KeyEvent::new(code, KeyModifiers::NONE)),
+            _ => {}
+        }
+        flow
+    }
+
+    fn click_dialog(&mut self, at: Option<Click>) -> Flow {
+        match at {
+            Some(Click::Outside) => self.dialog = None,
+            Some(Click::DialogKey(code)) => {
+                return self.key(KeyEvent::new(code, KeyModifiers::NONE));
+            }
+            Some(Click::DialogRow(i)) => {
+                if let Some(Dialog::Route { selected, .. } | Dialog::Profile { selected, .. }) =
+                    &mut self.dialog
+                {
+                    if *selected == i {
+                        self.confirm_dialog();
+                    } else {
+                        *selected = i;
+                    }
+                }
+            }
+            _ => {}
+        }
+        Flow::Continue
+    }
+
+    fn scroll(&mut self, at: Option<Click>, delta: isize) {
+        if self.dialog.is_some() {
+            let code = if delta > 0 {
+                KeyCode::Down
+            } else {
+                KeyCode::Up
+            };
+            return self.dialog_key(KeyEvent::new(code, KeyModifiers::NONE));
+        }
+        match at {
+            Some(Click::Row(pane, i) | Click::Volume(pane, i, _)) => {
+                self.select(pane, i);
+                self.change_volume(-delta as f32);
+            }
+            _ => self.move_selection(delta),
+        }
     }
 
     fn device_mut(&mut self, i: usize) -> &mut Device {
@@ -352,6 +464,17 @@ impl telmo_kit::App for App {
         Flow::Continue
     }
 
+    fn mouse(&mut self, event: MouseEvent) -> Flow {
+        let at = self.hits.at(event.column, event.row);
+        match event.kind {
+            MouseEventKind::Down(MouseButton::Left) => return self.click(at),
+            MouseEventKind::ScrollUp => self.scroll(at, -1),
+            MouseEventKind::ScrollDown => self.scroll(at, 1),
+            _ => {}
+        }
+        Flow::Continue
+    }
+
     fn event(&mut self, event: Event) -> Flow {
         match event {
             Event::Snapshot(snapshot) => {
@@ -377,6 +500,7 @@ impl telmo_kit::App for App {
     }
 
     fn tick(&mut self) -> Flow {
+        self.frame = self.frame.wrapping_add(1);
         if self.toast.as_ref().is_some_and(Toast::expired) {
             self.toast = None;
         }
@@ -384,6 +508,6 @@ impl telmo_kit::App for App {
     }
 
     fn animating(&self) -> bool {
-        self.toast.is_some()
+        self.toast.is_some() || self.playing()
     }
 }

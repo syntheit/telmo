@@ -23,4 +23,4 @@ expression: "Harness::new(snapshot).render()"
 
 
 
- p power  esc close
+ p turn on  esc close

@@ -34,6 +34,9 @@ pub struct Device {
     pub muted: bool,
     pub bluetooth: bool,
     pub profiles: Vec<Profile>,
+    /// Sound is coming out of (or going into) this device right now.
+    #[serde(default)]
+    pub playing: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -52,6 +55,8 @@ pub struct Stream {
     pub muted: bool,
     /// Output device id this app plays to.
     pub device: Option<String>,
+    #[serde(default)]
+    pub playing: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

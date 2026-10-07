@@ -13,11 +13,11 @@
 │               │   signal     strong · 5 GHz · WPA3                             │       │
 │   iPhone USB  │   password   ••••••••••                                        │       │
 │   not connecte│                                                                │       │
-│               │ y show password (Touch ID)   c copy ip   Q QR code   d forget  │       │
+│               │ y show password (Touch ID)   c copy ip   d forget              │       │
 │   VPN         │                                                                │       │
 │   Tailscale   ╰────────────────────────────────────────────────────────────────╯       │
 ╰────────────────────────╯╰──────────────────────────────────────────────────────────────╯
 
 
 
- ↵ join  i details  s speedtest  tab interfaces  ? more  esc close
+ ↵ join  i details  r rescan  s speedtest  p power  ? more  esc close

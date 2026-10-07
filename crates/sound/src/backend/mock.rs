@@ -33,6 +33,7 @@ fn device(id: &str, name: &str, default: bool, volume: Option<f32>) -> Device {
         muted: false,
         bluetooth: false,
         profiles: Vec::new(),
+        playing: false,
     }
 }
 
@@ -43,6 +44,7 @@ fn stream(id: &str, app: &str, volume: f32, muted: bool, device: Option<&str>) -
         volume,
         muted,
         device: device.map(Into::into),
+        playing: false,
     }
 }
 
@@ -65,14 +67,20 @@ pub fn linux() -> Snapshot {
     };
     Snapshot {
         outputs: vec![
-            device("builtin", "Built-in Audio", true, Some(0.7)),
+            Device {
+                playing: true,
+                ..device("builtin", "Built-in Audio", true, Some(0.7))
+            },
             airpods,
             device("minispk", "Mac mini speakers", false, Some(1.0)),
             device("lg", "LG UltraFine", false, Some(1.0)),
         ],
         inputs: vec![device("snowball", "Blue Snowball", true, Some(0.8))],
         streams: vec![
-            stream("spotify", "Spotify", 0.8, false, Some("builtin")),
+            Stream {
+                playing: true,
+                ..stream("spotify", "Spotify", 0.8, false, Some("builtin"))
+            },
             stream("zen", "Zen Browser", 1.0, false, Some("airpods")),
             stream("discord", "Discord", 0.65, true, None),
         ],
@@ -94,7 +102,10 @@ pub fn mac() -> Snapshot {
     };
     Snapshot {
         outputs: vec![
-            device("speakers", "MacBook Pro Speakers", true, Some(0.62)),
+            Device {
+                playing: true,
+                ..device("speakers", "MacBook Pro Speakers", true, Some(0.62))
+            },
             airpods,
             device("lg", "LG UltraFine", false, None),
         ],

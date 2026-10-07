@@ -1,5 +1,7 @@
 import CoreWLAN
 import Foundation
+import LocalAuthentication
+import Security
 
 /// Wi-Fi scanning and joining. CoreWLAN only reveals SSIDs to a process that holds the Location grant,
 /// and the grant belongs to this app, not to the telmo-net child, so the child asks us. These run on IPC
@@ -29,51 +31,51 @@ enum Wifi {
 
     private static let systemKeychain = "/Library/Keychains/System.keychain"
 
-    /// Wi-Fi passwords live in the system keychain. sudo (Touch ID through pam_tid) is the gate; with no tty it can't fall back to
-    /// a terminal prompt. If Touch ID isn't set up for sudo, ask `security` directly, which shows the keychain dialog.
+    /// Touch ID (or the login password) first, then Telmo reads the item itself. The first read per network shows
+    /// macOS's own dialog; "Always Allow" binds the grant to Telmo's signature, so later reads need only Touch ID.
     /// The reply is "ok <password>" so a password that starts with "error " can't be mistaken for a failure.
     private static func password(ssid: String) -> String {
-        let viaSudo = run("/usr/bin/sudo", passwordArguments(ssid: ssid, sudo: true))
-        if let reply = passwordReply(viaSudo, ssid: ssid) { return reply }
-        let direct = run("/usr/bin/security", passwordArguments(ssid: ssid, sudo: false))
-        return passwordReply(direct, ssid: ssid) ?? "error Couldn't read the keychain: \(direct.stderr.trimmingCharacters(in: .whitespacesAndNewlines))"
+        guard authenticate(reason: "show the password for \(ssid)") else { return "error Cancelled." }
+        return keychainPassword(ssid: ssid)
     }
 
-    static func passwordArguments(ssid: String, sudo: Bool) -> [String] {
-        let find = ["find-generic-password", "-wa", ssid]
-        return sudo ? ["/usr/bin/security"] + find + [systemKeychain] : find
+    /// Called on an IPC worker thread; the policy callback arrives elsewhere, so wait for it.
+    private static func authenticate(reason: String) -> Bool {
+        let semaphore = DispatchSemaphore(value: 0)
+        var allowed = false
+        LAContext().evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, _ in
+            allowed = success
+            semaphore.signal()
+        }
+        semaphore.wait()
+        return allowed
     }
 
-    /// nil means "sudo has no way to authenticate here, try the plain keychain dialog".
-    private static func passwordReply(_ out: (status: Int32, stdout: String, stderr: String), ssid: String) -> String? {
-        if out.status == 0 { return "ok " + out.stdout.trimmingCharacters(in: CharacterSet(charactersIn: "\n")) }
-        let err = out.stderr
-        if err.contains("could not be found") { return "error No saved password for \(ssid)." }
-        if err.hasPrefix("sudo:") && (err.contains("terminal") || err.contains("askpass") || err.contains("password is required")) { return nil }
-        if err.contains("User canceled") || err.contains("denied") || err.contains("authentication") || out.status == 128 { return "error Cancelled." }
-        return "error Couldn't read the keychain: \(err.trimmingCharacters(in: .whitespacesAndNewlines))"
+    private static func keychainPassword(ssid: String) -> String {
+        var keychain: SecKeychain?
+        let opened = SecKeychainOpen(systemKeychain, &keychain)
+        guard opened == errSecSuccess, let keychain else { return "error Couldn't open the system keychain." }
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: "AirPort",
+            kSecAttrAccount: ssid,
+            kSecReturnData: true,
+            kSecMatchSearchList: [keychain],
+        ]
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        return passwordReply(status: status, data: result as? Data, ssid: ssid)
     }
 
-    /// argv only, no shell; stdin is /dev/null; killed after 60 seconds.
-    private static func run(_ path: String, _ arguments: [String]) -> (status: Int32, stdout: String, stderr: String) {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: path)
-        task.arguments = arguments
-        task.standardInput = FileHandle.nullDevice
-        let out = Pipe(), err = Pipe()
-        task.standardOutput = out
-        task.standardError = err
-        do { try task.run() } catch { return (-1, "", "Couldn't run \(path): \(error.localizedDescription)") }
-        let timer = DispatchWorkItem { if task.isRunning { task.terminate() } }
-        DispatchQueue.global().asyncAfter(deadline: .now() + 60, execute: timer)
-        var errData = Data()
-        let reader = DispatchGroup()
-        DispatchQueue.global().async(group: reader) { errData = err.fileHandleForReading.readDataToEndOfFile() }
-        let outData = out.fileHandleForReading.readDataToEndOfFile()
-        reader.wait()
-        task.waitUntilExit()
-        timer.cancel()
-        return (task.terminationStatus, String(decoding: outData, as: UTF8.self), String(decoding: errData, as: UTF8.self))
+    static func passwordReply(status: OSStatus, data: Data?, ssid: String) -> String {
+        switch status {
+        case errSecSuccess:
+            guard let data else { return "error Couldn't read the keychain item." }
+            return "ok " + String(decoding: data, as: UTF8.self)
+        case errSecItemNotFound: return "error No saved password for \(ssid)."
+        case errSecAuthFailed, errSecUserCanceled, errSecInteractionNotAllowed: return "error Cancelled."
+        default: return "error Couldn't read the keychain (code \(status))."
+        }
     }
 
     // MARK: Listing

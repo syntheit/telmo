@@ -20,4 +20,4 @@
 
 
   ✗  Couldn't join Tanaka-AP: wrong password. Press ↵ to try again.
- ↵ join  i details  s speedtest  tab interfaces  ? more  esc close
+ ↵ join  i details  r rescan  s speedtest  p power  ? more  esc close

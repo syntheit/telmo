@@ -2,14 +2,14 @@
 
 use crate::backend::{Cmd, Event, Tx, mock};
 use crate::model::*;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use qrcode::QrCode;
 use std::collections::HashSet;
 use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr};
 use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
-use telmo_kit::{Flow, input::TextInput, widgets::Toast};
+use telmo_kit::{Flow, hits::Hits, input::TextInput, widgets::Toast};
 use telmo_speed::{Phase, Record, Update};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -44,7 +44,6 @@ pub enum WifiRow {
 pub enum Dialog {
     Join(Join),
     Details(DetailsDialog),
-    Qr(Qr),
     Ipv4(Ipv4Form),
     Dns(DnsForm),
     Help,
@@ -61,12 +60,40 @@ pub struct DetailsDialog {
     /// Known once revealed.
     pub password: Option<String>,
     pub confirm_forget: bool,
-    /// Open the QR code as soon as the password arrives.
-    pub want_qr: bool,
+    /// Open networks have no password to reveal: `y` shows the QR directly.
+    pub open_qr: bool,
+}
+
+impl DetailsDialog {
+    /// The QR code to show next to the password, once it is revealed.
+    pub fn qr(&self) -> Option<Qr> {
+        let open = self.network.security == Security::Open && self.open_qr;
+        match (&self.password, open) {
+            (Some(password), _) => Some(Qr::new(&self.network, password)),
+            (None, true) => Some(Qr::new(&self.network, "")),
+            (None, false) => None,
+        }
+    }
+}
+
+/// Something a click can mean, recorded while drawing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Click {
+    /// A row of the sidebar or the pane (interface or row index).
+    Row(Focus, usize),
+    /// A pane outside its rows.
+    Pane(Focus),
+    /// An item of the key bar.
+    Key(KeyCode),
+    /// A hint inside the open dialog.
+    DialogKey(KeyCode),
+    /// The open dialog itself.
+    Inside,
+    /// Anywhere else while a dialog is open.
+    Outside,
 }
 
 pub struct Qr {
-    pub ssid: String,
     pub payload: String,
 }
 
@@ -189,6 +216,7 @@ pub struct App {
     pub details: Option<Details>,
     pub speed: Speed,
     pub tick: u64,
+    pub hits: Hits<Click>,
     cmds: UnboundedSender<Cmd>,
     events: Tx,
     mock: bool,
@@ -214,6 +242,7 @@ impl App {
             details: None,
             speed: Speed::default(),
             tick: 0,
+            hits: Hits::default(),
             cmds,
             events,
             mock,
@@ -306,7 +335,11 @@ impl App {
     }
 
     fn move_selection(&mut self, delta: isize) {
-        if self.focus == Focus::Sidebar {
+        self.move_in(self.focus, delta);
+    }
+
+    fn move_in(&mut self, focus: Focus, delta: isize) {
+        if focus == Focus::Sidebar {
             let last = self.snapshot.interfaces.len();
             self.sel = self.sel.saturating_add_signed(delta).min(last);
             self.row = 0;
@@ -436,7 +469,7 @@ impl App {
             network,
             password: None,
             confirm_forget: false,
-            want_qr: false,
+            open_qr: false,
         }));
     }
 
@@ -488,12 +521,11 @@ impl App {
             Dialog::Details(d) => self.details_key(d, key),
             Dialog::Ipv4(d) => self.ipv4_key(d, key),
             Dialog::Dns(d) => self.dns_key(d, key),
-            Dialog::Qr(_) | Dialog::Help => close_on_esc(key),
+            Dialog::Help => close_on_esc(key),
         };
         match outcome {
             Outcome::Stay => self.dialog = Some(dialog),
             Outcome::Close => {}
-            Outcome::ShowQr(qr) => self.dialog = Some(Dialog::Qr(qr)),
         }
         Flow::Continue
     }
@@ -546,16 +578,7 @@ impl App {
                     self.send(Cmd::RevealPassword { ssid });
                 }
             }
-            KeyCode::Char('Q') if saved || open => match (&d.password, open) {
-                (Some(password), _) => {
-                    return Outcome::ShowQr(Qr::new(&d.network, &ssid, password));
-                }
-                (None, true) => return Outcome::ShowQr(Qr::new(&d.network, &ssid, "")),
-                (None, false) => {
-                    d.want_qr = true;
-                    self.send(Cmd::RevealPassword { ssid });
-                }
-            },
+            KeyCode::Char('y') if open => d.open_qr = !d.open_qr,
             KeyCode::Char('d') if saved => d.confirm_forget = true,
             _ => {}
         }
@@ -715,7 +738,6 @@ impl App {
 enum Outcome {
     Stay,
     Close,
-    ShowQr(Qr),
 }
 
 fn close_on_esc(key: KeyEvent) -> Outcome {
@@ -739,6 +761,16 @@ impl telmo_kit::App for App {
         match self.screen {
             Screen::Main => self.main_key(key),
             Screen::Speed => self.speed_key(key),
+        }
+    }
+
+    fn mouse(&mut self, event: MouseEvent) -> Flow {
+        let under = self.hits.at(event.column, event.row);
+        match (event.kind, under) {
+            (MouseEventKind::Down(MouseButton::Left), Some(click)) => self.click(click),
+            (MouseEventKind::ScrollUp, Some(click)) => self.scroll(click, -1),
+            (MouseEventKind::ScrollDown, Some(click)) => self.scroll(click, 1),
+            _ => Flow::Continue,
         }
     }
 
@@ -777,13 +809,51 @@ impl telmo_kit::App for App {
 }
 
 impl App {
+    /// A click does what the matching key does.
+    fn click(&mut self, click: Click) -> Flow {
+        match click {
+            Click::Key(code) | Click::DialogKey(code) => self.press(code),
+            Click::Outside => self.press(KeyCode::Esc),
+            Click::Inside => Flow::Continue,
+            Click::Pane(focus) => {
+                self.focus = focus;
+                Flow::Continue
+            }
+            Click::Row(Focus::Pane, row) if self.focus == Focus::Pane && self.row == row => {
+                self.press(KeyCode::Enter)
+            }
+            Click::Row(Focus::Sidebar, sel) if self.focus == Focus::Sidebar && self.sel == sel => {
+                self.press(KeyCode::Enter)
+            }
+            Click::Row(focus, index) => {
+                self.focus = focus;
+                if focus == Focus::Sidebar {
+                    self.sel = index;
+                    self.row = 0;
+                } else {
+                    self.row = index;
+                }
+                Flow::Continue
+            }
+        }
+    }
+
+    fn scroll(&mut self, click: Click, delta: isize) -> Flow {
+        if let Click::Row(focus, _) | Click::Pane(focus) = click {
+            self.focus = focus;
+            self.move_in(focus, delta);
+        }
+        Flow::Continue
+    }
+
+    fn press(&mut self, code: KeyCode) -> Flow {
+        telmo_kit::App::key(self, KeyEvent::new(code, KeyModifiers::NONE))
+    }
+
     fn password_arrived(&mut self, ssid: &str, password: Result<String, String>) {
         let password = match password {
             Ok(password) => password,
             Err(message) => {
-                if let Some(Dialog::Details(d)) = &mut self.dialog {
-                    d.want_qr = false;
-                }
                 return self.toast_err(message);
             }
         };
@@ -793,12 +863,7 @@ impl App {
         if d.network.ssid.as_deref() != Some(ssid) {
             return;
         }
-        if d.want_qr {
-            let qr = Qr::new(&d.network, ssid, &password);
-            self.dialog = Some(Dialog::Qr(qr));
-        } else {
-            d.password = Some(password);
-        }
+        d.password = Some(password);
     }
 }
 
@@ -927,9 +992,9 @@ fn wifi_payload(security: Security, ssid: &str, password: &str) -> String {
 }
 
 impl Qr {
-    fn new(network: &Network, ssid: &str, password: &str) -> Self {
+    fn new(network: &Network, password: &str) -> Self {
+        let ssid = network.ssid.as_deref().unwrap_or_default();
         Self {
-            ssid: ssid.to_string(),
             payload: wifi_payload(network.security, ssid, password),
         }
     }

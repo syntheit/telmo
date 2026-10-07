@@ -20,4 +20,4 @@
 
 
 
- ↵ pair  s stop scan  tab pane  esc close
+ ↵ pair  s stop scan  p turn off  ? more  esc close

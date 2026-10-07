@@ -23,4 +23,4 @@ expression: render(&app())
 │                        ││                                                              │
 ╰────────────────────────╯╰──────────────────────────────────────────────────────────────╯
 
- ↵ join  i details  s speedtest  tab interfaces  ? more  esc close
+ ↵ join  i details  r rescan  s speedtest  p power  ? more  esc close

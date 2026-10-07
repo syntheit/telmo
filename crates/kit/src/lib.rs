@@ -3,6 +3,7 @@
 
 pub mod cache;
 pub mod cli;
+pub mod hits;
 pub mod input;
 pub mod runtime;
 pub mod test;

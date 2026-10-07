@@ -2,10 +2,10 @@
 source: crates/sound/src/ui.rs
 expression: "render(&app(mock::mac(), \"jP\"))"
 ---
- Sound
+ Sound                                                                               ▁▄▄▄
 
 ╭─ Output ───────────────────────────────────────────────────────────────────────────────╮
-│   ● MacBook Pro Speakers          ━━━━━━━━━━━━━━━━━━━───────────    62%                │
+│   ● MacBook Pro Speakers     ▁▄▄▄ ━━━━━━━━━━━━━━━━━━━───────────    62%                │
 │ ▌   AirPods Pro                   ━━━━━━━━━━━━──────────────────    40%                │
 │     LG UltraFine                  fixed volume                                         │
 ╰────────────────────────────────────────────────────────────────────────────────────────╯
@@ -23,4 +23,4 @@ expression: "render(&app(mock::mac(), \"jP\"))"
 
 
 
- ←→ volume  m mute  ↵ set default  tab pane  ? more  esc close
+ ←→ volume  m mute  ↵ set default  ? more  esc close
