@@ -2895,6 +2895,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "telmo-recognize"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "reqwest",
+ "rustfft",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "telmo-scale"
 version = "0.1.0"
 dependencies = [
