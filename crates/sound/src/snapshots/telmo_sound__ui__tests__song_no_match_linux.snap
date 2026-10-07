@@ -5,10 +5,10 @@ expression: render(&app)
  Sound
 
 ╭─ Output ───────────────────────────────────────────────────────────────────────────────╮
-│ ▌ ● Built-in Audio            ━━━━━━━━━━━━━━━━━━━━━─────────    70%                    │
-│     Air╭─ What's playing? ────────────────────────────────────────────────────╮        │
-│     Mac│                                                                      │        │
-│     LG │  No match. Try again closer to the speaker.                          │        │
+│ ▌ ● Bui╭─ What's playing? ────────────────────────────────────────────────────╮        │
+│     Air│                                                                      │        │
+│     Mac│  No match. Try again closer to the speaker.                          │        │
+│     LG │                                                                      │        │
 ╰────────│                                                                      │────────╯
 ╭─ Input │                                                                      │────────╮
 │   ● Blu│                                                                      │        │
@@ -17,10 +17,10 @@ expression: render(&app)
 │     Spo│                                                                      │        │
 │     Zen│                                                                      │Pro     │
 │     Dis│                                                                      │        │
-╰────────│  r retry   m use microphone   esc close                              │────────╯
+╰────────│                                                                      │────────╯
+         │                                                                      │
+         │  r retry   m use microphone   esc close                              │
          ╰──────────────────────────────────────────────────────────────────────╯
-
-
 ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁
 
  ←→ volume  m mute  ↵ set default  f song  ? more  esc close

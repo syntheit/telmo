@@ -2,10 +2,12 @@
 //! how recognition answers come back.
 
 use super::{App, Dialog};
-use crate::history;
 use crate::model::Source;
 use crate::song::{Found, Listen, Note, Phase};
-use ratatui::crossterm::event::KeyCode;
+use crate::{cover, history};
+use image::{DynamicImage, imageops::FilterType};
+use ratatui::{crossterm::event::KeyCode, layout::Size};
+use ratatui_image::{Resize, picker::Picker, protocol::Protocol};
 
 const DESKTOP_DENIED: &str = "Telmo isn't allowed to hear the desktop audio. Allow System Audio Recording for Telmo in System Settings, or press m to use the microphone.";
 
@@ -13,6 +15,11 @@ impl App {
     #[cfg(test)]
     pub fn set_recognizer(&mut self, recognizer: crate::identify::Recognizer) {
         self.recognizer = recognizer;
+    }
+
+    #[cfg(test)]
+    pub fn run_id(&self) -> u64 {
+        self.run
     }
 
     #[cfg(test)]
@@ -39,6 +46,7 @@ impl App {
 
     fn begin_listening(&mut self, source: Source) {
         self.run += 1;
+        self.cover = None;
         self.dialog = Some(Dialog::Song(Box::new(Listen::new(source))));
         if source == Source::Desktop {
             // A new try may ask the system for permission again.
@@ -49,6 +57,7 @@ impl App {
 
     pub(super) fn close_dialog(&mut self) {
         self.dialog = None;
+        self.cover = None;
         self.run += 1;
         self.sync_listening();
     }
@@ -92,6 +101,9 @@ impl App {
         };
         let next = listen.answer(result);
         if let Phase::Found(found) = &listen.phase {
+            if let Some(url) = &found.cover_url {
+                cover::spawn(url.clone(), self.run, self.events.clone());
+            }
             history::remember(&mut self.history, found.clone());
             if let Some(path) = &self.history_path {
                 history::save(path, &self.history);
@@ -101,6 +113,26 @@ impl App {
             self.recognize(audio);
         }
         self.sync_listening();
+    }
+
+    pub fn set_picker(&mut self, picker: Picker) {
+        self.picker = picker;
+    }
+
+    pub fn cover(&self) -> Option<&Protocol> {
+        self.cover.as_ref()
+    }
+
+    pub(super) fn cover_loaded(&mut self, run: u64, image: Option<DynamicImage>) {
+        if run != self.run {
+            return;
+        }
+        let Some(image) = image else {
+            return;
+        };
+        let size = Size::new(cover::COLUMNS, cover::ROWS);
+        let resize = Resize::Scale(Some(FilterType::Triangle));
+        self.cover = self.picker.new_protocol(image, size, resize).ok();
     }
 
     /// The capture can't deliver. Returns false when the dialog isn't listening

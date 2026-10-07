@@ -49,6 +49,7 @@ mod tests {
             shazam_url: None,
             apple_music_url: None,
             spotify_search_url: String::new(),
+            cover_url: None,
         }
     }
 

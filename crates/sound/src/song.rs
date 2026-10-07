@@ -20,6 +20,8 @@ pub struct Found {
     pub shazam_url: Option<String>,
     pub apple_music_url: Option<String>,
     pub spotify_search_url: String,
+    #[serde(default)]
+    pub cover_url: Option<String>,
 }
 
 impl From<Track> for Found {
@@ -32,6 +34,7 @@ impl From<Track> for Found {
             shazam_url: track.shazam_url,
             apple_music_url: track.apple_music_url,
             spotify_search_url: track.spotify_search_url,
+            cover_url: track.cover_url,
         }
     }
 }
@@ -218,6 +221,7 @@ mod tests {
             shazam_url: None,
             apple_music_url: None,
             spotify_search_url: "https://open.spotify.com/search/x".into(),
+            cover_url: None,
         }
     }
 

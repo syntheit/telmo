@@ -1,6 +1,7 @@
 mod app;
 mod backend;
 mod capture;
+mod cover;
 mod history;
 mod identify;
 mod model;
@@ -26,7 +27,8 @@ async fn main() {
     let (cmd_tx, cmd_rx) = unbounded_channel();
     let (event_tx, event_rx) = unbounded_channel();
     let last = Rc::new(RefCell::new(cached.clone()));
-    let app = App::new(cached, cmd_tx, last.clone(), event_tx.clone(), args.mock);
+    let mut app = App::new(cached, cmd_tx, last.clone(), event_tx.clone(), args.mock);
+    app.set_picker(image_picker());
     backend::spawn(args.mock, cmd_rx, event_tx);
 
     let result = telmo_kit::run(app, event_rx).await;
@@ -37,6 +39,13 @@ async fn main() {
         eprintln!("telmo-sound: the terminal failed: {e}");
         std::process::exit(1);
     }
+}
+
+/// Asks the terminal which image protocol it speaks and how big a cell is.
+/// Without an answer the covers are drawn in half-blocks.
+fn image_picker() -> ratatui_image::picker::Picker {
+    ratatui_image::picker::Picker::from_query_stdio()
+        .unwrap_or_else(|_| ratatui_image::picker::Picker::halfblocks())
 }
 
 async fn status(mock: bool) {

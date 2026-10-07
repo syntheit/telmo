@@ -7,12 +7,12 @@ expression: render(&app)
 ╭─ Output ───────────────────────────────────────────────────────────────────────────────╮
 │ ▌ ● Mac╭─ What's playing? ────────────────────────────────────────────────────╮        │
 │     Air│                                                                      │        │
-│     LG │  ╭──────────╮                                                        │        │
-╰────────│  │          │  Sneaky Snitch                                         │────────╯
-╭─ Input │  │          │  Kevin MacLeod                                         │────────╮
-│   ● Mac│  │    ♪     │  YouTube Audio Library · 2012                          │        │
-│     Air│  │          │                                                        │        │
-╰────────│  ╰──────────╯                                                        │────────╯
+│     LG │  ▀ ▄▀ ▄▀ ▄▀ ▄                                                        │        │
+╰────────│  ▄ ▀▄ ▀▄ ▀▄ ▀  Sneaky Snitch                                         │────────╯
+╭─ Input │  ▀ ▄▀ ▄▀ ▄▀ ▄  Kevin MacLeod                                         │────────╮
+│   ● Mac│  ▀ ▄▀ ▄▀ ▄▀ ▄  YouTube Audio Library · 2012                          │        │
+│     Air│  ▄ ▀▄ ▀▄ ▀▄ ▀                                                        │        │
+╰────────│  ▀ ▄▀ ▄▀ ▄▀ ▄                                                        │────────╯
          │                                                                      │
          │  Recent                                                              │
          │  Windowlicker — Aphex Twin                                           │

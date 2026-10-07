@@ -10,6 +10,7 @@ use crate::model::{Device, Direction, Snapshot, Source, Target};
 use crate::motion::{FPS, Motion};
 use crate::song::{Found, Listen};
 use ratatui::crossterm::event::{KeyCode, KeyModifiers};
+use ratatui_image::{picker::Picker, protocol::Protocol};
 use std::{cell::RefCell, path::PathBuf, rc::Rc, time::Instant};
 use telmo_kit::{
     App as _, Flow,
@@ -87,6 +88,10 @@ pub struct App {
     /// Which listening the song dialog is on, so late answers are dropped.
     run: u64,
     recognizer: Recognizer,
+    /// Which image protocol the terminal speaks.
+    picker: Picker,
+    /// The cover of the song on the result card, once it has arrived.
+    cover: Option<Protocol>,
     mock: bool,
     /// When the visualizer last moved, to step it by real elapsed time.
     moved: Option<Instant>,
@@ -129,6 +134,8 @@ impl App {
             } else {
                 identify::spawn
             },
+            picker: Picker::halfblocks(),
+            cover: None,
             mock,
             moved: None,
             events,
@@ -582,6 +589,7 @@ impl telmo_kit::App for App {
             Event::VisualizerBlocked => self.visualizer_blocked(),
             Event::Samples { source, rate, mono } => self.heard(source, rate, &mono),
             Event::Recognized { run, result } => self.recognized(run, result),
+            Event::Cover { run, image } => self.cover_loaded(run, image),
             Event::MicFailed(message) => {
                 self.listening_failed(Source::Mic, &message);
             }

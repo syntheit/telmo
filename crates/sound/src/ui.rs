@@ -1045,6 +1045,67 @@ mod tests {
         insta::assert_snapshot!(render(&app));
     }
 
+    /// A tiny two-color picture, so the half-block rendering is exact.
+    fn tiny_cover() -> image::DynamicImage {
+        let pixels = image::RgbaImage::from_fn(8, 8, |x, y| {
+            if (x + y) % 2 == 0 {
+                image::Rgba([200, 60, 60, 255])
+            } else {
+                image::Rgba([40, 40, 160, 255])
+            }
+        });
+        image::DynamicImage::ImageRgba8(pixels)
+    }
+
+    #[test]
+    fn song_result_with_cover_mac() {
+        let (mut app, mut rx) = with_events(mock::mac());
+        app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
+        hear(&mut app, Source::Desktop, 12);
+        deliver(&mut app, &mut rx);
+        let run = app.run_id();
+        app.event(Event::Cover {
+            run,
+            image: Some(tiny_cover()),
+        });
+        assert!(app.cover().is_some());
+        insta::assert_snapshot!(render(&app));
+    }
+
+    #[test]
+    fn a_late_cover_of_an_earlier_listening_is_dropped() {
+        let (mut app, mut rx) = with_events(mock::mac());
+        app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
+        hear(&mut app, Source::Desktop, 12);
+        deliver(&mut app, &mut rx);
+        let run = app.run_id();
+        app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+        app.event(Event::Cover {
+            run,
+            image: Some(tiny_cover()),
+        });
+        assert!(app.cover().is_none());
+    }
+
+    /// Needs the network: `cargo test -p telmo-sound -- --ignored real_cover`.
+    #[tokio::test(flavor = "current_thread")]
+    #[ignore]
+    async fn real_cover_renders_in_half_blocks() {
+        let url = "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/d6/8d/32/d68d32f6-5dec-729f-f5de-0011d0b0212e/13714.jpg/400x400bb.jpg";
+        let image = crate::cover::load(url).await.expect("the cover loads");
+        let (mut app, mut rx) = with_events(mock::mac());
+        app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
+        hear(&mut app, Source::Desktop, 12);
+        deliver(&mut app, &mut rx);
+        let run = app.run_id();
+        app.event(Event::Cover {
+            run,
+            image: Some(image),
+        });
+        assert!(app.cover().is_some());
+        assert!(render(&app).contains('▀'));
+    }
+
     #[test]
     fn song_no_match_linux() {
         let (mut app, mut rx) = with_events(mock::linux());

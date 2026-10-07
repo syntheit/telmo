@@ -43,6 +43,11 @@ pub enum Event {
         run: u64,
         result: Result<Option<Found>, String>,
     },
+    /// The cover of the found song, or `None` when it couldn't be had.
+    Cover {
+        run: u64,
+        image: Option<image::DynamicImage>,
+    },
 }
 
 pub type Tx = UnboundedSender<Event>;

@@ -39,6 +39,7 @@ pub fn canned() -> Found {
         apple_music_url: Some("https://music.apple.com/us/album/0".into()),
         spotify_search_url: "https://open.spotify.com/search/Sneaky%20Snitch%20Kevin%20MacLeod"
             .into(),
+        cover_url: None,
     }
 }
 
