@@ -23,4 +23,4 @@ expression: "render(&app(mock::mac(), \"jP\"))"
 
 ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁
 
- ←→ volume  m mute  ↵ set default  ? more  esc close
+ ←→ volume  m mute  ↵ set default  f song  ? more  esc close

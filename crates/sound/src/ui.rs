@@ -1,5 +1,7 @@
 //! Drawing only: a pure function of the app state.
 
+mod song;
+
 use crate::app::{App, Click, Dialog, Pane};
 use crate::model::Device;
 use crate::rainbow;
@@ -72,6 +74,7 @@ fn key_bar(app: &App) -> Vec<(&'static str, &'static str)> {
         ("←→", "volume"),
         ("m", "mute"),
         action,
+        ("f", "song"),
         ("?", "more"),
         ("esc", "close"),
     ]
@@ -321,6 +324,7 @@ fn draw_dialog(app: &App, dialog: &Dialog, frame: &mut Frame) {
         Dialog::Route { stream, selected } => draw_route(app, frame, stream, *selected),
         Dialog::Profile { device, selected } => draw_profile(app, frame, device, *selected),
         Dialog::ProfileInfo { device } => draw_profile_info(app, frame, device),
+        Dialog::Song(listen) => song::draw(app, frame, listen),
     }
 }
 
@@ -456,7 +460,7 @@ fn draw_profile_info(app: &App, frame: &mut Frame, device: &str) {
 }
 
 fn draw_help(app: &App, frame: &mut Frame) {
-    const KEYS: [(&str, &str); 10] = [
+    const KEYS: [(&str, &str); 11] = [
         ("tab", "switch pane"),
         ("j k", "move up and down"),
         ("h l", "volume down and up by 5%"),
@@ -464,6 +468,7 @@ fn draw_help(app: &App, frame: &mut Frame) {
         ("↵", "make the device the default"),
         ("o", "move the app to another output"),
         ("P", "Bluetooth mode (best sound or headset)"),
+        ("f", "identify the song that's playing"),
         ("?", "this help"),
         ("esc", "close a dialog, or quit"),
         ("q", "quit"),
@@ -793,5 +798,273 @@ mod tests {
     #[test]
     fn profile_mac() {
         insta::assert_snapshot!(render(&app(mock::mac(), "jP")));
+    }
+
+    // The song dialog.
+
+    use crate::identify;
+    use crate::model::Source;
+    use crate::song::Phase;
+    use tokio::sync::mpsc::UnboundedReceiver;
+
+    const RATE: u32 = 16_000;
+
+    fn with_events(snapshot: Snapshot) -> (App, UnboundedReceiver<Event>) {
+        let (cmds, _cmds_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (events, rx) = tokio::sync::mpsc::unbounded_channel();
+        let app = App::new(
+            Some(snapshot),
+            cmds,
+            Rc::new(RefCell::new(None)),
+            events,
+            true,
+        );
+        (app, rx)
+    }
+
+    /// `seconds` of a steady tone, as the capture would deliver it.
+    fn hear(app: &mut App, source: Source, seconds: usize) {
+        for _ in 0..seconds {
+            let mono = vec![0.1; RATE as usize];
+            app.event(Event::Samples {
+                source,
+                rate: RATE,
+                mono,
+            });
+        }
+    }
+
+    /// Hands the app the answers the recognizer queued.
+    fn deliver(app: &mut App, rx: &mut UnboundedReceiver<Event>) {
+        while let Ok(event) = rx.try_recv() {
+            if matches!(event, Event::Recognized { .. }) {
+                app.event(event);
+            }
+        }
+    }
+
+    fn phase(app: &App) -> Phase {
+        app.listen()
+            .map(|l| l.phase.clone())
+            .unwrap_or(Phase::NoMatch)
+    }
+
+    fn no_match(_samples: Vec<f32>, run: u64, events: crate::backend::Tx) {
+        let _ = events.send(Event::Recognized {
+            run,
+            result: Ok(None),
+        });
+    }
+
+    #[test]
+    fn f_listens_to_the_desktop_while_something_plays() {
+        let (mut app, _rx) = with_events(mock::linux());
+        app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
+        assert_eq!(app.listen().map(|l| l.source), Some(Source::Desktop));
+        assert!(!app.mic_running());
+    }
+
+    #[test]
+    fn f_listens_to_the_microphone_when_nothing_plays() {
+        let (app, _rx) = with_events(stopped(app(mock::linux(), "")).snapshot);
+        let mut app = app;
+        app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
+        assert_eq!(app.listen().map(|l| l.source), Some(Source::Mic));
+        assert!(app.mic_running());
+    }
+
+    #[test]
+    fn m_switches_between_microphone_and_desktop_and_starts_over() {
+        let (mut app, _rx) = with_events(mock::linux());
+        app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
+        hear(&mut app, Source::Desktop, 3);
+        app.key(KeyEvent::new(KeyCode::Char('m'), KeyModifiers::NONE));
+        assert_eq!(app.listen().map(|l| l.source), Some(Source::Mic));
+        assert!(app.mic_running());
+        assert_eq!(app.listen().map(|l| l.heard_seconds()), Some(0.0));
+        // Desktop audio no longer counts.
+        hear(&mut app, Source::Desktop, 3);
+        assert_eq!(app.listen().map(|l| l.heard_seconds()), Some(0.0));
+        app.key(KeyEvent::new(KeyCode::Char('m'), KeyModifiers::NONE));
+        assert_eq!(app.listen().map(|l| l.source), Some(Source::Desktop));
+        assert!(!app.mic_running());
+    }
+
+    #[test]
+    fn twelve_seconds_later_the_song_is_looked_up_and_remembered() {
+        let (mut app, mut rx) = with_events(mock::linux());
+        app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
+        hear(&mut app, Source::Desktop, 12);
+        assert_eq!(phase(&app), Phase::Recognizing);
+        deliver(&mut app, &mut rx);
+        assert_eq!(phase(&app), Phase::Found(identify::canned()));
+        assert_eq!(app.history[0], identify::canned());
+    }
+
+    #[test]
+    fn esc_cancels_listening_and_stops_the_microphone() {
+        let (app, mut rx) = with_events(stopped(app(mock::linux(), "")).snapshot);
+        let mut app = app;
+        app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
+        hear(&mut app, Source::Mic, 12);
+        app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+        assert!(app.dialog.is_none());
+        assert!(!app.mic_running());
+        // The answer that was already on its way is ignored.
+        deliver(&mut app, &mut rx);
+        assert!(app.dialog.is_none());
+        assert_eq!(app.history.len(), 4);
+    }
+
+    #[test]
+    fn no_match_listens_on_and_tries_once_more() {
+        let (mut app, mut rx) = with_events(stopped(app(mock::linux(), "")).snapshot);
+        app.set_recognizer(no_match);
+        app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
+        hear(&mut app, Source::Mic, 12);
+        deliver(&mut app, &mut rx);
+        assert_eq!(phase(&app), Phase::Listening);
+        assert!(app.mic_running());
+        hear(&mut app, Source::Mic, 6);
+        deliver(&mut app, &mut rx);
+        assert_eq!(phase(&app), Phase::NoMatch);
+        assert!(!app.mic_running());
+        // r tries again from the start.
+        app.key(KeyEvent::new(KeyCode::Char('r'), KeyModifiers::NONE));
+        assert_eq!(phase(&app), Phase::Listening);
+        assert!(app.mic_running());
+    }
+
+    #[test]
+    fn a_microphone_failure_shows_its_sentence() {
+        let (app, _rx) = with_events(stopped(app(mock::linux(), "")).snapshot);
+        let mut app = app;
+        app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
+        app.event(Event::MicFailed("Turn the microphone on.".into()));
+        assert_eq!(phase(&app), Phase::Failed("Turn the microphone on.".into()));
+        assert!(!app.mic_running());
+        assert!(app.toast.is_none());
+    }
+
+    #[test]
+    fn a_desktop_failure_goes_to_the_dialog_not_a_toast() {
+        let (mut app, _rx) = with_events(mock::linux());
+        app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
+        app.event(Event::Failed("The sound server went away.".into()));
+        assert_eq!(
+            phase(&app),
+            Phase::Failed("The sound server went away.".into())
+        );
+        assert!(app.toast.is_none());
+    }
+
+    #[test]
+    fn keys_on_the_card_copy_and_pick_the_page() {
+        let found = identify::canned();
+        assert_eq!(
+            crate::app::listen::page_for('o', &found),
+            found.shazam_url.as_deref()
+        );
+        assert_eq!(
+            crate::app::listen::page_for('a', &found),
+            found.apple_music_url.as_deref()
+        );
+        assert_eq!(
+            crate::app::listen::page_for('s', &found),
+            Some(found.spotify_search_url.as_str())
+        );
+        let (mut app, mut rx) = with_events(mock::linux());
+        app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
+        hear(&mut app, Source::Desktop, 12);
+        deliver(&mut app, &mut rx);
+        app.key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::NONE));
+        let note = app.listen().and_then(|l| l.note.clone());
+        assert_eq!(
+            note.map(|n| n.text),
+            Some("Copied to the clipboard.".into())
+        );
+    }
+
+    #[test]
+    fn clicking_a_hint_key_acts_like_the_key() {
+        let (mut app, _rx) = with_events(mock::linux());
+        app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
+        let screen = render(&app);
+        let hint = screen
+            .lines()
+            .position(|l| l.contains("use microphone"))
+            .unwrap_or(0);
+        let line = screen.lines().nth(hint).unwrap_or_default();
+        let x = line
+            .find("use microphone")
+            .map_or(0, |b| line[..b].chars().count())
+            - 2;
+        click(&mut app, x as u16, hint as u16);
+        assert_eq!(app.listen().map(|l| l.source), Some(Source::Mic));
+        // A click outside closes the dialog and lets go of the microphone.
+        click(&mut app, 1, 1);
+        assert!(app.dialog.is_none());
+        assert!(!app.mic_running());
+    }
+
+    #[test]
+    fn the_main_key_bar_offers_the_song_dialog() {
+        let screen = render(&app(mock::linux(), ""));
+        assert!(
+            screen
+                .lines()
+                .nth(21)
+                .unwrap_or_default()
+                .contains("f song")
+        );
+    }
+
+    #[test]
+    fn song_listening_desktop_linux() {
+        let (mut app, _rx) = with_events(mock::linux());
+        app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
+        hear(&mut app, Source::Desktop, 5);
+        insta::assert_snapshot!(render(&app));
+    }
+
+    #[test]
+    fn song_listening_mic_mac() {
+        let (app, _rx) = with_events(stopped(app(mock::mac(), "")).snapshot);
+        let mut app = app;
+        app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
+        hear(&mut app, Source::Mic, 8);
+        insta::assert_snapshot!(render(&app));
+    }
+
+    #[test]
+    fn song_result_mac() {
+        let (mut app, mut rx) = with_events(mock::mac());
+        app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
+        hear(&mut app, Source::Desktop, 12);
+        deliver(&mut app, &mut rx);
+        insta::assert_snapshot!(render(&app));
+    }
+
+    #[test]
+    fn song_no_match_linux() {
+        let (mut app, mut rx) = with_events(mock::linux());
+        app.set_recognizer(no_match);
+        app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
+        hear(&mut app, Source::Desktop, 12);
+        deliver(&mut app, &mut rx);
+        hear(&mut app, Source::Desktop, 6);
+        deliver(&mut app, &mut rx);
+        insta::assert_snapshot!(render(&app));
+    }
+
+    #[test]
+    fn song_mic_denied_mac() {
+        let (app, _rx) = with_events(stopped(app(mock::mac(), "")).snapshot);
+        let mut app = app;
+        app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
+        app.event(Event::MicFailed(
+            "Telmo isn't allowed to use the microphone. Turn it on in System Settings > Privacy & Security > Microphone.".into(),
+        ));
+        insta::assert_snapshot!(render(&app));
     }
 }

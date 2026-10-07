@@ -1,0 +1,26 @@
+---
+source: crates/sound/src/ui.rs
+expression: render(&app)
+---
+ Sound
+
+╭─ Output ───────────────────────────────────────────────────────────────────────────────╮
+│ ▌ ● Built-in Audio            ━━━━━━━━━━━━━━━━━━━━━─────────    70%                    │
+│     Air╭─ What's playing? ────────────────────────────────────────────────────╮        │
+│     Mac│                                                                      │        │
+│     LG │  No match. Try again closer to the speaker.                          │        │
+╰────────│                                                                      │────────╯
+╭─ Input │                                                                      │────────╮
+│   ● Blu│                                                                      │        │
+╰────────│                                                                      │────────╯
+╭─ Playin│                                                                      │────────╮
+│     Spo│                                                                      │        │
+│     Zen│                                                                      │Pro     │
+│     Dis│                                                                      │        │
+╰────────│  r retry   m use microphone   esc close                              │────────╯
+         ╰──────────────────────────────────────────────────────────────────────╯
+
+
+▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁
+
+ ←→ volume  m mute  ↵ set default  f song  ? more  esc close

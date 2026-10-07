@@ -2845,6 +2845,7 @@ dependencies = [
 name = "telmo-kit"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "crossterm",
  "futures-util",
  "ratatui",
@@ -2934,6 +2935,7 @@ dependencies = [
  "serde",
  "serde_json",
  "telmo-kit",
+ "telmo-recognize",
  "tokio",
 ]
 

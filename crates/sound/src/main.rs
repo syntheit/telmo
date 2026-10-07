@@ -1,9 +1,12 @@
 mod app;
 mod backend;
 mod capture;
+mod history;
+mod identify;
 mod model;
 mod motion;
 mod rainbow;
+mod song;
 mod spectrum;
 mod ui;
 

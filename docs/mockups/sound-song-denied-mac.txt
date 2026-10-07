@@ -1,0 +1,23 @@
+# Sound · Microphone denied · mac
+ Sound
+
+╭─ Output ───────────────────────────────────────────────────────────────────────────────╮
+│ ▌ ● MacBook Pro Speakers      ━━━━━━━━━━━━━━━━━━━───────────    62%                    │
+│     Air╭─ What's playing? ────────────────────────────────────────────────────╮        │
+│     LG │                                                                      │        │
+╰────────│  Telmo isn't allowed to use the microphone. Turn it on in System     │────────╯
+╭─ Input │  Settings > Privacy & Security > Microphone.                         │────────╮
+│   ● Mac│                                                                      │        │
+│     Air│                                                                      │        │
+╰────────│                                                                      │────────╯
+         │                                                                      │
+         │                                                                      │
+         │                                                                      │
+         │                                                                      │
+         │  r retry   m use desktop audio   esc close                           │
+         ╰──────────────────────────────────────────────────────────────────────╯
+
+
+▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁
+
+ ←→ volume  m mute  ↵ set default  f song  ? more  esc close

@@ -1,14 +1,17 @@
-//! Listens to everything playing on the Mac through the Telmo host app. The
-//! "System Audio Recording" grant belongs to the app, not to this process, so
-//! the app runs the Core Audio tap and streams mono samples over its socket:
-//! `audio-stream`, a header line `ok rate=<hz>`, then little-endian f32.
-//! Closing the connection stops the tap.
+//! Listens to everything playing on the Mac, or to the microphone, through
+//! the Telmo host app. The "System Audio Recording" and Microphone grants
+//! belong to the app, not to this process, so the app runs the Core Audio tap
+//! or the input engine and streams mono samples over its socket:
+//! `audio-stream` (or `audio-stream mic`), a header line `ok rate=<hz>`, then
+//! little-endian f32. Closing the connection stops it.
 //!
-//! Without the permission the host answers `error denied`, or the tap delivers
-//! silence. Both end in `Event::VisualizerBlocked`.
+//! Without the permission the host answers `error denied`. For desktop audio
+//! the tap may also deliver silence. Both end in `Event::VisualizerBlocked`;
+//! for the microphone a denial is `Event::MicFailed` with what to do.
 
-use super::{FRAME, stopped};
+use super::{FRAME, report_failure, stopped};
 use crate::backend::{Event, Tx};
+use crate::model::Source;
 use crate::spectrum::Analyzer;
 use std::{
     io::{BufRead, BufReader, ErrorKind, Read, Write},
@@ -23,15 +26,18 @@ const SILENT_FOR: Duration = Duration::from_secs(4);
 /// The host has to create the tap, and the first time macOS asks the user.
 const HEADER_WAIT: Duration = Duration::from_secs(30);
 
-pub fn run(stop: &AtomicBool, events: &Tx) {
-    match stream(stop, events) {
+const MIC_DENIED: &str = "Telmo isn't allowed to use the microphone. Turn it on in System Settings > Privacy & Security > Microphone.";
+
+pub fn run(stop: &AtomicBool, events: &Tx, source: Source) {
+    match stream(stop, events, source) {
         Ok(()) => {}
+        Err(Failure::Denied) if source == Source::Mic => {
+            report_failure(events, source, MIC_DENIED.into());
+        }
         Err(Failure::Denied) => {
             let _ = events.send(Event::VisualizerBlocked);
         }
-        Err(Failure::Other(message)) => {
-            let _ = events.send(Event::Failed(message));
-        }
+        Err(Failure::Other(message)) => report_failure(events, source, message),
     }
 }
 
@@ -42,9 +48,7 @@ enum Failure {
 
 impl From<std::io::Error> for Failure {
     fn from(e: std::io::Error) -> Self {
-        Failure::Other(format!(
-            "Couldn't reach the Telmo host, so there is no visualizer: {e}."
-        ))
+        Failure::Other(format!("Couldn't reach the Telmo host: {e}."))
     }
 }
 
@@ -56,13 +60,18 @@ fn socket_path() -> Result<PathBuf, Failure> {
     Ok(PathBuf::from(home).join("Library/Application Support/Telmo/host.sock"))
 }
 
-fn stream(stop: &AtomicBool, events: &Tx) -> Result<(), Failure> {
+fn stream(stop: &AtomicBool, events: &Tx, source: Source) -> Result<(), Failure> {
     let mut socket = UnixStream::connect(socket_path()?)?;
-    socket.write_all(b"audio-stream\n")?;
-    socket.set_read_timeout(Some(HEADER_WAIT))?;
+    let command = match source {
+        Source::Desktop => "audio-stream\n",
+        Source::Mic => "audio-stream mic\n",
+    };
+    socket.write_all(command.as_bytes())?;
+    socket.set_read_timeout(Some(FRAME))?;
     let mut reader = BufReader::new(socket);
-    let rate = read_header(&mut reader)?;
-    reader.get_ref().set_read_timeout(Some(FRAME))?;
+    let Some(rate) = wait_for_header(&mut reader, stop)? else {
+        return Ok(());
+    };
 
     let mut analyzer = Analyzer::new(rate);
     let mut heard = Instant::now();
@@ -86,20 +95,56 @@ fn stream(stop: &AtomicBool, events: &Tx) -> Result<(), Failure> {
             continue;
         }
         last_frame = Instant::now();
-        let samples = take_samples(&mut pending);
-        if samples.iter().any(|s| *s != 0.0) {
-            heard = Instant::now();
-            blocked = false;
-        } else if !blocked && heard.elapsed() > SILENT_FOR {
-            blocked = true;
-            let _ = events.send(Event::VisualizerBlocked);
+        let mono = take_samples(&mut pending);
+        if source == Source::Desktop {
+            if mono.iter().any(|s| *s != 0.0) {
+                heard = Instant::now();
+                blocked = false;
+            } else if !blocked && heard.elapsed() > SILENT_FOR {
+                blocked = true;
+                let _ = events.send(Event::VisualizerBlocked);
+            }
+            analyzer.push(&mono, 1);
+            if events.send(Event::Spectrum(analyzer.frame())).is_err() {
+                break;
+            }
         }
-        analyzer.push(&samples, 1);
-        if events.send(Event::Spectrum(analyzer.frame())).is_err() {
+        let samples = Event::Samples {
+            source,
+            rate: rate as u32,
+            mono,
+        };
+        if events.send(samples).is_err() {
             break;
         }
     }
     Ok(())
+}
+
+/// Reads the header line while watching `stop`. None when stopped first.
+fn wait_for_header(
+    reader: &mut BufReader<UnixStream>,
+    stop: &AtomicBool,
+) -> Result<Option<f32>, Failure> {
+    let deadline = Instant::now() + HEADER_WAIT;
+    let mut line = Vec::new();
+    let mut byte = [0u8; 1];
+    while !stopped(stop) && Instant::now() < deadline {
+        match reader.read(&mut byte) {
+            Ok(0) => break,
+            Ok(_) if byte[0] == b'\n' => {
+                return read_header(&mut line.as_slice().chain(&b"\n"[..])).map(Some);
+            }
+            Ok(_) => line.push(byte[0]),
+            Err(e) if matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {}
+            Err(e) if e.kind() == ErrorKind::Interrupted => {}
+            Err(e) => return Err(e.into()),
+        }
+    }
+    if stopped(stop) {
+        return Ok(None);
+    }
+    Err(Failure::Other("The Telmo host did not answer.".into()))
 }
 
 fn read_header(reader: &mut impl BufRead) -> Result<f32, Failure> {

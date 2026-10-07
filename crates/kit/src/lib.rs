@@ -5,6 +5,7 @@ pub mod cache;
 pub mod cli;
 pub mod hits;
 pub mod input;
+pub mod os;
 pub mod runtime;
 pub mod test;
 pub mod theme;

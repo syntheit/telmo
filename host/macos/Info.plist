@@ -15,6 +15,7 @@
 	<key>NSLocationWhenInUseUsageDescription</key><string>Telmo shows the names of nearby Wi-Fi networks.</string>
 	<key>NSLocationUsageDescription</key><string>Telmo shows the names of nearby Wi-Fi networks.</string>
 	<key>NSAudioCaptureUsageDescription</key><string>Telmo shows a live visualizer of what's playing.</string>
+	<key>NSMicrophoneUsageDescription</key><string>Telmo listens to identify the song that's playing.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key><string>Telmo lists and connects your Bluetooth devices.</string>
 </dict>
 </plist>

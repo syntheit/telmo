@@ -1,39 +1,46 @@
+import AVFoundation
 import CoreAudio
 import Foundation
 
-/// System audio for the sound module's visualizer. The "System Audio Recording" grant belongs to this app, not to
-/// the telmo-sound child, so the child asks us: `audio-stream` keeps the connection open and we send `ok rate=<hz>\n`,
-/// then raw little-endian mono Float32 samples until the client goes away. Runs on an IPC worker thread.
+/// System audio for the sound module's visualizer and song recognition. The "System Audio Recording" and Microphone
+/// grants belong to this app, not to the telmo-sound child, so the child asks us: `audio-stream` (what is playing) or
+/// `audio-stream mic` keeps the connection open and we send `ok rate=<hz>\n`, then raw little-endian mono Float32
+/// samples until the client goes away. Runs on an IPC worker thread.
 enum Audio {
     private static let lock = NSLock()
-    private static var busy = false
+    private static var busy = Set<String>()
 
-    static func isAudioCommand(_ line: String) -> Bool { line == "audio-stream" }
+    private protocol Source {
+        var rate: Double { get }
+        func close()
+    }
 
-    static func stream(to fd: Int32) {
+    static func isAudioCommand(_ line: String) -> Bool { line == "audio-stream" || line == "audio-stream mic" }
+
+    static func stream(command: String, to fd: Int32) {
+        let mic = command == "audio-stream mic"
         lock.lock()
-        let taken = !busy
-        busy = true
+        let taken = busy.insert(command).inserted
         lock.unlock()
         guard taken else { send("error busy\n", to: fd); return }
         defer {
             lock.lock()
-            busy = false
+            busy.remove(command)
             lock.unlock()
         }
 
         let ring = Ring()
-        let tap: Tap
-        do { tap = try Tap(ring: ring) } catch let failure as TapFailure {
+        let source: Source
+        do { source = mic ? try Mic(ring: ring) : try Tap(ring: ring) } catch let failure as TapFailure {
             send("error \(failure.message)\n", to: fd)
             return
         } catch {
-            send("error Couldn't listen to the system audio.\n", to: fd)
+            send("error Couldn't listen to the \(mic ? "microphone" : "system audio").\n", to: fd)
             return
         }
-        defer { tap.close() }
+        defer { source.close() }
 
-        guard send("ok rate=\(Int(tap.rate))\n", to: fd) else { return }
+        guard send("ok rate=\(Int(source.rate))\n", to: fd) else { return }
         var chunk = [Float]()
         while !clientGone(fd) {
             ring.wait()
@@ -92,9 +99,61 @@ enum Audio {
 
     private struct TapFailure: Error { let message: String }
 
+    /// The default microphone through AVAudioEngine. The first attempt makes macOS ask for Microphone access.
+    private final class Mic: Source {
+        private(set) var rate = 48_000.0
+        private let engine = AVAudioEngine()
+
+        init(ring: Ring) throws {
+            try Self.authorize()
+            let input = engine.inputNode
+            let format = input.inputFormat(forBus: 0)
+            guard format.sampleRate > 0, format.channelCount > 0 else {
+                throw TapFailure(message: "There is no microphone to listen to.")
+            }
+            rate = format.sampleRate
+            input.installTap(onBus: 0, bufferSize: 2048, format: format) { buffer, _ in
+                Mic.downmix(buffer, into: ring)
+            }
+            do { try engine.start() } catch {
+                input.removeTap(onBus: 0)
+                throw TapFailure(message: "Couldn't listen to the microphone.")
+            }
+        }
+
+        func close() {
+            engine.stop()
+            engine.inputNode.removeTap(onBus: 0)
+        }
+
+        private static func authorize() throws {
+            switch AVCaptureDevice.authorizationStatus(for: .audio) {
+            case .authorized: return
+            case .notDetermined:
+                let answered = DispatchSemaphore(value: 0)
+                var granted = false
+                AVCaptureDevice.requestAccess(for: .audio) { granted = $0; answered.signal() }
+                answered.wait()
+                if !granted { throw TapFailure(message: "denied") }
+            default: throw TapFailure(message: "denied")
+            }
+        }
+
+        private static func downmix(_ buffer: AVAudioPCMBuffer, into ring: Ring) {
+            guard let channels = buffer.floatChannelData else { return }
+            let frames = Int(buffer.frameLength)
+            let count = Int(buffer.format.channelCount)
+            var mono = [Float](repeating: 0, count: frames)
+            for c in 0..<count { for i in 0..<frames { mono[i] += channels[c][i] } }
+            let scale = 1 / Float(max(count, 1))
+            for i in 0..<frames { mono[i] *= scale }
+            mono.withUnsafeBufferPointer { ring.add($0) }
+        }
+    }
+
     /// The tap, the aggregate device around it and the running IOProc. `close` undoes them, newest first.
     @available(macOS 14.2, *)
-    private final class Tap {
+    private final class Tap: Source {
         private(set) var rate = 48_000.0
         private var tap = AudioObjectID(kAudioObjectUnknown)
         private var aggregate = AudioObjectID(kAudioObjectUnknown)

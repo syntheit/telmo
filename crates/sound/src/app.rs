@@ -1,11 +1,16 @@
 //! State and key handling. No drawing here.
 
+pub mod listen;
+
 use crate::backend::{Cmd, Event, Tx};
 use crate::capture::Capture;
-use crate::model::{Device, Direction, Snapshot, Target};
+use crate::history;
+use crate::identify::{self, Recognizer};
+use crate::model::{Device, Direction, Snapshot, Source, Target};
 use crate::motion::{FPS, Motion};
+use crate::song::{Found, Listen};
 use ratatui::crossterm::event::{KeyCode, KeyModifiers};
-use std::{cell::RefCell, rc::Rc, time::Instant};
+use std::{cell::RefCell, path::PathBuf, rc::Rc, time::Instant};
 use telmo_kit::{
     App as _, Flow,
     hits::Hits,
@@ -57,6 +62,8 @@ pub enum Dialog {
     ProfileInfo {
         device: String,
     },
+    /// "What's playing?": listens, looks the song up and shows it.
+    Song(Box<Listen>),
 }
 
 pub struct App {
@@ -72,6 +79,14 @@ pub struct App {
     pub blocked: bool,
     /// Listening to the audio; exists only while something plays.
     capture: Option<Capture>,
+    /// Listening to the microphone for the song dialog.
+    mic: Option<Capture>,
+    /// Songs found before, newest first.
+    pub history: Vec<Found>,
+    history_path: Option<PathBuf>,
+    /// Which listening the song dialog is on, so late answers are dropped.
+    run: u64,
+    recognizer: Recognizer,
     mock: bool,
     /// When the visualizer last moved, to step it by real elapsed time.
     moved: Option<Instant>,
@@ -89,6 +104,12 @@ impl App {
         events: Tx,
         mock: bool,
     ) -> Self {
+        let history_path = if mock { None } else { history::path() };
+        let history = match &history_path {
+            Some(path) => history::load(path),
+            None if mock => identify::canned_history(),
+            None => Vec::new(),
+        };
         Self {
             snapshot: cached.unwrap_or_default(),
             pane: Pane::Output,
@@ -99,6 +120,15 @@ impl App {
             motion: Motion::new(),
             blocked: false,
             capture: None,
+            mic: None,
+            history,
+            history_path,
+            run: 0,
+            recognizer: if mock {
+                identify::mock
+            } else {
+                identify::spawn
+            },
             mock,
             moved: None,
             events,
@@ -225,11 +255,16 @@ impl App {
     /// Listens only while something plays. After the system said no we don't
     /// ask again, which would only bring the permission prompt back.
     fn sync_capture(&mut self) {
-        if !self.playing() {
+        let wanted = self.playing() || self.listening_to(Source::Desktop);
+        if !wanted {
             self.capture = None;
         } else if self.capture.is_none() && !self.blocked {
-            self.capture = Some(Capture::start(self.mock, self.events.clone()));
+            self.capture = Some(self.start_capture(Source::Desktop));
         }
+    }
+
+    fn start_capture(&self, source: Source) -> Capture {
+        Capture::start(self.mock, source, self.events.clone())
     }
 
     /// Moves the visualizer by the time since it last moved. Called on every
@@ -277,7 +312,7 @@ impl App {
 
     fn click_dialog(&mut self, at: Option<Click>) -> Flow {
         match at {
-            Some(Click::Outside) => self.dialog = None,
+            Some(Click::Outside) => self.close_dialog(),
             Some(Click::DialogKey(code)) => {
                 return self.key(KeyEvent::new(code, KeyModifiers::NONE));
             }
@@ -419,6 +454,9 @@ impl App {
     }
 
     fn dialog_key(&mut self, key: KeyEvent) {
+        if matches!(self.dialog, Some(Dialog::Song(_))) {
+            return self.song_key(key.code);
+        }
         let delta = match key.code {
             KeyCode::Char('j') | KeyCode::Down => 1,
             KeyCode::Char('k') | KeyCode::Up => -1,
@@ -485,7 +523,7 @@ impl telmo_kit::App for App {
     fn key(&mut self, key: KeyEvent) -> Flow {
         if self.dialog.is_some() {
             if key.code == KeyCode::Esc {
-                self.dialog = None;
+                self.close_dialog();
             } else {
                 self.dialog_key(key);
             }
@@ -503,6 +541,7 @@ impl telmo_kit::App for App {
             KeyCode::Enter => self.set_default(),
             KeyCode::Char('o') => self.open_route(),
             KeyCode::Char('P') => self.open_profile(),
+            KeyCode::Char('f') => self.open_song(),
             _ => {}
         }
         Flow::Continue
@@ -540,8 +579,16 @@ impl telmo_kit::App for App {
                 self.motion.set_target(&frame);
                 self.animate();
             }
-            Event::VisualizerBlocked => self.blocked = true,
+            Event::VisualizerBlocked => self.visualizer_blocked(),
+            Event::Samples { source, rate, mono } => self.heard(source, rate, &mono),
+            Event::Recognized { run, result } => self.recognized(run, result),
+            Event::MicFailed(message) => {
+                self.listening_failed(Source::Mic, &message);
+            }
             Event::Failed(message) => {
+                if self.listening_failed(Source::Desktop, &message) {
+                    return Flow::Continue;
+                }
                 // Drop optimistic edits the backend refused.
                 if let Some(last) = self.last.borrow().clone() {
                     self.snapshot = last;

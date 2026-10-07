@@ -5,9 +5,7 @@ use crate::model::*;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use qrcode::QrCode;
 use std::collections::HashSet;
-use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr};
-use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 use telmo_kit::{Flow, hits::Hits, input::TextInput, widgets::Toast};
 use telmo_speed::{Phase, Record, Update};
@@ -608,7 +606,7 @@ impl App {
             .flatten();
         match ip {
             Some(ip) => {
-                copy_to_clipboard(&ip);
+                telmo_kit::os::copy(&ip);
                 self.toast_ok(format!("Copied {ip}"));
             }
             None => self.toast_err("Only the connected network has an IP address."),
@@ -702,7 +700,7 @@ impl App {
             KeyCode::Enter => self.start_speedtest(),
             KeyCode::Char('c') if self.speed.finished() => {
                 let summary = self.speed.summary();
-                copy_to_clipboard(&summary);
+                telmo_kit::os::copy(&summary);
                 self.toast_ok(format!("Copied: {summary}"));
             }
             KeyCode::Char('c') => self.toast_err("The test hasn't finished yet."),
@@ -1039,57 +1037,6 @@ impl Qr {
         }
         Some(lines)
     }
-}
-
-/// Copy through the terminal (OSC 52), which works over ssh and mosh too, and
-/// also through the local clipboard tool when there is one.
-fn copy_to_clipboard(text: &str) {
-    print!("\x1b]52;c;{}\x07", base64(text.as_bytes()));
-    let _ = std::io::stdout().flush();
-    pipe_to_clipboard_tool(text);
-}
-
-fn pipe_to_clipboard_tool(text: &str) {
-    let tool = if cfg!(target_os = "macos") {
-        "pbcopy"
-    } else {
-        "wl-copy"
-    };
-    let spawned = Command::new(tool)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn();
-    let Ok(mut child) = spawned else { return };
-    let text = text.to_owned();
-    // A thread feeds the tool and reaps it, so the UI never waits.
-    std::thread::spawn(move || {
-        if let Some(mut stdin) = child.stdin.take() {
-            let _ = stdin.write_all(text.as_bytes());
-        }
-        let _ = child.wait();
-    });
-}
-
-fn base64(bytes: &[u8]) -> String {
-    const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::new();
-    for chunk in bytes.chunks(3) {
-        let b = [
-            chunk[0],
-            *chunk.get(1).unwrap_or(&0),
-            *chunk.get(2).unwrap_or(&0),
-        ];
-        let n = u32::from(b[0]) << 16 | u32::from(b[1]) << 8 | u32::from(b[2]);
-        for i in 0..4 {
-            if i <= chunk.len() {
-                out.push(ALPHABET[(n >> (18 - 6 * i) & 63) as usize] as char);
-            } else {
-                out.push('=');
-            }
-        }
-    }
-    out
 }
 
 #[cfg(test)]

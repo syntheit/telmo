@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 telmo-kit.workspace = true
+telmo-recognize = { path = "../recognize" }
 ratatui.workspace = true
 tokio.workspace = true
 serde.workspace = true

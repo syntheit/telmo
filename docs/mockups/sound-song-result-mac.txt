@@ -1,0 +1,23 @@
+# Sound · What's playing · mac
+ Sound
+
+╭─ Output ───────────────────────────────────────────────────────────────────────────────╮
+│ ▌ ● MacBook Pro Speakers      ━━━━━━━━━━━━━━━━━━━───────────    62%                    │
+│     Air╭─ What's playing? ────────────────────────────────────────────────────╮        │
+│     LG │                                                                      │        │
+╰────────│  Sneaky Snitch                                                       │────────╯
+╭─ Input │  Kevin MacLeod                                                       │────────╮
+│   ● Mac│  YouTube Audio Library · 2012                                        │        │
+│     Air│                                                                      │        │
+╰────────│  Recent                                                              │────────╯
+         │  Windowlicker — Aphex Twin                                           │
+         │  Teardrop — Massive Attack                                           │
+         │  Open Eye Signal — Jon Hopkins                                       │
+         │                                                                      │
+         │  c copy   o Shazam   a Apple Music   s Spotify   r again   esc close │
+         ╰──────────────────────────────────────────────────────────────────────╯
+
+
+▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁
+
+ ←→ volume  m mute  ↵ set default  f song  ? more  esc close

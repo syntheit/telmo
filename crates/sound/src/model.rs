@@ -64,3 +64,10 @@ pub enum Target {
     Device(Direction, String),
     Stream(String),
 }
+
+/// Where song recognition listens: what the computer plays, or the room.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Source {
+    Desktop,
+    Mic,
+}

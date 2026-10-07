@@ -1,8 +1,10 @@
-//! Records the default output's monitor source through libpulse (PipeWire's
-//! pulse layer has it too). The mainloop is polled, so stopping is prompt.
+//! Records the default output's monitor source (what is playing) or the
+//! default microphone through libpulse (PipeWire's pulse layer has both). The
+//! mainloop is polled, so stopping is prompt.
 
-use super::{FRAME, stopped};
+use super::{FRAME, report_failure, stopped};
 use crate::backend::{Event, Tx};
+use crate::model::Source;
 use crate::spectrum::Analyzer;
 use libpulse_binding::{
     context::{Context, FlagSet as ContextFlags, State},
@@ -18,19 +20,30 @@ use std::{
 };
 
 const RATE: u32 = 48_000;
-const CHANNELS: usize = 2;
-/// Ask the server for 10 ms fragments.
-const FRAGMENT_BYTES: u32 = RATE / 100 * CHANNELS as u32 * 4;
 const POLL: Duration = Duration::from_millis(5);
 
-pub fn run(stop: &AtomicBool, events: &Tx) {
-    if let Err(message) = record(stop, events) {
-        let _ = events.send(Event::Failed(message));
+pub fn run(stop: &AtomicBool, events: &Tx, source: Source) {
+    if let Err(message) = record(stop, events, source) {
+        report_failure(events, source, message);
     }
 }
 
-fn record(stop: &AtomicBool, events: &Tx) -> Result<(), String> {
-    let unavailable = || "Couldn't listen to the sound server, so there is no visualizer.";
+fn record(stop: &AtomicBool, events: &Tx, source: Source) -> Result<(), String> {
+    let (device, channels, unavailable) = match source {
+        Source::Desktop => (
+            Some("@DEFAULT_MONITOR@"),
+            2,
+            "Couldn't listen to the sound server, so there is no visualizer.",
+        ),
+        Source::Mic => (
+            None,
+            1,
+            "Couldn't listen to the sound server, so the microphone is not available.",
+        ),
+    };
+    // Ask the server for 10 ms fragments.
+    let fragment_bytes = RATE / 100 * channels as u32 * 4;
+    let unavailable = || unavailable;
     let mut mainloop = Mainloop::new().ok_or_else(unavailable)?;
     let mut context = Context::new(&mainloop, "telmo-visualizer").ok_or_else(unavailable)?;
     context
@@ -46,7 +59,7 @@ fn record(stop: &AtomicBool, events: &Tx) -> Result<(), String> {
 
     let spec = Spec {
         format: Format::F32le,
-        channels: CHANNELS as u8,
+        channels,
         rate: RATE,
     };
     let mut stream =
@@ -56,11 +69,11 @@ fn record(stop: &AtomicBool, events: &Tx) -> Result<(), String> {
         tlength: u32::MAX,
         prebuf: u32::MAX,
         minreq: u32::MAX,
-        fragsize: FRAGMENT_BYTES,
+        fragsize: fragment_bytes,
     };
     stream
         .connect_record(
-            Some("@DEFAULT_MONITOR@"),
+            device,
             Some(&attr),
             StreamFlags::ADJUST_LATENCY | StreamFlags::DONT_MOVE,
         )
@@ -74,6 +87,7 @@ fn record(stop: &AtomicBool, events: &Tx) -> Result<(), String> {
     .ok_or_else(unavailable)?;
 
     let mut analyzer = Analyzer::new(RATE as f32);
+    let mut heard = Vec::new();
     let mut last_frame = Instant::now();
     while !stopped(stop) {
         if !matches!(mainloop.iterate(false), IterateResult::Success(_)) {
@@ -90,7 +104,12 @@ fn record(stop: &AtomicBool, events: &Tx) -> Result<(), String> {
                         .iter()
                         .map(|b| f32::from_le_bytes(*b))
                         .collect();
-                    analyzer.push(&samples, CHANNELS);
+                    analyzer.push(&samples, usize::from(channels));
+                    heard.extend(
+                        samples
+                            .chunks_exact(usize::from(channels))
+                            .map(|frame| frame.iter().sum::<f32>() / f32::from(channels)),
+                    );
                 }
                 Ok(PeekResult::Hole(_)) => {}
                 Ok(PeekResult::Empty) | Err(_) => break,
@@ -101,7 +120,19 @@ fn record(stop: &AtomicBool, events: &Tx) -> Result<(), String> {
         }
         if last_frame.elapsed() >= FRAME {
             last_frame = Instant::now();
-            if events.send(Event::Spectrum(analyzer.frame())).is_err() {
+            if source == Source::Desktop && events.send(Event::Spectrum(analyzer.frame())).is_err()
+            {
+                break;
+            }
+            let mono = std::mem::take(&mut heard);
+            if events
+                .send(Event::Samples {
+                    source,
+                    rate: RATE,
+                    mono,
+                })
+                .is_err()
+            {
                 break;
             }
         }
