@@ -12,6 +12,7 @@ pub fn valid_team_id(team: &str) -> bool {
             .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit())
 }
 
+#[cfg(any(target_os = "macos", test))]
 pub fn requirement(team: &str) -> String {
     format!(r#"anchor apple generic and certificate leaf[subject.OU] = "{team}""#)
 }
