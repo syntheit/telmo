@@ -130,6 +130,7 @@ final class IPCServer {
         // Only line ends are trimmed: SSIDs and passwords may start or end with spaces.
         let text = String(decoding: line, as: UTF8.self).trimmingCharacters(in: .newlines)
         guard !text.isEmpty else { return }
+        if Audio.isAudioCommand(text) { return Audio.stream(to: fd) } // streams until the client leaves
         if Wifi.isWifiCommand(text) { return reply(Wifi.handle(text), to: fd) } // slow: stays off the main thread
         // Main runs the command asynchronously; this background thread waits (bounded) for the reply.
         let done = DispatchSemaphore(value: 0)

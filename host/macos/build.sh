@@ -26,9 +26,9 @@ mkdir -p "$app/Contents/MacOS"
 find "$SWIFTTERM_SRC/Sources/SwiftTerm" -name '*.swift' -not -path '*/iOS/*' -not -path '*Documentation.docc*' > "$work/terms"
 
 # swiftc treats the file named main.swift as the entry point.
-swiftc -O -swift-version 5 -sdk "$SDKROOT" -target arm64-apple-macos14.0 \
+swiftc -O -swift-version 5 -sdk "$SDKROOT" -target arm64-apple-macos14.2 \
   -module-name Telmo \
-  -framework AppKit -framework Carbon -framework CoreLocation -framework CoreWLAN \
+  -framework AppKit -framework Carbon -framework CoreAudio -framework CoreLocation -framework CoreWLAN \
   -framework LocalAuthentication -framework Security \
   -o "$app/Contents/MacOS/Telmo" \
   "$here"/*.swift "$work/BuildInfo.swift" @"$work/terms"
