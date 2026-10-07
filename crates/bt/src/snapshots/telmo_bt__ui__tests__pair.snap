@@ -6,19 +6,19 @@ expression: h.render()
 
 ╭─ Connected ────────────────────────────────────────────────────────────────────────────╮
 │   AirPods Pro                             80% · case 45%                               │
-│   Keychron K3                             61%                                          │
-╰─────────────╭─ Pair Keychron Q1 ─────────────────────────────────────────╮─────────────╯
-╭─ Paired ────│                                                            │─────────────╮
-│   MX Master │  Type this code on the keyboard, then press Enter on it.   │             │
-│   Sony WH-10│                                                            │             │
-│   Xbox Wirel│               █ █ █▀█ ▀▀█ █▀█ ▀█  ▀▀█                      │             │
-╰─────────────│               ▀▀█ █▀█ █▀▀ ▀▀█  █   ▀█                      │─────────────╯
-╭─ Nearby ────│                 ▀ ▀▀▀ ▀▀▀ ▀▀▀ ▀▀▀ ▀▀▀                      │ ◜ scanning ─╮
-│ ▌ Keychron Q│                                                            │             │
-│   Galaxy Bud│  ◜ waiting for the keyboard          esc cancel            │             │
-│   Bose QC45 │                                                            │             │
-│   Unnamed de╰────────────────────────────────────────────────────────────╯             │
-╰────────────────────────────────────────────────────────────────────────────────────────╯
+│   Keychron K╭─ Pair Keychron Q1 ─────────────────────────────────────────╮             │
+╰─────────────│                                                            │─────────────╯
+╭─ Paired ────│  Type this code on the keyboard, then press Enter on it.   │─────────────╮
+│   MX Master │                                                            │             │
+│   Sony WH-10│               █ █ ███ ███ ███  █  ███                      │             │
+│   Xbox Wirel│               █ █ █ █   █ █ █ ██    █                      │             │
+╰─────────────│               ███ ███ ███ ███  █  ███                      │─────────────╯
+╭─ Nearby ────│                 █ █ █ █     █  █    █                      │ ◜ scanning ─╮
+│ ▌ Keychron Q│                 █ ███ ███ ███ ███ ███                      │             │
+│   Galaxy Bud│                                                            │             │
+│   Bose QC45 │  ◜ waiting for the keyboard          esc cancel            │             │
+│   Unnamed de│                                                            │             │
+╰─────────────╰────────────────────────────────────────────────────────────╯─────────────╯
 
 
 

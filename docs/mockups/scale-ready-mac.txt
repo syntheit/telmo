@@ -1,5 +1,5 @@
-# Scale · Tare without touch · mac
- Scale                                                                         ○ no touch
+# Scale · Ready · mac
+ Scale                                                                         ● touching
 
 ╭─ Weight ───────────────────────────────────────────────────────────────────────────────╮
 │                                                                                        │
@@ -9,7 +9,7 @@
 │                                      █ █   █ █                                         │
 │                                      ███ █ ███  g                                      │
 │                                                                                        │
-│                                                                                        │
+│                                         ● ready                                        │
 │                                                                                        │
 │                       1  Rest one finger lightly on the trackpad                       │
 │                       2  Keep it still… zeroing                                        │
@@ -19,5 +19,5 @@
 
 
 
-  ✗  Nothing to zero. Rest a finger on the trackpad first.
+
  space zero  u ounces  ? more  esc close

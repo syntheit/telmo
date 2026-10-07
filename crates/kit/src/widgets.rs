@@ -198,24 +198,25 @@ pub fn spinner(tick: u64) -> &'static str {
     SPINNER[(tick % SPINNER.len() as u64) as usize]
 }
 
-/// Three-row digits for big readouts (speedtest, pairing codes).
-pub fn big_digits(text: &str, style: Style) -> [Line<'static>; 3] {
-    let mut rows = [String::new(), String::new(), String::new()];
+/// Five-row full-block digits for big readouts (speedtest, pairing codes,
+/// scale). All rows have the same width.
+pub fn big_digits(text: &str, style: Style) -> [Line<'static>; 5] {
+    let mut rows: [String; 5] = Default::default();
     for c in text.chars() {
-        let glyph: [&str; 3] = match c {
-            '0' => ["█▀█", "█ █", "▀▀▀"],
-            '1' => ["▀█ ", " █ ", "▀▀▀"],
-            '2' => ["▀▀█", "█▀▀", "▀▀▀"],
-            '3' => ["▀▀█", " ▀█", "▀▀▀"],
-            '4' => ["█ █", "▀▀█", "  ▀"],
-            '5' => ["█▀▀", "▀▀█", "▀▀▀"],
-            '6' => ["█▀▀", "█▀█", "▀▀▀"],
-            '7' => ["▀▀█", "  █", "  ▀"],
-            '8' => ["█▀█", "█▀█", "▀▀▀"],
-            '9' => ["█▀█", "▀▀█", "▀▀▀"],
-            '.' => [" ", " ", "▀"],
-            '-' => ["   ", "▀▀▀", "   "],
-            _ => ["  ", "  ", "  "],
+        let glyph: [&str; 5] = match c {
+            '0' => ["███", "█ █", "█ █", "█ █", "███"],
+            '1' => [" █ ", "██ ", " █ ", " █ ", "███"],
+            '2' => ["███", "  █", "███", "█  ", "███"],
+            '3' => ["███", "  █", "███", "  █", "███"],
+            '4' => ["█ █", "█ █", "███", "  █", "  █"],
+            '5' => ["███", "█  ", "███", "  █", "███"],
+            '6' => ["███", "█  ", "███", "█ █", "███"],
+            '7' => ["███", "  █", "  █", "  █", "  █"],
+            '8' => ["███", "█ █", "███", "█ █", "███"],
+            '9' => ["███", "█ █", "███", "  █", "███"],
+            '.' => [" ", " ", " ", " ", "█"],
+            '-' => ["   ", "   ", "███", "   ", "   "],
+            _ => ["  "; 5],
         };
         for (row, part) in rows.iter_mut().zip(glyph) {
             if !row.is_empty() {

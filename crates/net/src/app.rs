@@ -578,7 +578,14 @@ impl App {
         let open = d.network.security == Security::Open;
         match key.code {
             KeyCode::Esc => return Outcome::Close,
-            KeyCode::Char('c') => self.copy_ip(d),
+            // With the password showing, `c` copies it; otherwise the IP.
+            KeyCode::Char('c') => match &d.password {
+                Some(password) => {
+                    telmo_kit::os::copy(password);
+                    self.toast_ok("Copied the password");
+                }
+                None => self.copy_ip(d),
+            },
             KeyCode::Char('y') if saved => {
                 if d.password.is_some() {
                     d.password = None;

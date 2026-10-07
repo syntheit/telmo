@@ -404,10 +404,10 @@ fn draw_pairing(
     let name = app.device_name(id);
     let is_keyboard = app.device(id).is_some_and(|d| d.kind == Kind::Keyboard);
     let thing = if is_keyboard { "keyboard" } else { "device" };
-    let inner = open_dialog(app, frame, &format!("Pair {name}"), 62, 11);
+    let inner = open_dialog(app, frame, &format!("Pair {name}"), 62, 13);
     let width = inner.width as usize;
-    // Blank, message, blank, three code rows, blank, then the footer.
-    let footer_row = 7;
+    // Blank, message, blank, five code rows, blank, then the footer.
+    let footer_row = 9;
 
     let (message, middle, footer) = match prompt {
         PairPrompt::DisplayPasskey(code) => {
@@ -450,6 +450,8 @@ fn draw_pairing(
                 format!("Enter the PIN shown on {name}."),
                 vec![
                     Line::from(input.spans(width.saturating_sub(4), true)),
+                    Line::raw(""),
+                    Line::raw(""),
                     Line::raw(""),
                     Line::raw(""),
                 ],

@@ -1,6 +1,6 @@
 //! Drawing only, a pure function of the app state.
 
-use crate::app::{App, Unit};
+use crate::app::{App, Step, Unit};
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
@@ -9,8 +9,12 @@ use ratatui::{
 };
 use telmo_kit::{theme, widgets};
 
-const INSTRUCTION: &str =
-    "Rest a finger on the trackpad, then set the object on it — keep touching.";
+const STEPS: [&str; 3] = [
+    "Rest one finger lightly on the trackpad",
+    "Keep it still… zeroing",
+    "Place the item next to your finger",
+];
+const STEPS_DONE: &str = "Stable · lift your finger to reset";
 
 pub fn draw(app: &App, frame: &mut Frame) {
     let screen = widgets::screen(frame.area());
@@ -70,23 +74,25 @@ fn draw_unavailable(frame: &mut Frame, area: Rect, reason: &str) {
 }
 
 fn draw_readout(app: &App, frame: &mut Frame, area: Rect) {
-    let [area] = Layout::vertical([Constraint::Length(11)]).areas(area);
+    let [area] = Layout::vertical([Constraint::Length(14)]).areas(area);
     let block = widgets::pane("Weight", false, None, None);
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
-    let touching = app.snapshot.touching;
-    let style = if touching {
+    let style = if app.ready() {
+        theme::ok().bold()
+    } else if app.snapshot.touching {
         theme::text().bold()
     } else {
         theme::faint()
     };
     // The unit sits beside the bottom row; pad the rows above by the same
-    // width so all three stay aligned when centered.
+    // width so all five stay aligned when centered.
     let unit = format!("  {}", app.unit_label());
     let mut digits = widgets::big_digits(&app.readout(), style);
+    let last = digits.len() - 1;
     for (i, row) in digits.iter_mut().enumerate() {
-        let tail = if i == 2 {
+        let tail = if i == last {
             unit.clone()
         } else {
             " ".repeat(unit.chars().count())
@@ -99,14 +105,50 @@ fn draw_readout(app: &App, frame: &mut Frame, area: Rect) {
     lines.push(Line::raw(""));
     lines.push(indicator(app));
     lines.push(Line::raw(""));
-    lines.push(Line::styled(INSTRUCTION, theme::dim()));
+    lines.extend(step_lines(app.step()));
     let lines = lines.into_iter().map(Line::centered).collect();
     widgets::text(frame, inner, lines);
+}
+
+/// The three numbered steps, the current one highlighted. Padded to one
+/// width so centering keeps them in a column.
+fn step_lines(current: Step) -> Vec<Line<'static>> {
+    let width = STEPS
+        .iter()
+        .chain([&STEPS_DONE])
+        .map(|s| s.chars().count())
+        .max();
+    let width = width.unwrap_or(0);
+    let active = match current {
+        Step::Rest => 0,
+        Step::Zeroing => 1,
+        Step::Place | Step::Done => 2,
+    };
+    (0..3)
+        .map(|i| {
+            let done = current == Step::Done && i == 2;
+            let text = if done { STEPS_DONE } else { STEPS[i] };
+            let text = widgets::fit(text, width);
+            let (number, text_style) = match (i == active, done) {
+                (true, true) => (theme::ok(), theme::ok()),
+                (true, false) => (theme::accent(), theme::text()),
+                (false, _) => (theme::dim(), theme::dim()),
+            };
+            Line::from(vec![
+                Span::styled(format!("{}  ", i + 1), number),
+                Span::styled(text, text_style),
+            ])
+        })
+        .collect()
 }
 
 fn indicator(app: &App) -> Line<'static> {
     if !app.snapshot.touching {
         Line::raw("")
+    } else if !app.zeroed() {
+        Line::styled("◌ zeroing…", theme::warn())
+    } else if app.ready() {
+        Line::styled("● ready", theme::ok())
     } else if app.snapshot.stable {
         Line::styled("● stable", theme::ok())
     } else {
@@ -182,6 +224,15 @@ mod tests {
         press(&mut app, KeyCode::Char(' '));
         app.event(Event::Snapshot(mock::snapshot(204.5, true)));
         assert_eq!(app.readout(), "124.5");
+        insta::assert_snapshot!(render(&app));
+    }
+
+    #[test]
+    fn auto_zeroed() {
+        let t0 = std::time::Instant::now();
+        let mut app = app_with(mock::snapshot(22.0, false));
+        app.event(Event::Snapshot(mock::snapshot(22.1, true)));
+        app.advance(t0 + std::time::Duration::from_secs(1));
         insta::assert_snapshot!(render(&app));
     }
 

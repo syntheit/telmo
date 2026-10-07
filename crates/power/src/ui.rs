@@ -117,7 +117,7 @@ fn key_bar(app: &App) -> Vec<(&'static str, &'static str)> {
 fn draw_body(app: &App, frame: &mut Frame, area: Rect) {
     let mut heights = Vec::new();
     if app.snapshot.battery.is_some() {
-        heights.push(Constraint::Length(5));
+        heights.push(Constraint::Length(7));
     }
     heights.push(Constraint::Length(app.rows().len() as u16 + 2));
     if app.snapshot.lists_energy_users {
@@ -149,6 +149,8 @@ fn draw_battery(frame: &mut Frame, area: Rect, battery: &Battery) {
         state_line(battery),
         Line::styled(source_text(battery), theme::dim()),
         Line::raw(""),
+        Line::raw(""),
+        Line::raw(""),
     ];
     let lines = digits
         .into_iter()
@@ -158,7 +160,7 @@ fn draw_battery(frame: &mut Frame, area: Rect, battery: &Battery) {
             let mut spans = vec![Span::raw("   ")];
             let used: usize = digits.spans.iter().map(Span::width).sum();
             spans.extend(digits.spans);
-            let unit = if i == 2 { " %" } else { "  " };
+            let unit = if i == 4 { " %" } else { "  " };
             spans.push(Span::styled(unit, theme::dim()));
             let pad = DIGITS_WIDTH.saturating_sub(used + 2);
             spans.push(Span::raw(" ".repeat(pad)));

@@ -5,22 +5,22 @@ expression: h.render()
  Power                                                                     82% · charging
 
 ╭─ Battery ──────────────────────────────────────────────────────────────────────────────╮
-│   █▀█ ▀▀█         charging · 1h 05m until full                                         │
-│   █▀█ █▀▀         96 W adapter                                                         │
-│   ▀▀▀ ▀▀▀ %                                                                            │
-╰────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Settings ─────╭─ Keys ───────────────────────────────────────────────╮────────────────╮
-│ ▌ Low Power Mod│                                                      │                │
-│   Keep awake   │  ↵          change the selected setting              │                │
-╰────────────────│  j k ↑ ↓    move between settings                    │────────────────╯
-╭─ Using the most│  i          battery health                           │────────────────╮
-│   Zen          │  esc q      close, then quit                         │                │
-│   Spotify      │                                                      │                │
-│   Ghostty      ╰──────────────────────────────────────────────────────╯                │
+│   ███ ███         charging · 1h 05m until full                                         │
+│   █ █   █         96 W adapter                                                         │
+│   ███ ███                                                                              │
+│   █ █ █                                                                                │
+│   ███ ███ %    ╭─ Keys ───────────────────────────────────────────────╮                │
+╰────────────────│                                                      │────────────────╯
+╭─ Settings ─────│  ↵          change the selected setting              │────────────────╮
+│ ▌ Low Power Mod│  j k ↑ ↓    move between settings                    │                │
+│   Keep awake   │  i          battery health                           │                │
+╰────────────────│  esc q      close, then quit                         │────────────────╯
+╭─ Using the most│                                                      │────────────────╮
+│   Zen          ╰──────────────────────────────────────────────────────╯                │
+│   Spotify                 ━━━━━━━━━━━━━───────                                         │
+│   Ghostty                 ━━━━━───────────────                                         │
 │   Telegram                ━━━━────────────────                                         │
 │   coreaudiod              ━━──────────────────                                         │
 ╰────────────────────────────────────────────────────────────────────────────────────────╯
-
-
 
  ↵ change  i details  ? more  esc close

@@ -6,18 +6,18 @@ expression: "render(&app_with(mock::snapshot(117.0, false)))"
 
 ╭─ Weight ───────────────────────────────────────────────────────────────────────────────╮
 │                                                                                        │
-│                                  ▀█  ▀█  ▀▀█   █▀█                                     │
+│                                   █   █  ███   ███                                     │
+│                                  ██  ██    █   █ █                                     │
 │                                   █   █    █   █ █                                     │
-│                                  ▀▀▀ ▀▀▀   ▀ ▀ ▀▀▀  g                                  │
+│                                   █   █    █   █ █                                     │
+│                                  ███ ███   █ █ ███  g                                  │
 │                                                                                        │
-│                                       ◌ settling…                                      │
+│                                       ◌ zeroing…                                       │
 │                                                                                        │
-│        Rest a finger on the trackpad, then set the object on it — keep touching.       │
-│                                                                                        │
+│                       1  Rest one finger lightly on the trackpad                       │
+│                       2  Keep it still… zeroing                                        │
+│                       3  Place the item next to your finger                            │
 ╰────────────────────────────────────────────────────────────────────────────────────────╯
-
-
-
 
 
 

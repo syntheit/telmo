@@ -475,7 +475,7 @@ fn draw_vpn(app: &App, frame: &mut Frame, area: Rect) {
 
 fn draw_speed(app: &App, frame: &mut Frame, body: Rect) {
     let [meters, latency, _, last, _] = Layout::vertical([
-        Constraint::Length(9),
+        Constraint::Length(10),
         Constraint::Length(3),
         Constraint::Length(1),
         Constraint::Length(1),
@@ -540,16 +540,12 @@ fn draw_meter(
 
     let mut lines = vec![Line::raw("")];
     let mut digits = widgets::big_digits(&format!("{:.1}", meter.mbps), style);
-    digits[2].spans.push(Span::styled("  Mbps", theme::dim()));
+    digits[4].spans.push(Span::styled("  Mbps", theme::dim()));
     for mut row in digits {
         row.spans.insert(0, Span::raw("   "));
         lines.push(row);
     }
     lines.push(Line::raw(""));
-    lines.push(Line::styled(
-        format!("   {}", sparkline(&meter.samples, width.saturating_sub(6))),
-        style,
-    ));
 
     let status = if meter.done {
         Span::styled("done", theme::ok())
@@ -571,24 +567,6 @@ fn draw_meter(
     gauge.push(status);
     lines.push(Line::from(gauge));
     widgets::text(frame, inner, lines);
-}
-
-/// The most recent samples that fit, scaled to the largest.
-fn sparkline(samples: &[f64], width: usize) -> String {
-    const LEVELS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
-    let recent = &samples[samples.len().saturating_sub(width)..];
-    let max = recent.iter().copied().fold(0.0, f64::max);
-    recent
-        .iter()
-        .map(|s| {
-            let level = if max > 0.0 {
-                (s / max * 7.0).round() as usize
-            } else {
-                0
-            };
-            LEVELS[level.min(7)]
-        })
-        .collect()
 }
 
 fn last_run_line(app: &App) -> Line<'static> {
@@ -790,9 +768,10 @@ fn details_hint(app: &App, d: &DetailsDialog) -> Vec<(&'static str, &'static str
             (false, true) => "show password (Touch ID)",
             (false, false) => "show password",
         };
+        let copy = if d.password.is_some() { "copy password" } else { "copy ip" };
         vec![
             ("y", reveal),
-            ("c", "copy ip"),
+            ("c", copy),
             ("a", "auto-join"),
             ("d", "forget"),
         ]
@@ -858,7 +837,7 @@ fn draw_share(
         app,
         frame,
         &format!("Share {name}"),
-        (width + 4).max(50),
+        (width + 4).max(66),
         height,
     );
     let mut lines = vec![Line::from(vec![

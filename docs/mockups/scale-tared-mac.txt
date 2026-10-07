@@ -3,18 +3,18 @@
 
 ╭─ Weight ───────────────────────────────────────────────────────────────────────────────╮
 │                                                                                        │
-│                                    ▀█  ▀▀█ █ █   █▀▀                                   │
-│                                     █  █▀▀ ▀▀█   ▀▀█                                   │
-│                                  ▀▀▀ ▀▀▀   ▀ ▀ ▀▀▀  g                                  │
+│                                   █  ███ █ █   ███                                     │
+│                                  ██    █ █ █   █                                       │
+│                                   █  ███ ███   ███                                     │
+│                                   █  █     █     █                                     │
+│                                  ███ ███   █ █ ███  g                                  │
 │                                                                                        │
 │                                        ● stable                                        │
 │                                                                                        │
-│        Rest a finger on the trackpad, then set the object on it — keep touching.       │
-│                                                                                        │
+│                       1  Rest one finger lightly on the trackpad                       │
+│                       2  Keep it still… zeroing                                        │
+│                       3  Stable · lift your finger to reset                            │
 ╰────────────────────────────────────────────────────────────────────────────────────────╯
-
-
-
 
 
 
