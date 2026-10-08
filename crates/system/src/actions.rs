@@ -78,6 +78,7 @@ fn macos(cmd: Cmd) -> Result<(), String> {
     }
 }
 
+#[cfg(target_os = "macos")]
 unsafe fn dl_error() -> Option<String> {
     let message = unsafe { libc::dlerror() };
     (!message.is_null()).then(|| {
