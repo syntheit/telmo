@@ -1,27 +1,13 @@
-//! Battery levels. IOKit answers instantly (keyboards, mice, trackpads);
-//! earbuds only report through `system_profiler`, which is slow, so a
-//! background thread polls it and keeps a cache.
+//! Battery levels from IOKit, which answers instantly (keyboards, mice,
+//! trackpads). Earbuds only report through `system_profiler` (see `profiler`).
 
-use super::{Note, Waker, normalize_address};
+use super::normalize_address;
 use crate::model::Battery;
 use objc2_core_foundation::{CFDictionary, CFNumber, CFRetained, CFString, CFType};
 use objc2_io_kit::{
     IOIteratorNext, IOObjectRelease, IORegistryEntryCreateCFProperty, IOServiceGetMatchingServices,
     IOServiceMatching, kIOMainPortDefault,
 };
-use std::{
-    collections::HashMap,
-    process::Command,
-    sync::{
-        Arc, Mutex, PoisonError,
-        atomic::{AtomicBool, Ordering},
-        mpsc::{Receiver, RecvTimeoutError, Sender, channel},
-    },
-    thread,
-    time::Duration,
-};
-
-const PROFILER_INTERVAL: Duration = Duration::from_secs(60);
 
 pub struct HidBattery {
     address: Option<String>,
@@ -92,124 +78,4 @@ pub fn single_battery(batteries: &[HidBattery], address: &str, name: &str) -> Op
         .iter()
         .find(|b| b.address.is_none() && b.product.as_deref() == Some(name));
     by_address.or(by_name).map(|b| Battery::Single(b.percent))
-}
-
-#[derive(Default)]
-pub struct BudsCache {
-    pub buds: Mutex<HashMap<String, Battery>>,
-    /// Set by the backend; the profiler only runs while something is connected.
-    pub any_connected: AtomicBool,
-}
-
-impl BudsCache {
-    pub fn get(&self, address: &str) -> Option<Battery> {
-        let buds = self.buds.lock().unwrap_or_else(PoisonError::into_inner);
-        buds.get(address).copied()
-    }
-}
-
-/// Starts the profiler thread. Send on the returned channel when a device
-/// has just connected; dropping it ends the thread.
-pub fn spawn_profiler(cache: Arc<BudsCache>, notes: Sender<Note>, waker: Arc<Waker>) -> Sender<()> {
-    let (refresh, requests) = channel();
-    let _ = thread::Builder::new()
-        .name("bt-battery".into())
-        .spawn(move || profiler_loop(&cache, &notes, &waker, &requests));
-    refresh
-}
-
-/// Sleeps until asked, then refreshes every minute while a device stays connected.
-fn profiler_loop(cache: &BudsCache, notes: &Sender<Note>, waker: &Waker, requests: &Receiver<()>) {
-    loop {
-        let request = if cache.any_connected.load(Ordering::Relaxed) {
-            requests.recv_timeout(PROFILER_INTERVAL)
-        } else {
-            requests.recv().map_err(|_| RecvTimeoutError::Disconnected)
-        };
-        if request == Err(RecvTimeoutError::Disconnected) {
-            return;
-        }
-        if !cache.any_connected.load(Ordering::Relaxed) {
-            continue;
-        }
-        let Some(fresh) = run_profiler() else {
-            continue;
-        };
-        let changed = {
-            let mut buds = cache.buds.lock().unwrap_or_else(PoisonError::into_inner);
-            let changed = *buds != fresh;
-            *buds = fresh;
-            changed
-        };
-        if changed {
-            if notes.send(Note::Changed).is_err() {
-                return;
-            }
-            waker.wake();
-        }
-    }
-}
-
-fn run_profiler() -> Option<HashMap<String, Battery>> {
-    let output = Command::new("system_profiler")
-        .args(["SPBluetoothDataType", "-json"])
-        .output()
-        .ok()?;
-    parse_profiler(&output.stdout)
-}
-
-fn parse_profiler(json: &[u8]) -> Option<HashMap<String, Battery>> {
-    let root: serde_json::Value = serde_json::from_slice(json).ok()?;
-    let connected = root
-        .get("SPBluetoothDataType")?
-        .get(0)?
-        .get("device_connected")?
-        .as_array()?;
-    let mut buds = HashMap::new();
-    for entry in connected {
-        for properties in entry.as_object()?.values() {
-            let address = properties.get("device_address")?.as_str()?;
-            if let Some(battery) = profiler_battery(properties) {
-                buds.insert(normalize_address(address), battery);
-            }
-        }
-    }
-    Some(buds)
-}
-
-fn profiler_battery(properties: &serde_json::Value) -> Option<Battery> {
-    let level = |key: &str| {
-        let text = properties.get(key)?.as_str()?;
-        text.trim().trim_end_matches('%').parse::<u8>().ok()
-    };
-    let (left, right, case) = (
-        level("device_batteryLevelLeft"),
-        level("device_batteryLevelRight"),
-        level("device_batteryLevelCase"),
-    );
-    if left.is_some() || right.is_some() || case.is_some() {
-        return Some(Battery::Buds { left, right, case });
-    }
-    level("device_batteryLevelMain").map(Battery::Single)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parses_airpods() {
-        let json = br#"{"SPBluetoothDataType":[{"device_connected":[{"AirPods":{
-            "device_address":"70:5A:6F:6B:67:F9","device_batteryLevelLeft":"85%",
-            "device_batteryLevelRight":"80%","device_batteryLevelCase":"45%"}}]}]}"#;
-        let buds = parse_profiler(json).unwrap();
-        assert_eq!(
-            buds["70:5A:6F:6B:67:F9"],
-            Battery::Buds {
-                left: Some(85),
-                right: Some(80),
-                case: Some(45)
-            }
-        );
-    }
 }

@@ -8,10 +8,11 @@ mod battery;
 mod classify;
 mod handler;
 mod host;
+mod profiler;
 
 use super::{Cmd, Event, Rx, Tx};
 use crate::model::{Adapter, Device, PairPrompt, Snapshot};
-use battery::{BudsCache, HidBattery};
+use battery::HidBattery;
 use block2::RcBlock;
 use handler::Handler;
 use objc2::{
@@ -25,12 +26,12 @@ use objc2_io_bluetooth::{
     BluetoothHCIPowerState, BluetoothPINCode, IOBluetoothDevice, IOBluetoothDeviceInquiry,
     IOBluetoothDevicePair, IOBluetoothHostController, IOBluetoothUserNotification,
 };
+use profiler::ProfileCache;
 use std::{
     collections::{HashMap, HashSet},
     ffi::{c_int, c_ulong, c_void},
     sync::{
         Arc,
-        atomic::Ordering,
         mpsc::{Receiver, Sender, TryRecvError, channel},
     },
     thread,
@@ -46,8 +47,7 @@ const POWER_POLL_WHILE_SWITCHING: Duration = Duration::from_millis(100);
 const POWER_SWITCH_TIMEOUT: Duration = Duration::from_secs(8);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 const PAIR_TIMEOUT: Duration = Duration::from_secs(90);
-const DISCONNECT_RETRY: Duration = Duration::from_millis(300);
-const DISCONNECT_ATTEMPTS: u32 = 5;
+const DISCONNECT_RETRY: Duration = Duration::from_secs(1);
 const INQUIRY_SECONDS: u8 = 10;
 /// Page timeout in units of 0.625 ms: 10 seconds.
 const PAGE_TIMEOUT: u16 = 16_000;
@@ -58,6 +58,8 @@ const IOBLUETOOTH: &std::ffi::CStr =
 
 pub enum Note {
     Changed,
+    /// The profiler's first run finished.
+    Profiled,
     Connected(String),
     Disconnected,
     ConnectionComplete(String, i32),
@@ -199,7 +201,7 @@ struct Connecting {
 struct Disconnecting {
     id: String,
     name: String,
-    attempts: u32,
+    deadline: Instant,
     next_try: Instant,
 }
 
@@ -227,8 +229,11 @@ struct Backend {
     disconnecting: Vec<Disconnecting>,
     pairing: Option<Pairing>,
     dirty_since: Option<Instant>,
-    buds: Arc<BudsCache>,
-    refresh_buds: Sender<()>,
+    /// Snapshots wait for the first profile so connection states start right.
+    profiled: bool,
+    profile: Arc<ProfileCache>,
+    /// Asks the profiler to poll fast after a connect or disconnect.
+    watch_profile: Sender<()>,
     // Last, so it outlives everything that uses it as a delegate or target.
     handler: Retained<Handler>,
 }
@@ -236,8 +241,8 @@ struct Backend {
 impl Backend {
     fn new(cmds: Receiver<Cmd>, events: Tx, waker: Arc<Waker>) -> Self {
         let (note_tx, notes) = channel();
-        let buds = Arc::new(BudsCache::default());
-        let refresh_buds = battery::spawn_profiler(buds.clone(), note_tx.clone(), waker);
+        let profile = Arc::new(ProfileCache::default());
+        let watch_profile = profiler::spawn(profile.clone(), note_tx.clone(), waker);
         Self {
             cmds,
             events,
@@ -254,8 +259,9 @@ impl Backend {
             disconnecting: Vec::new(),
             pairing: None,
             dirty_since: None,
-            buds,
-            refresh_buds,
+            profiled: false,
+            profile,
+            watch_profile,
             handler: Handler::new(note_tx),
         }
     }
@@ -268,7 +274,6 @@ impl Backend {
                 Some(sel!(connected:device:)),
             )
         };
-        self.publish();
     }
 
     fn delegate(&self) -> &AnyObject {
@@ -305,9 +310,10 @@ impl Backend {
         self.poll_connecting();
         self.poll_disconnecting();
         self.poll_pairing();
-        if self
-            .dirty_since
-            .is_some_and(|since| since.elapsed() >= DEBOUNCE)
+        if self.profiled
+            && self
+                .dirty_since
+                .is_some_and(|since| since.elapsed() >= DEBOUNCE)
         {
             self.publish();
         }
@@ -342,13 +348,6 @@ impl Backend {
             .filter(|d| d.connected)
             .map(|d| d.id.as_str())
             .collect();
-        let any_connected = !connected.is_empty();
-        if any_connected && !self.buds.any_connected.swap(true, Ordering::Relaxed) {
-            let _ = self.refresh_buds.send(());
-        }
-        self.buds
-            .any_connected
-            .store(any_connected, Ordering::Relaxed);
         self.watch_disconnects(&connected);
         self.send(Event::Snapshot(snapshot));
     }
@@ -431,11 +430,11 @@ impl Backend {
         if paired && name.is_empty() {
             return None;
         }
-        let connected = self.powered && unsafe { device.isConnected() };
+        let connected = self.powered && self.is_connected(&id);
         let battery = connected
             .then(|| {
-                self.buds
-                    .get(&id)
+                self.profile
+                    .battery(&id)
                     .or_else(|| battery::single_battery(hid, &id, &name))
             })
             .flatten();
@@ -452,11 +451,25 @@ impl Backend {
         })
     }
 
+    /// system_profiler is the truth. IOBluetooth's `isConnected` and its
+    /// notifications miss connections managed by the system (e.g. headphones
+    /// in use for audio), so it is only a fallback until the first profile
+    /// loads; OR-ing it in would make a stale `true` block disconnects.
+    fn is_connected(&self, id: &str) -> bool {
+        self.profile
+            .is_connected(id)
+            .unwrap_or_else(|| find_device(id).is_some_and(|d| unsafe { d.isConnected() }))
+    }
+
     // Notes from callbacks
 
     fn note(&mut self, note: Note) {
         match note {
             Note::Changed => self.mark_dirty(),
+            Note::Profiled => {
+                self.profiled = true;
+                self.mark_dirty();
+            }
             Note::Connected(id) => {
                 // Drop the spent disconnect notification; publish re-registers.
                 if let Some(old) = self.disconnect_notifications.remove(&id) {
@@ -583,7 +596,7 @@ impl Backend {
         let Some((device, name)) = self.require_device(id) else {
             return;
         };
-        if unsafe { device.isConnected() } {
+        if self.is_connected(id) {
             return self.done(id, Ok(format!("Connected to {name}")));
         }
         host::allow(id);
@@ -597,6 +610,7 @@ impl Backend {
         if status != 0 {
             return self.done(id, Err(unreachable_message(&name)));
         }
+        let _ = self.watch_profile.send(());
         self.connecting.insert(
             id.to_string(),
             Connecting {
@@ -611,23 +625,20 @@ impl Backend {
             return self.mark_dirty();
         };
         self.mark_dirty();
-        let connected = find_device(id).is_some_and(|d| unsafe { d.isConnected() });
-        if status == 0 || connected {
+        if status == 0 || self.is_connected(id) {
             self.done(id, Ok(format!("Connected to {}", connecting.name)));
         } else {
             self.done(id, Err(unreachable_message(&connecting.name)));
         }
     }
 
-    /// Backstop in case the completion callback never arrives.
+    /// The completion callback may never arrive, so also watch the profile.
     fn poll_connecting(&mut self) {
         let now = Instant::now();
         let finished: Vec<String> = self
             .connecting
             .iter()
-            .filter(|(id, c)| {
-                now >= c.deadline || find_device(id).is_some_and(|d| unsafe { d.isConnected() })
-            })
+            .filter(|(id, c)| now >= c.deadline || self.is_connected(id))
             .map(|(id, _)| id.clone())
             .collect();
         for id in finished {
@@ -642,12 +653,13 @@ impl Backend {
         self.disconnecting.push(Disconnecting {
             id: id.to_string(),
             name,
-            attempts: 0,
+            deadline: Instant::now() + CONNECT_TIMEOUT,
             next_try: Instant::now(),
         });
+        let _ = self.watch_profile.send(());
     }
 
-    /// closeConnection is unreliable, so retry a few times without sleeping.
+    /// closeConnection is unreliable, so retry until the profile shows it gone.
     fn poll_disconnecting(&mut self) {
         let now = Instant::now();
         let mut jobs = std::mem::take(&mut self.disconnecting);
@@ -655,22 +667,20 @@ impl Backend {
             if now < job.next_try {
                 return true;
             }
-            let device = find_device(&job.id);
-            if !device.as_ref().is_some_and(|d| unsafe { d.isConnected() }) {
+            if !self.is_connected(&job.id) {
                 let message = format!("Disconnected {}", job.name);
                 self.mark_dirty();
                 self.done(&job.id, Ok(message));
                 return false;
             }
-            if job.attempts >= DISCONNECT_ATTEMPTS {
+            if now >= job.deadline {
                 let message = format!("{} wouldn't disconnect. Try again.", job.name);
                 self.done(&job.id, Err(message));
                 return false;
             }
-            if let Some(device) = device {
+            if let Some(device) = find_device(&job.id) {
                 unsafe { device.closeConnection() };
             }
-            job.attempts += 1;
             job.next_try = now + DISCONNECT_RETRY;
             true
         });
@@ -891,7 +901,7 @@ const FORGET_IN_SETTINGS: &str = "Forget this device in System Settings › Blue
 const SCAN_FAILED: &str = "Couldn't start scanning. Try turning Bluetooth off and on.";
 
 fn unreachable_message(name: &str) -> String {
-    format!("{name} didn't respond. Make sure it's nearby and awake.")
+    format!("{name} didn't connect. Make sure it's on and nearby.")
 }
 
 fn pairing_failed(name: &str) -> String {
