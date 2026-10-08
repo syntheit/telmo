@@ -57,14 +57,15 @@ code { color: #7dcfff; }
 <div class="wrap">
   <div>
     <h1>telmo System: main screen concepts</h1>
-    <div class="sub">No info, just the logo, an effect, and one line of keys. Every concept runs live below at the real popup size (90&times;22 cells) using the same characters a terminal can draw. Try <b>Simulate rebuild</b> to see how each one reacts. Keys on this page: <kbd>←</kbd><kbd>→</kbd> concept, <kbd>o</kbd> OS.</div>
+    <div class="sub">Six effects, live at the real popup size (90&times;22 cells). In the popup, <kbd>←</kbd> <kbd>→</kbd> (or clicking the logo) cycles them; this page does the same. The one you leave on is remembered: reload the page and it comes back. <kbd>o</kbd> switches OS.</div>
   </div>
 
   <div class="controls">
-    <div><span class="lbl">Concept</span><span class="seg" id="concepts"></span></div>
+    <div><span class="lbl">Effect</span><span class="seg" id="concepts"></span></div>
   </div>
   <div class="controls">
     <div><span class="lbl">OS</span><span class="seg" id="oses"></span></div>
+    <button class="act" id="reopen" type="button">Replay open</button>
     <button class="act" id="rebuild" type="button">Simulate rebuild</button>
   </div>
 
@@ -75,26 +76,45 @@ code { color: #7dcfff; }
   </div>
 
   <div class="note">
-    <div class="card"><div class="k" id="cname">Concept</div><div id="cdesc"></div></div>
+    <div class="card"><div class="k" id="cname">Effect</div><div id="cdesc"></div></div>
     <div class="card"><div class="k">In the terminal</div><div id="cbuild"></div></div>
+  </div>
+
+  <div class="note">
+    <div class="card">
+      <h2>Switching</h2>
+      <ul>
+        <li><kbd>←</kbd> <kbd>→</kbd> cycle through the effects. Clicking the logo or the <code>‹ name ›</code> in the corner does the same.</li>
+        <li>The logo decrypts into each new effect, and a row of dots under it shows where you are in the cycle, then fades out after a second.</li>
+        <li>Decrypt is no longer an effect of its own. It's the opening and switching transition for all of them.</li>
+        <li>The bottom-right corner always names the current effect. It's the only addition to the key line.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Remembering your choice</h2>
+      <ul>
+        <li>Each open is a fresh process, so the choice lives in a file: <code>~/.local/state/telmo/system.json</code>, written the moment you switch.</li>
+        <li>Nothing from Nix ever writes that file, so a rebuild can't reset it. Home Manager only owns files under <code>~/.config</code> and the store.</li>
+        <li>Nix sets the starting point only: <code>programs.telmo.system.effect = "rain"</code> is used until you first switch. An <code>effects</code> list can trim the cycle.</li>
+        <li>A small shared <code>state</code> module in the kit (next to the existing cache) does the reading and the atomic write. Other popups can reuse it for things like a last tab.</li>
+      </ul>
+    </div>
   </div>
 
   <div class="note">
     <div class="card">
       <h2>Rebuild in the background</h2>
       <ol>
-        <li>Press <kbd>u</kbd>. On swift the Touch ID sheet appears (sudo Touch ID is already on in your config). On mantle, hyprpolkitagent asks for the password.</li>
-        <li>Telmo.app runs <code>darwin-rebuild switch</code> (or <code>nixos-rebuild</code>) on its own, so you can close the popup right away.</li>
-        <li>Progress comes from Nix's JSON log: builds done out of total. Reopen the popup and the bottom line shows it.</li>
+        <li>Press <kbd>u</kbd>. On swift the Touch ID sheet appears (sudo Touch ID is already on). On mantle, hyprpolkitagent asks for the password.</li>
+        <li>Telmo.app runs the rebuild on its own, so you can close the popup right away.</li>
+        <li>Your effect keeps running and speeds up while it builds; the key line turns into progress. Reopen the popup any time to see it.</li>
         <li>A notification says when it's done or failed. On failure, <kbd>L</kbd> opens the log in a terminal.</li>
       </ol>
-      <p class="sub" style="margin-top:10px">To check first: that Touch ID sudo works from a process with no terminal. If it doesn't, the popup takes the sudo step and hands off.</p>
     </div>
     <div class="card">
-      <h2>My pick</h2>
-      <p><b>Decrypt on open, then Plasma.</b> The logo assembles from noise in under a second, then the colors drift slowly. It's quiet enough to look at every day, and the open is the hacker moment.</p>
-      <p><b>Rain</b> is the most "hackerman" of the set. It's busier, so I'd keep it for the rebuild: rain while it builds, then the logo settles.</p>
-      <p class="sub">Any of these can mix: one effect when it opens, another while idle, another while rebuilding.</p>
+      <h2>Dropped</h2>
+      <p>Life and Prompt are gone. Decrypt became the transition.</p>
+      <p class="sub">To check before building: Touch ID sudo from a process with no terminal. If it fails, the popup does the sudo step and hands off.</p>
     </div>
   </div>
 </div>
@@ -153,7 +173,9 @@ function layout(os) {
 function drawLogo(s, L, colorOf = c => PAL[c.col]) { for (const c of L.cells) s.set(c.x, c.y, c.c, colorOf(c), true); }
 
 // footer: keys, or rebuild progress
-function footer(s, os, t, rb, decrypt) {
+
+// footer: keys on the left, the effect switcher on the right. A rebuild's progress replaces both.
+function footer(s, os, t, rb) {
   const y = H - 1;
   if (rb) {
     if (rb.phase === "build") {
@@ -169,54 +191,31 @@ function footer(s, os, t, rb, decrypt) {
     }
     return;
   }
-  const str = KEYS.map(([k, l]) => k + " " + l).join("   ");
-  let x = Math.floor((W - str.length) / 2);
-  KEYS.forEach(([k, l], i) => {
-    if (i) x += 3;
-    const put = (c, col) => { const scrambled = decrypt && decrypt(x, y); s.set(x, y, scrambled ? pick(GLYPHS) : c, scrambled ? DIM : col); x++; };
-    [...k].forEach(c => put(c, PAL.b)); put(" ", null); [...l].forEach(c => put(c, DIM));
-  });
+  let x = 1;
+  KEYS.forEach(([k, l], i) => { if (i) x += 2; s.text(x, y, k, PAL.b); x += k.length + 1; s.text(x, y, l, DIM); x += l.length; });
+  const name = EFFECTS[ci].key, sx = W - 2 - (name.length + 4);
+  s.text(sx, y, "‹", PAL.b); s.text(sx + 2, y, name, PAL.f, true); s.text(sx + 3 + name.length, y, "›", PAL.b);
 }
 
-// ---------------------------------------------------------------- concepts
-const CONCEPTS = [
-  {
-    key: "decrypt", name: "Decrypt", tag: "on open",
-    desc: "The logo and the keys assemble from scrambled glyphs, left to right, in under a second. After that it's still, apart from a glyph that flickers now and then. The page replays it every few seconds.",
-    build: "Each cell gets a reveal time; ratatui redraws at 30 fps for the first second, then only for the rare flicker. Close to zero CPU when idle.",
-    init(st, L) { st.reveal = new Map(); for (const c of L.cells) st.reveal.set(c.y * W + c.x, (c.lx / L.lw) * 0.7 + Math.random() * 0.35); st.t0 = 0; st.flick = []; },
-    frame(s, L, st, t, dt, os, rb) {
-      if (st.t0 === 0 || t - st.t0 > 7) st.t0 = t;
-      const e = t - st.t0;
-      if (Math.random() < dt * 1.5) st.flick.push({ i: Math.floor(Math.random() * L.cells.length), until: t + 0.12 });
-      st.flick = st.flick.filter(f => f.until > t);
-      const flick = new Set(st.flick.map(f => f.i));
-      L.cells.forEach((c, i) => {
-        const r = st.reveal.get(c.y * W + c.x);
-        if (e < r) s.set(c.x, c.y, pick(GLYPHS), e > r - 0.25 ? PAL[c.col] : shade(PAL.b, 0.45));
-        else if (flick.has(i)) s.set(c.x, c.y, pick(GLYPHS), WHITE, true);
-        else s.set(c.x, c.y, c.c, PAL[c.col], true);
-      });
-      footer(s, os, t, rb, (x) => e < 0.4 + (x / W) * 0.6);
-    },
-  },
-  {
-    key: "plasma", name: "Plasma", tag: "animated",
-    desc: "The logo's own characters, recolored by a slow moving wave of color. The apple drifts through the rainbow; NixOS stays in its blues and cyans. Nothing else moves.",
-    build: "One color per cell per frame from three sine waves. 15 fps is enough because it moves slowly. Very light.",
-    init() {},
-    frame(s, L, st, t, dt, os, rb) {
-      const sp = rb && rb.phase === "build" ? 2.5 : 1;
-      st.tt = (st.tt || 0) + dt * sp;
-      const T = st.tt;
-      drawLogo(s, L, c => {
-        const v = Math.sin(c.lx * 0.16 + T * 1.1) + Math.sin(c.ly * 0.35 - T * 0.9) + Math.sin((c.lx * 0.5 + c.ly) * 0.12 + T * 0.6);
-        const h = os === "mac" ? (v * 50 + T * 30 + 360) % 360 : 210 + 28 * Math.sin(v * 0.9 + T * 0.5);
-        return `hsl(${h.toFixed(0)} 82% 70%)`;
-      });
-      footer(s, os, t, rb);
-    },
-  },
+// After switching (or opening), the logo decrypts in and a row of dots shows where you are in the cycle.
+function transition(s, L, t) {
+  const e = t - switchedAt;
+  L.cells.forEach((c, i) => { if (e < L.reveal[i]) s.set(c.x, c.y, pick(GLYPHS), e > L.reveal[i] - 0.15 ? PAL[c.col] : shade(PAL.b, 0.5)); });
+  if (e < 1.6) {
+    const fade = e < 1.0 ? 1 : 1 - (e - 1.0) / 0.6;
+    const dots = EFFECTS.map((_, i) => (i === ci ? "●" : "○")).join(" ");
+    const label = EFFECTS[ci].key + "   ";
+    let x = Math.floor((W - label.length - dots.length) / 2);
+    s.text(x, H - 2, EFFECTS[ci].key, shade(PAL.f, fade), true);
+    x += label.length;
+    [...dots].forEach((d, i) => s.set(x + i, H - 2, d, d === "●" ? shade(PAL.b, fade) : shade(DIM, fade)));
+  }
+}
+
+const building = rb => rb && rb.phase === "build";
+
+// ---------------------------------------------------------------- effects
+const EFFECTS = [
   {
     key: "rain", name: "Rain", tag: "animated",
     desc: "Digital rain falls behind the logo and stops at its edges, so the logo stands in front of it. On swift the rain takes the apple's rainbow bands as it falls; on mantle it's blue and cyan. It pours harder while a rebuild runs.",
@@ -238,7 +237,22 @@ const CONCEPTS = [
         s.set(x, y, st.glyph[i], v > 0.97 ? WHITE : shade(base, Math.min(1, v * 0.9)), v > 0.97);
       }
       drawLogo(s, L);
-      footer(s, os, t, rb);
+    },
+  },
+  {
+    key: "plasma", name: "Plasma", tag: "animated",
+    desc: "The logo's own characters, recolored by a slow moving wave of color. The apple drifts through the rainbow; NixOS stays in its blues and cyans. Nothing else moves.",
+    build: "One color per cell per frame from three sine waves. 15 fps is enough because it moves slowly. Very light.",
+    init() {},
+    frame(s, L, st, t, dt, os, rb) {
+      const sp = rb && rb.phase === "build" ? 2.5 : 1;
+      st.tt = (st.tt || 0) + dt * sp;
+      const T = st.tt;
+      drawLogo(s, L, c => {
+        const v = Math.sin(c.lx * 0.16 + T * 1.1) + Math.sin(c.ly * 0.35 - T * 0.9) + Math.sin((c.lx * 0.5 + c.ly) * 0.12 + T * 0.6);
+        const h = os === "mac" ? (v * 50 + T * 30 + 360) % 360 : 210 + 28 * Math.sin(v * 0.9 + T * 0.5);
+        return `hsl(${h.toFixed(0)} 82% 70%)`;
+      });
     },
   },
   {
@@ -258,123 +272,155 @@ const CONCEPTS = [
         else s.set(c.x, c.y, c.c, near ? WHITE : PAL[c.col], true);
       }
       for (let n = 0; n < 6; n++) { const x = Math.floor(Math.random() * W), y = Math.floor(Math.random() * (H - 1)); if (!L.mask[y * W + x]) s.set(x, y, "░", FAINT); }
-      footer(s, os, t, rb);
     },
   },
   {
     key: "warp", name: "Warp", tag: "animated",
-    desc: "Stars stream out from behind the logo toward you, like jumping to hyperspace. They stretch into streaks near the edges. During a rebuild the jump speeds up.",
-    build: "About 120 points, 30 fps. Light.",
+    desc: "Stars stream out from behind the logo and stretch into streaks as they speed up, like jumping to hyperspace. Polished from last round: stars start spread out instead of in bursts, accelerate smoothly, and leave tails that brighten toward the head.",
+    build: "About 110 points with short tails, 30 fps. Light.",
     init(st) { st.stars = []; },
     frame(s, L, st, t, dt, os, rb) {
-      const sp = rb && rb.phase === "build" ? 2.6 : 1;
+      const sp = building(rb) ? 2.4 : 1;
       const cx = L.ox + L.lw / 2, cy = L.oy + L.lh / 2;
-      for (let n = 0; n < 4 && st.stars.length < 130; n++) { const a = rnd(0, Math.PI * 2); st.stars.push({ a, r: rnd(0.5, 22), v: rnd(3, 8) }); }
-      st.stars.forEach(p => { p.v *= Math.exp(dt * 1.6 * sp); p.r += p.v * dt * sp; });
-      st.stars = st.stars.filter(p => p.r < 70);
+      for (let n = 0; n < 3 && st.stars.length < 110; n++) st.stars.push({ a: rnd(0, Math.PI * 2), r: rnd(1, 20), v: rnd(2, 5), hue: Math.random() });
+      for (const p of st.stars) { p.v *= Math.exp(1.5 * dt * sp); p.r += p.v * dt * sp; }
+      st.stars = st.stars.filter(p => p.r < 80);
       for (const p of st.stars) {
-        const x = Math.round(cx + Math.cos(p.a) * p.r), y = Math.round(cy + Math.sin(p.a) * p.r * 0.5);
-        if (x < 0 || x >= W || y < 0 || y >= H - 1 || L.mask[y * W + x]) continue;
-        const fast = p.v > 22, dir = Math.abs(Math.cos(p.a)) > 0.85 ? "─" : Math.abs(Math.sin(p.a)) > 0.9 ? "│" : (Math.cos(p.a) * Math.sin(p.a) > 0 ? "╲" : "╱");
-        const col = os === "mac" ? PAL[RAINBOW[Math.floor(((p.a + Math.PI) / (2 * Math.PI)) * 6) % 6]] : (p.a > 0 ? PAL.c : PAL.b);
-        s.set(x, y, fast ? dir : p.v > 10 ? "•" : "·", shade(col, Math.min(1, 0.25 + p.r / 40)));
-      }
-      drawLogo(s, L);
-      footer(s, os, t, rb);
-    },
-  },
-  {
-    key: "life", name: "Life", tag: "animated",
-    desc: "Conway's Game of Life runs behind the logo. New cells glow and fade as they age; the logo is a wall the patterns break against. It reseeds itself when it dies down.",
-    build: "One step every 120 ms on a 90×21 grid. Light.",
-    init(st, L) { st.g = new Uint8Array(W * (H - 1)); st.age = new Uint16Array(W * (H - 1)); st.acc = 0; this.seed(st, L); },
-    seed(st, L) { for (let i = 0; i < st.g.length; i++) { st.g[i] = !L.mask[i] && Math.random() < 0.22 ? 1 : 0; st.age[i] = 0; } },
-    frame(s, L, st, t, dt, os, rb) {
-      st.acc += dt * (rb && rb.phase === "build" ? 2.5 : 1);
-      const HH = H - 1;
-      while (st.acc > 0.12) {
-        st.acc -= 0.12;
-        const n = new Uint8Array(W * HH);
-        let alive = 0;
-        for (let y = 0; y < HH; y++) for (let x = 0; x < W; x++) {
-          let k = 0;
-          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (dx || dy) k += st.g[((y + dy + HH) % HH) * W + ((x + dx + W) % W)];
-          const i = y * W + x, on = st.g[i];
-          n[i] = !L.mask[i] && (k === 3 || (on && k === 2)) ? 1 : 0;
-          st.age[i] = n[i] ? (on ? Math.min(st.age[i] + 1, 999) : 0) : 0;
-          alive += n[i];
+        const col = os === "mac" ? PAL[RAINBOW[Math.floor(p.hue * 6)]] : (p.hue < 0.5 ? PAL.c : PAL.b);
+        const tail = Math.min(7, p.v * 0.12);
+        const cos = Math.cos(p.a), sin = Math.sin(p.a);
+        const line = Math.abs(cos) > 0.88 ? "─" : Math.abs(sin) > 0.93 ? "│" : (cos * sin > 0 ? "╲" : "╱");
+        for (let k = tail; k >= 0; k -= 0.5) {
+          const r = p.r - k, x = Math.round(cx + cos * r), y = Math.round(cy + sin * r * 0.5);
+          if (x < 0 || x >= W || y < 0 || y >= H - 1 || L.mask[y * W + x]) continue;
+          const head = k < 0.5, bright = Math.min(1, 0.2 + p.r / 40) * (head ? 1 : 0.35 + 0.65 * (1 - k / Math.max(tail, 0.01)));
+          const ch = head ? (p.v > 18 ? line : p.v > 8 ? "•" : "·") : (tail > 1.5 ? line : "·");
+          s.set(x, y, ch, head && p.r > 30 ? shade(WHITE, bright) : shade(col, bright), head);
         }
-        st.g = n;
-        if (alive < 70) this.seed(st, L);
-      }
-      for (let y = 0; y < HH; y++) for (let x = 0; x < W; x++) {
-        const i = y * W + x; if (!st.g[i]) continue;
-        const a = st.age[i];
-        const base = os === "mac" ? PAL.m : PAL.c;
-        s.set(x, y, a < 2 ? "•" : "·", a < 2 ? shade(base, 0.95) : shade(os === "mac" ? PAL.b : PAL.b, Math.max(0.3, 0.8 - a * 0.04)));
       }
       drawLogo(s, L);
-      footer(s, os, t, rb);
     },
   },
   {
-    key: "prompt", name: "Prompt", tag: "still",
-    desc: "A still logo and a shell prompt under it. Pressing a key types the command out at the prompt before it runs, so you see exactly what happens. Here it cycles through a few.",
-    build: "Only the cursor and the typing redraw. Effectively free.",
-    init(st) { st.cmds = null; st.t0 = 0; },
+    key: "fire", name: "Fire", tag: "animated · new",
+    desc: "The old demoscene fire, rising from the bottom of the popup and licking up around the logo. Classic orange on swift; a blue gas flame on mantle. It burns hotter and taller during a rebuild.",
+    build: "A heat grid that rises and cools, 30 fps, drawn with ░▒▓█. Light.",
+    init(st) { st.heat = new Float32Array(W * H); st.acc = 0; },
     frame(s, L, st, t, dt, os, rb) {
+      const HH = H - 1, hot = building(rb) ? 1 : 0.8, cool = building(rb) ? 0.075 : 0.11;
+      st.acc += dt;
+      while (st.acc > 1 / 30) {
+        st.acc -= 1 / 30;
+        for (let x = 0; x < W; x++) st.heat[(HH - 1) * W + x] = Math.random() < 0.55 ? rnd(0.75, 1) * hot : rnd(0, 0.35);
+        for (let y = 0; y < HH - 1; y++) for (let x = 0; x < W; x++) {
+          const b = (yy, xx) => st.heat[Math.min(HH - 1, yy) * W + ((xx + W) % W)];
+          const v = (b(y + 1, x - 1) + b(y + 1, x) + b(y + 1, x + 1) + b(y + 2, x)) / 4;
+          st.heat[y * W + x] = Math.max(0, v - rnd(0, cool));
+        }
+      }
+      const ramp = os === "mac" ? [shade(PAL.r, 0.35), PAL.r, PAL.o, PAL.y, "#fff4d6"] : [shade(PAL.m, 0.35), PAL.m, PAL.b, PAL.c, "#e6f6ff"];
+      const chars = [[0.1, "."], [0.2, ":"], [0.32, "░"], [0.48, "▒"], [0.64, "▓"], [2, "█"]];
+      for (let y = 0; y < HH; y++) for (let x = 0; x < W; x++) {
+        const i = y * W + x, v = st.heat[i];
+        if (v < 0.04 || L.mask[i]) continue;
+        const ch = chars.find(([lim]) => v < lim)[1];
+        const k = Math.min(ramp.length - 1, Math.floor(v * ramp.length));
+        s.set(x, y, ch, ramp[k]);
+      }
       drawLogo(s, L);
-      const cmds = os === "mac" ? ["lock", "pmset sleepnow", "sudo darwin-rebuild switch --flake ~/nix#swift"] : ["hyprlock", "systemctl suspend", "pkexec nixos-rebuild switch --flake ~/nix#mantle"];
-      if (!st.t0) st.t0 = t;
-      const cycle = 4.2, e = (t - st.t0) % (cycle * cmds.length), idx = Math.floor(e / cycle), local = e % cycle;
-      const cmd = rb ? cmds[2] : cmds[idx];
-      const shown = rb ? cmd : cmd.slice(0, Math.floor(local * 16));
-      const y = H - 3, prefix = `daniel@${HOST[os]} `;
-      const total = prefix.length + 2 + cmd.length;
-      let x = Math.floor((W - total) / 2);
-      s.text(x, y, prefix, PAL.b, true); x += prefix.length;
-      s.text(x, y, "$ ", PAL.m, true); x += 2;
-      s.text(x, y, shown, PAL.f); x += shown.length;
-      if (Math.floor(t * 2) % 2 === 0) s.set(x, y, "█", PAL.f);
-      footer(s, os, t, rb);
+    },
+  },
+  {
+    key: "radar", name: "Radar", tag: "animated · new",
+    desc: "A radar sweep turns around the logo over faint range rings, leaving a fading phosphor trail. Contacts light up as the beam passes over them and fade until the next pass. Green on swift, cyan on mantle.",
+    build: "One angle per frame, then a cheap per-cell check, 30 fps. Light.",
+    init(st, L) { st.ang = 0; st.blips = Array.from({ length: 8 }, () => this.blip(L)); },
+    blip(L) {
+      for (;;) {
+        const x = Math.floor(rnd(2, W - 2)), y = Math.floor(rnd(1, H - 2));
+        if (!L.mask[y * W + x]) return { x, y, lit: -99 };
+      }
+    },
+    frame(s, L, st, t, dt, os, rb) {
+      const sp = building(rb) ? 2.2 : 1, prev = st.ang;
+      st.ang += dt * 1.25 * sp;
+      const TAU = Math.PI * 2, cx = L.ox + L.lw / 2, cy = L.oy + L.lh / 2, base = os === "mac" ? PAL.g : PAL.c;
+      const behind = (phi, ang) => { let d = (ang - phi) % TAU; return d < 0 ? d + TAU : d; };
+      for (let y = 0; y < H - 1; y++) for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        if (L.mask[i]) continue;
+        const dx = x - cx, dy = (y - cy) * 2.1, r = Math.hypot(dx, dy), phi = Math.atan2(dy, dx);
+        const d = behind(phi, st.ang), trail = 1.25;
+        if (d < trail && r > 3) {
+          const k = Math.pow(1 - d / trail, 1.6);
+          s.set(x, y, k > 0.75 ? "▒" : k > 0.4 ? "░" : "·", shade(base, 0.15 + 0.75 * k));
+        } else if (r > 6 && Math.abs((r % 14) - 7) > 6.45 && x % 2 === 0) s.set(x, y, "·", FAINT);
+        else if (Math.abs(y - cy) < 0.5 || Math.abs(dx) < 0.5) s.set(x, y, Math.abs(dx) < 0.5 ? "│" : "─", FAINT);
+      }
+      for (const b of st.blips) {
+        const phi = Math.atan2((b.y - cy) * 2.1, b.x - cx);
+        if (behind(phi, st.ang) < st.ang - prev + 0.001) b.lit = t;
+        const age = t - b.lit;
+        if (age < 3) s.set(b.x, b.y, "●", shade(age < 0.15 ? WHITE : PAL.y, 1 - age / 3), true);
+        else if (age < 99 && Math.random() < dt * 0.4) Object.assign(b, this.blip(L));
+      }
+      drawLogo(s, L);
     },
   },
 ];
 
 // ---------------------------------------------------------------- page
-let ci = 0, os = "mac", L = layout(os), st = {}, rb = null, last = performance.now() / 1000;
+const STORE = "telmo-effect";
+const saved = (() => { try { return localStorage.getItem(STORE); } catch { return null; } })();
+let ci = Math.max(0, EFFECTS.findIndex(e => e.key === saved)), os = "mac", L = layout(os), st = {}, rb = null;
+let last = performance.now() / 1000, switchedAt = last;
 const screen = new Screen();
 const $ = id => document.getElementById(id);
 
+function relayout() {
+  L = layout(os);
+  L.reveal = L.cells.map(c => (c.lx / L.lw) * 0.35 + Math.random() * 0.2);
+}
 function select(i, newOs) {
-  ci = i; if (newOs) os = newOs;
-  L = layout(os); st = {}; CONCEPTS[ci].init.call(CONCEPTS[ci], st, L);
+  ci = (i + EFFECTS.length) % EFFECTS.length;
+  if (newOs) os = newOs;
+  relayout(); st = {}; EFFECTS[ci].init.call(EFFECTS[ci], st, L);
+  switchedAt = performance.now() / 1000;
+  try { localStorage.setItem(STORE, EFFECTS[ci].key); } catch {}
   $("stage").dataset.os = os;
-  $("cname").innerHTML = CONCEPTS[ci].name + `<span class="tag">${CONCEPTS[ci].tag}</span>`;
-  $("cdesc").textContent = CONCEPTS[ci].desc;
-  $("cbuild").textContent = CONCEPTS[ci].build;
+  $("cname").innerHTML = EFFECTS[ci].name + `<span class="tag">${EFFECTS[ci].tag}</span>`;
+  $("cdesc").textContent = EFFECTS[ci].desc;
+  $("cbuild").textContent = EFFECTS[ci].build;
   document.querySelectorAll("#concepts button").forEach((b, j) => b.setAttribute("aria-pressed", j === ci));
   document.querySelectorAll("#oses button").forEach(b => b.setAttribute("aria-pressed", b.dataset.os === os));
-  if (reduce) draw(performance.now() / 1000 + 2, 0.016);
+  if (reduce) draw(switchedAt + 2, 0.016);
 }
-function draw(t, dt) { screen.clear(); CONCEPTS[ci].frame.call(CONCEPTS[ci], screen, L, st, t, dt, os, rb); $("term").innerHTML = screen.html(); }
+function draw(t, dt) {
+  screen.clear();
+  EFFECTS[ci].frame.call(EFFECTS[ci], screen, L, st, t, dt, os, rb);
+  transition(screen, L, t);
+  footer(screen, os, t, rb);
+  $("term").innerHTML = screen.html();
+}
 
-CONCEPTS.forEach((c, i) => { const b = document.createElement("button"); b.id = "c-" + c.key; b.innerHTML = c.name + `<small>${c.tag}</small>`; b.onclick = () => select(i); $("concepts").append(b); });
-[["mac", "macOS · swift"], ["linux", "NixOS · mantle"]].forEach(([k, n]) => { const b = document.createElement("button"); b.id = "os-" + k; b.dataset.os = k; b.textContent = n; b.onclick = () => select(ci, k); $("oses").append(b); });
+EFFECTS.forEach((c, i) => { const b = document.createElement("button"); b.type = "button"; b.id = "c-" + c.key; b.innerHTML = c.name + (c.tag.includes("new") ? "<small>new</small>" : ""); b.onclick = () => select(i); $("concepts").append(b); });
+[["mac", "macOS · swift"], ["linux", "NixOS · mantle"]].forEach(([k, n]) => { const b = document.createElement("button"); b.type = "button"; b.id = "os-" + k; b.dataset.os = k; b.textContent = n; b.onclick = () => select(ci, k); $("oses").append(b); });
 $("rebuild").onclick = () => { rb = { phase: "build", start: performance.now() / 1000 }; $("rebuild").disabled = true; if (reduce) draw(performance.now() / 1000, 0.016); };
+$("reopen").onclick = () => select(ci);
+$("term").onclick = () => select(ci + 1);
 document.addEventListener("keydown", e => {
-  if (e.key === "ArrowRight") select((ci + 1) % CONCEPTS.length);
-  else if (e.key === "ArrowLeft") select((ci + CONCEPTS.length - 1) % CONCEPTS.length);
+  if (e.key === "ArrowRight" || e.key === "]") select(ci + 1);
+  else if (e.key === "ArrowLeft" || e.key === "[") select(ci - 1);
   else if (e.key === "o") select(ci, os === "mac" ? "linux" : "mac");
 });
 
 function loop() {
   const t = performance.now() / 1000, dt = Math.min(0.1, t - last); last = t;
-  if (rb && rb.phase === "build" && t - rb.start > 12) { rb.phase = "done"; rb.doneAt = t; if (CONCEPTS[ci].key === "decrypt") st.t0 = t; }
+  if (rb && rb.phase === "build" && t - rb.start > 12) { rb.phase = "done"; rb.doneAt = t; }
   if (rb && rb.phase === "done" && t - rb.doneAt > 4) { rb = null; $("rebuild").disabled = false; }
   if (!document.hidden) draw(t, dt);
   requestAnimationFrame(loop);
 }
-select(0);
+select(ci);
 if (!reduce) requestAnimationFrame(loop);
 </script>
