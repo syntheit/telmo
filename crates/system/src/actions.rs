@@ -1,6 +1,7 @@
 //! Power and session actions. Commands run detached in their own process
 //! group, so closing the popup can't kill them.
 
+use crate::apps::AppRow;
 use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -14,13 +15,21 @@ pub enum Cmd {
     LogOut,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Event {
     Done(Cmd),
     /// A sentence for the user: what went wrong and what to do.
     Failed(String),
     /// `--mock` only: what would have happened.
     Note(String),
+    /// The Force Quit view's list, or why it can't be made.
+    Apps(Result<Vec<AppRow>, String>),
+    /// An app quit failed (`ok` false), or `--mock` says what it would do.
+    AppNote {
+        pid: i32,
+        message: String,
+        ok: bool,
+    },
 }
 
 pub type Rx = UnboundedReceiver<Cmd>;

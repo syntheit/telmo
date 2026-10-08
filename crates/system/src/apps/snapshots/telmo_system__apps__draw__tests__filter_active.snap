@@ -1,0 +1,26 @@
+---
+source: crates/system/src/apps/draw.rs
+expression: render(&app)
+---
+
+╭─ Force quit ─────────────────────────────────────────────────────────────── by memory ─╮
+│   App                                                    Memory    CPU                 │
+│ ▌ Slack                                                  870 MB     6%                 │
+│   Spotify                                                640 MB     3%                 │
+│   Messages                                               210 MB     0%                 │
+│   Ghostty                                                120 MB     2%                 │
+│   Notes                                                   95 MB     0%                 │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│  /  s▏                                                                                 │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+
+ ↵ done  esc clear

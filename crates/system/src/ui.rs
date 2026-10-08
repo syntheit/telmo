@@ -12,15 +12,26 @@ use ratatui::{
 };
 use telmo_kit::{theme, widgets};
 
-const KEYS: [(&str, &str); 7] = [
-    ("l", "lock"),
-    ("s", "sleep"),
-    ("r", "restart"),
-    ("p", "shut down"),
+/// Icons (JetBrainsMono Nerd Font) where the meaning is obvious, words where it isn't.
+const LOCK: &str = "\u{f023}";
+const SLEEP: &str = "\u{f04b2}";
+const RESTART: &str = "\u{f0709}";
+const POWER: &str = "\u{23fb}";
+const LOG_OUT: &str = "\u{f0343}";
+const QUIT: &str = "\u{f0156}";
+
+const KEYS: [(&str, &str); 8] = [
+    ("l", LOCK),
+    ("s", SLEEP),
+    ("r", RESTART),
+    ("p", POWER),
+    ("o", LOG_OUT),
     ("u", "rebuild"),
-    ("o", "log out"),
-    ("?", "more"),
+    ("k", "\u{f0156} force quit"),
+    ("?", ""),
 ];
+/// Columns between key pairs.
+const GAP: usize = 3;
 const BACKGROUND: Color = Color::Rgb(22, 23, 34);
 
 pub fn draw(app: &App, frame: &mut Frame) {
@@ -31,6 +42,10 @@ pub fn draw(app: &App, frame: &mut Frame) {
         return;
     }
     draw_canvas(app, frame);
+    if let Some(view) = &app.view {
+        crate::apps::draw::draw(app, view, frame);
+        return;
+    }
     app.hits.add(logo_area(app), Click::Logo);
     if area.height > 1 {
         draw_switch_toast(app, frame, area.y + area.height - 2);
@@ -80,15 +95,24 @@ fn logo_area(app: &App) -> Rect {
     }
 }
 
+/// A label and the space before it; `?` has none.
+fn label_width(label: &str) -> usize {
+    if label.is_empty() {
+        0
+    } else {
+        1 + label.chars().count()
+    }
+}
+
 /// The key pairs that fit in `room` columns, dropping from the end but
 /// keeping `? more` for as long as possible.
 fn fitting_keys(room: usize) -> Vec<(&'static str, &'static str)> {
     let width = |keys: &[(&str, &str)]| {
         let text: usize = keys
             .iter()
-            .map(|(k, l)| k.chars().count() + 1 + l.chars().count())
+            .map(|(k, l)| k.chars().count() + label_width(l))
             .sum();
-        text + 2 * keys.len().saturating_sub(1)
+        text + GAP * keys.len().saturating_sub(1)
     };
     let mut keys = KEYS.to_vec();
     while width(&keys) > room && keys.len() > 1 {
@@ -185,11 +209,13 @@ fn draw_footer(app: &App, frame: &mut Frame, y: u16) {
     let mut spans = vec![Span::raw(" ")];
     for (i, (key, label)) in fitting_keys(room).iter().enumerate() {
         if i > 0 {
-            spans.push(Span::raw("  "));
+            spans.push(Span::raw(" ".repeat(GAP)));
         }
         spans.push(Span::styled(*key, theme::accent()));
-        spans.push(Span::raw(" "));
-        spans.push(Span::styled(*label, theme::dim()));
+        if !label.is_empty() {
+            spans.push(Span::raw(" "));
+            spans.push(Span::styled(*label, theme::dim()));
+        }
     }
     let row = Rect {
         y,
@@ -278,7 +304,13 @@ fn draw_switch_toast(app: &App, frame: &mut Frame, y: u16) {
 }
 
 /// Like `widgets::dialog`, and a click outside it closes it.
-fn open_dialog(app: &App, frame: &mut Frame, title: &str, width: u16, height: u16) -> Rect {
+pub(crate) fn open_dialog(
+    app: &App,
+    frame: &mut Frame,
+    title: &str,
+    width: u16,
+    height: u16,
+) -> Rect {
     let inner = widgets::dialog(frame, title, width, height);
     app.hits.add(frame.area(), Click::Outside);
     app.hits.add(inner.outer(Margin::new(1, 1)), Click::Inside);
@@ -311,7 +343,7 @@ fn draw_confirm(app: &App, frame: &mut Frame, cmd: Cmd) {
 }
 
 /// Dialog hints sit two columns in, like the body text.
-fn padded_hint(bindings: &[(&str, &str)]) -> Line<'static> {
+pub(crate) fn padded_hint(bindings: &[(&str, &str)]) -> Line<'static> {
     let mut line = widgets::hint(bindings);
     line.spans.insert(0, Span::raw(" "));
     line
@@ -319,23 +351,25 @@ fn padded_hint(bindings: &[(&str, &str)]) -> Line<'static> {
 
 fn draw_help(app: &App, frame: &mut Frame) {
     let keys = [
-        ("← →", "previous and next effect"),
-        ("space", "switch between the Apple and Nix logo"),
-        ("l", "lock the screen"),
-        ("s", "sleep"),
-        ("r", "restart (asks first)"),
-        ("p", "shut down (asks first)"),
-        ("u", "rebuild in the background"),
-        ("L", "open the rebuild log"),
-        ("o", "log out (asks first)"),
-        ("esc q", "close, then quit"),
+        ("← →", "", "previous and next effect"),
+        ("space", "", "switch between the Apple and Nix logo"),
+        ("l", LOCK, "lock the screen"),
+        ("s", SLEEP, "sleep"),
+        ("r", RESTART, "restart (asks first)"),
+        ("p", POWER, "shut down (asks first)"),
+        ("o", LOG_OUT, "log out (asks first)"),
+        ("u", "", "rebuild in the background"),
+        ("L", "", "open the rebuild log"),
+        ("k", QUIT, "force quit an app"),
+        ("esc q", "", "close, then quit"),
     ];
     let inner = open_dialog(app, frame, "Keys", 56, keys.len() as u16 + 4);
     let mut lines = vec![Line::raw("")];
-    for (key, what) in keys {
+    for (key, icon, what) in keys {
         lines.push(Line::from(vec![
             Span::raw("  "),
-            Span::styled(widgets::fit(key, 8), theme::accent()),
+            Span::styled(widgets::fit(key, 7), theme::accent()),
+            Span::styled(widgets::fit(icon, 3), theme::dim()),
             Span::styled(what, theme::text()),
         ]));
     }
@@ -479,7 +513,7 @@ mod tests {
         assert!(!app.rebuild.running());
         insta::assert_snapshot!(render(&app, 90, 22));
         wait(&mut app, 5);
-        assert!(render(&app, 90, 22).contains("l lock"));
+        assert!(render(&app, 90, 22).contains(&format!("l {LOCK}")));
     }
 
     #[test]
