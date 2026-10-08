@@ -3,7 +3,11 @@ let
   inherit (pkgs) lib stdenv;
   craneLib = crane.mkLib pkgs;
   common = {
-    src = craneLib.cleanCargoSource ../.;
+    # Cargo sources plus data files compiled in with include_str! (the System logos).
+    src = lib.cleanSourceWith {
+      src = ../.;
+      filter = path: type: craneLib.filterCargoSources path type || lib.hasSuffix ".json" path;
+    };
     strictDeps = true;
     nativeBuildInputs = [ pkgs.pkg-config ];
     buildInputs = lib.optionals stdenv.hostPlatform.isLinux [ pkgs.libpulseaudio pkgs.dbus ];
