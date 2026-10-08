@@ -1,0 +1,23 @@
+# System · Apps · linux
+ System                                                                mantle · up 9 days
+╭─ mantle ───────────────╮╭─ Apps ─────────────────────────────────────────── by memory ─╮
+│   About                ││   App                          Memory      CPU               │
+│   NixOS 26.11          ││ ▌ zen                          2.3 GB       9%               │
+│                        ││   spotify                      710 MB       2%               │
+│   Power             ●  ││   ghostty                      380 MB       1%               │
+│   restart due          ││   steam                        350 MB       0%               │
+│                        ││   nautilus                     140 MB       0%               │
+│   Keep awake        ○  ││   copyq                         60 MB       0%               │
+│   off                  ││                                                              │
+│                        ││                                                              │
+│ ▌ Apps                 ││                                                              │
+│   9 open               ││                                                              │
+│                        ││                                                              │
+│   Nix                  ││                                                              │
+│   gen 500 · 2 h ago    ││                                                              │
+│                        ││                                                              │
+│                        ││                                                              │
+│                        ││                                                              │
+╰────────────────────────╯╰──────────────────────────────────────────────────────────────╯
+
+ ↵ quit  K force quit  / search  tab sections  esc close

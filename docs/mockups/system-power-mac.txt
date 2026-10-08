@@ -1,18 +1,18 @@
-# System · Restart · mac
+# System · Power · mac
  System                                                                swift · up 19 days
 ╭─ swift ────────────────╮╭─ Power ──────────────────────────────────────────────────────╮
 │   About                ││                                                              │
-│   macOS 27.0           ││   Lock screen                                             l  │
+│   macOS 27.0           ││ ▌ Lock screen                                             l  │
 │                        ││   Sleep                                                   s  │
 │ ▌ Power                ││   Turn off displays                                       d  │
-│   sleep · rest╭─ Restart swift? ───────────────────────────────────────╮            r  │
-│               │                                                        │            p  │
-│   Keep awake  │   Apps are asked to quit first. One with unsaved       │            o  │
-│   off         │   work can still stop the restart.                     │               │
-│               │                                                        │               │
-│   Apps        │   ↵ restart  esc cancel                                │t 08:12.       │
-│   12 open     │                                                        │               │
-│               ╰────────────────────────────────────────────────────────╯               │
+│   sleep · restart      ││   Restart…                                                r  │
+│                        ││   Shut down…                                              p  │
+│   Keep awake        ○  ││   Log out…                                                o  │
+│   off                  ││                                                              │
+│                        ││                                                              │
+│   Apps                 ││   Last restart 19 days ago. Last sleep today at 08:12.       │
+│   12 open              ││                                                              │
+│                        ││                                                              │
 │   Nix                  ││                                                              │
 │   gen 278 · 2 h ago    ││                                                              │
 │                        ││                                                              │

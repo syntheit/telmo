@@ -1,23 +1,23 @@
 # System · Keep awake · mac
+ System                                                                swift · up 19 days
+╭─ swift ────────────────╮╭─ Keep awake ────────────────────────────────────────── ● on ─╮
+│   About                ││                                                              │
+│   macOS 27.0           ││   ○ Off                                                      │
+│                        ││   ○ 30 min                                                   │
+│   Power                ││ ▌ ● 1 hour   47 min left                                     │
+│   sleep · restart      ││   ○ 2 hours                                                  │
+│                        ││   ○ Until turned off                                         │
+│ ▌ Keep awake        ●  ││                                                              │
+│   47 min left          ││                                                              │
+│                        ││   Also keeping it awake                                      │
+│   Apps                 ││   Spotify      playing audio                                 │
+│   12 open              ││   Zen          video playing                                 │
+│                        ││                                                              │
+│   Nix                  ││   Closing the lid still puts it to sleep.                    │
+│   gen 278 · 2 h ago    ││                                                              │
+│                        ││                                                              │
+│                        ││                                                              │
+│                        ││                                                              │
+╰────────────────────────╯╰──────────────────────────────────────────────────────────────╯
 
-                        ..'           daniel@swift
-                    ,xNMM.            ──────────────────────────────────────────────
-                  .OMMMMo╭─ Keep awake ─────────────────────────╮
-                  lMM"   │                                      │3 · 24 GB
-        .;loddo:.  .ollod│   ● Off                              │
-      cKMMMMMMMMMMNWMMMMM│     30 min                           │
-    .KMMMMMMMMMMMMMMMMMMM│ ▌   1 hour                           │ilt 2 hours ago
-    XMMMMMMMMMMMMMMMMMMMM│     2 hours                          │
-   ;MMMMMMMMMMMMMMMMMMMMM│     Until turned off                 │                  l
-   :MMMMMMMMMMMMMMMMMMMMM│                                      │                  s
-   .MMMMMMMMMMMMMMMMMMMMM│   Already keeping it awake:          │                  d
-    kMMMMMMMMMMMMMMMMMMMM│   Spotify · playing audio            │      off         a
-    'XMMMMMMMMMMMMMMMMMMM│                                      │                  r
-     'XMMMMMMMMMMMMMMMMMM│   ↵ choose  esc cancel               │                  p
-       kMMMMMMMMMMMMMMMMM│                                      │                  o
-        ;KMMMMMMMWXXWMMMM╰──────────────────────────────────────╯
-          "cooc*"    "*coo'"
-
-
-
- ↵ choose  f force quit  c copy info  ? more  esc close
+ ↵ choose  a toggle  tab sections  esc close

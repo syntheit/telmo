@@ -1,0 +1,23 @@
+# System · About · mac
+ System                                                                swift · up 19 days
+╭─ swift ────────────────╮╭─ About ──────────────────────────────────────────────────────╮
+│ ▌ About                ││                       ..'                                    │
+│   macOS 27.0           ││                   ,xNMM.                                     │
+│                        ││                 .OMMMMo                                      │
+│   Power                ││                 lMM"                                         │
+│   sleep · restart      ││       .;loddo:.  .olloddol;.      daniel@swift               │
+│                        ││     cKMMMMMMMMMMNWMMMMMMMMMM0:    ────────────────────────── │
+│   Keep awake        ○  ││   .KMMMMMMMMMMMMMMMMMMMMMMMWd.    macOS   27.0 (26A428)      │
+│   off                  ││   XMMMMMMMMMMMMMMMMMMMMMMMX.      Model   MacBook Air 15"    │
+│                        ││  ;MMMMMMMMMMMMMMMMMMMMMMMM:       Chip    Apple M3           │
+│   Apps                 ││  :MMMMMMMMMMMMMMMMMMMMMMMM:       Memory  24 GB              │
+│   12 open              ││  .MMMMMMMMMMMMMMMMMMMMMMMMX.      Disk    160 GB free        │
+│                        ││   kMMMMMMMMMMMMMMMMMMMMMMMMWd.    Up      19 days, 20 hours  │
+│   Nix                  ││   'XMMMMMMMMMMMMMMMMMMMMMMMMMMk   Nix     generation 278     │
+│   gen 278 · 2 h ago    ││    'XMMMMMMMMMMMMMMMMMMMMMMMMK.                              │
+│                        ││      kMMMMMMMMMMMMMMMMMMMMMMd                                │
+│                        ││       ;KMMMMMMMWXXWMMMMMMMk.                                 │
+│                        ││         "cooc*"    "*coo'"                                   │
+╰────────────────────────╯╰──────────────────────────────────────────────────────────────╯
+
+ c copy info  tab sections  ? more  esc close

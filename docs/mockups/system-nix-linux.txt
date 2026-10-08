@@ -1,0 +1,23 @@
+# System · Nix · linux
+ System                                                                mantle · up 9 days
+╭─ mantle ───────────────╮╭─ Nix ──────────────────────────────────────────────── ~/nix ─╮
+│   About                ││   Generation   Built          Contents                       │
+│   NixOS 26.11          ││   500          2 hours ago    kernel 7.2.8          current  │
+│                        ││ ▌ 499          yesterday      kernel 7.2.6                   │
+│   Power             ●  ││   498          3 days ago     kernel 7.2.6                   │
+│   restart due          ││   497          5 days ago     kernel 7.2.4                   │
+│                        ││                                                              │
+│   Keep awake        ○  ││   Inputs                                                     │
+│   off                  ││   nixpkgs        21 days old                                 │
+│                        ││   home-manager   21 days old                                 │
+│   Apps                 ││   telmo          today                                       │
+│   9 open               ││                                                              │
+│                        ││   ! Restart due: 500 has a new kernel.                       │
+│ ▌ Nix                  ││                                                              │
+│   gen 500 · 2 h ago    ││                                                              │
+│                        ││                                                              │
+│                        ││                                                              │
+│                        ││                                                              │
+╰────────────────────────╯╰──────────────────────────────────────────────────────────────╯
+
+ b boot once  u rebuild  U update + rebuild  tab sections  esc close

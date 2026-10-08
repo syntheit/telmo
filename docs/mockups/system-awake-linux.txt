@@ -1,23 +1,23 @@
 # System · Keep awake · linux
-             ▗▄▄▄       ▗▄▄▄▄    ▄▄▄▖
-             ▜███▙       ▜███▙  ▟███▛              daniel@mantle
-              ▜███▙       ▜███▙▟███▛               ────────────────────────────────────
-               ▜███▙     ╭─ Keep awake ─────────────────────────╮(Zokor)
-        ▟████████████████│                                      │· 7.2.8 after restart
-       ▟█████████████████│   ● Off                              │7 3700X · 32 GB
-              ▄▄▄▄▖      │     30 min                           │70 SUPER
-             ▟███▛       │ ▌   1 hour                           │, 4 hours
-            ▟███▛        │     2 hours                          │ free of 921 GB
-   ▟███████████▛         │     Until turned off                 │tion 500 · 2 hours ago
-   ▜██████████▛          │                                      │
-         ▟███▛ ▟▙        │   Already keeping it awake:          │                     l
-        ▟███▛ ▟██▙       │   Spotify · playing audio            │                     s
-       ▟███▛  ▜███▙      │                                      │plays                d
-       ▜██▛    ▜███▙ ▜███│   ↵ choose  esc cancel               │         off         a
-        ▜▛     ▟████▙ ▜██│                                      │                     r
-              ▟██████▙   ╰──────────────────────────────────────╯…                    b
-             ▟███▛▜███▙         ▜███▙                Shut down…                       p
-            ▟███▛  ▜███▙         ▜███▙               Log out…                         o
-            ▝▀▀▀    ▀▀▀▀▘         ▀▀▀▘
+ System                                                                mantle · up 9 days
+╭─ mantle ───────────────╮╭─ Keep awake ───────────────────────────────────────── ○ off ─╮
+│   About                ││                                                              │
+│   NixOS 26.11          ││ ▌ ● Off                                                      │
+│                        ││   ○ 30 min                                                   │
+│   Power             ●  ││   ○ 1 hour                                                   │
+│   restart due          ││   ○ 2 hours                                                  │
+│                        ││   ○ Until turned off                                         │
+│ ▌ Keep awake        ○  ││                                                              │
+│   off                  ││                                                              │
+│                        ││   Also keeping it awake                                      │
+│   Apps                 ││   steam        downloading                                   │
+│   9 open               ││                                                              │
+│                        ││   Holds idle and sleep; the screens still turn off.          │
+│   Nix                  ││                                                              │
+│   gen 500 · 2 h ago    ││                                                              │
+│                        ││                                                              │
+│                        ││                                                              │
+│                        ││                                                              │
+╰────────────────────────╯╰──────────────────────────────────────────────────────────────╯
 
- ↵ choose  f force quit  c copy info  ? more  esc close
+ ↵ choose  a toggle  tab sections  esc close

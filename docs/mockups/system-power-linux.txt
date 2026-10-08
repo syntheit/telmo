@@ -1,19 +1,19 @@
-# System · Restart · linux
+# System · Power · linux
  System                                                                mantle · up 9 days
 ╭─ mantle ───────────────╮╭─ Power ──────────────────────────────────────────────────────╮
 │   About                ││                                                              │
-│   NixOS 26.11          ││   Lock screen                                             l  │
+│   NixOS 26.11          ││ ▌ Lock screen                                             l  │
 │                        ││   Sleep                                                   s  │
 │ ▌ Power             ●  ││   Turn off displays                                       d  │
-│   restart due ╭─ Restart mantle? ──────────────────────────────────────╮            r  │
-│               │                                                        │            p  │
-│   Keep awake  │   ! 2 SSH sessions will drop (swift, harbor)           │            o  │
-│   off         │   ! 4 Docker containers will stop                      │               │
-│               │     Comes back on generation 500 · kernel 7.2.8        │               │
-│   Apps        │                                                        │.8,            │
-│   9 open      │   ↵ restart  esc cancel                                │               │
-│               │                                                        │               │
-│   Nix         ╰────────────────────────────────────────────────────────╯               │
+│   restart due          ││   Restart…                                                r  │
+│                        ││   Shut down…                                              p  │
+│   Keep awake        ○  ││   Log out…                                                o  │
+│   off                  ││                                                              │
+│                        ││                                                              │
+│   Apps                 ││   ! Restart due: generation 500 has kernel 7.2.8,            │
+│   9 open               ││     the running one is 7.2.6.                                │
+│                        ││                                                              │
+│   Nix                  ││                                                              │
 │   gen 500 · 2 h ago    ││                                                              │
 │                        ││                                                              │
 │                        ││                                                              │
