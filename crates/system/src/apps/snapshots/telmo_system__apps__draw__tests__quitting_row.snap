@@ -1,0 +1,26 @@
+---
+source: crates/system/src/apps/draw.rs
+expression: render(&app)
+---
+
+╭─ Force quit ─────────────────────────────────────────────────────────────── by memory ─╮
+│   App                                                    Memory    CPU                 │
+│   Telegram                                               380 MB     0%  not responding │
+│ ▌ Zen                                                    1.9 GB    12%  quitting…      │
+│   Slack                                                  870 MB     6%                 │
+│   Spotify                                                640 MB     3%                 │
+│   Messages                                               210 MB     0%                 │
+│   Finder                                                 150 MB     1%                 │
+│   Ghostty                                                120 MB     2%                 │
+│   Notes                                                   95 MB     0%                 │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+
+ ↵ quit  K force quit  / search  esc back

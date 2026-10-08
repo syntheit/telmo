@@ -1,12 +1,17 @@
 //! State and key handling. No drawing here.
 
 use crate::actions::{Cmd, Event};
+use crate::apps::{
+    AppCmd,
+    view::{Action, View},
+};
 use crate::canvas::Canvas;
 use crate::effects::{self, Effect, Frame, Logo, Transition};
 use crate::prefs::{self, Prefs};
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use std::{
     cell::Cell,
+    sync::mpsc::Sender,
     time::{Duration, Instant},
 };
 use telmo_kit::{Flow, hits::Hits, widgets::Toast};
@@ -25,6 +30,8 @@ pub enum Dialog {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Click {
     Logo,
+    /// A row of the Force Quit list.
+    AppRow(i32),
     Prev,
     Next,
     /// The confirm dialog's `↵` hint.
@@ -41,6 +48,8 @@ pub struct App {
     pub host: String,
     pub canvas: Canvas,
     pub dialog: Option<Dialog>,
+    /// The Force Quit view, drawn over the logo while open.
+    pub view: Option<View>,
     pub toast: Option<Toast>,
     /// Seconds since start, advanced by `advance`.
     pub now: f32,
@@ -54,6 +63,7 @@ pub struct App {
     effect_t: f32,
     last: Instant,
     cmds: UnboundedSender<Cmd>,
+    apps: Option<Sender<AppCmd>>,
     pending: bool,
     persist: bool,
     save_warned: bool,
@@ -74,6 +84,11 @@ impl App {
     pub fn new(cmds: UnboundedSender<Cmd>, resolved: prefs::Resolved, host: String) -> Self {
         let (width, height) = crossterm::terminal::size().unwrap_or((90, 22));
         Self::build(cmds, resolved, host, (width, height), true, false)
+    }
+
+    pub fn with_apps(mut self, apps: Sender<AppCmd>) -> Self {
+        self.apps = Some(apps);
+        self
     }
 
     #[cfg(test)]
@@ -102,6 +117,7 @@ impl App {
             cycle: resolved.cycle,
             host,
             dialog: None,
+            view: None,
             toast: None,
             now: 0.0,
             switched_at: 0.0,
@@ -111,6 +127,7 @@ impl App {
             effect_t: 0.0,
             last: Instant::now(),
             cmds,
+            apps: None,
             pending: false,
             persist,
             save_warned: false,
@@ -211,6 +228,39 @@ impl App {
         self.pending = true;
     }
 
+    fn send_apps(&mut self, cmd: AppCmd) {
+        let lost = self
+            .apps
+            .as_ref()
+            .is_some_and(|apps| apps.send(cmd).is_err());
+        if lost {
+            self.toast = Some(Toast::error(
+                "Lost the app list. Close telmo-system and open it again.",
+            ));
+        }
+    }
+
+    fn open_apps(&mut self) {
+        self.view = Some(View::default());
+        self.send_apps(AppCmd::Watch(true));
+    }
+
+    fn close_apps(&mut self) {
+        self.view = None;
+        self.send_apps(AppCmd::Watch(false));
+    }
+
+    fn view_key(&mut self, key: KeyEvent) {
+        let Some(view) = self.view.as_mut() else {
+            return;
+        };
+        match view.key(key) {
+            Action::None => {}
+            Action::Close => self.close_apps(),
+            Action::Quit { pid, name, force } => self.send_apps(AppCmd::Quit { pid, name, force }),
+        }
+    }
+
     fn main_key(&mut self, key: KeyEvent) -> Flow {
         match key.code {
             KeyCode::Esc | KeyCode::Char('q') => return Flow::Quit,
@@ -221,6 +271,7 @@ impl App {
             KeyCode::Char('s') => self.send(Cmd::Sleep),
             KeyCode::Char('r') => self.dialog = Some(Dialog::Confirm(Cmd::Restart)),
             KeyCode::Char('p') => self.dialog = Some(Dialog::Confirm(Cmd::ShutDown)),
+            KeyCode::Char('k') => self.open_apps(),
             KeyCode::Char('o') => self.dialog = Some(Dialog::Confirm(Cmd::LogOut)),
             KeyCode::Char('?') => self.dialog = Some(Dialog::Help),
             _ => {}
@@ -257,6 +308,10 @@ impl telmo_kit::App for App {
     }
 
     fn key(&mut self, key: KeyEvent) -> Flow {
+        if self.view.is_some() {
+            self.view_key(key);
+            return Flow::Continue;
+        }
         match self.dialog.take() {
             Some(dialog) => {
                 self.dialog = self.dialog_key(dialog, key);
@@ -271,6 +326,12 @@ impl telmo_kit::App for App {
             return Flow::Continue;
         }
         match self.hits.at(event.column, event.row) {
+            Some(Click::AppRow(pid)) => {
+                if let Some(view) = self.view.as_mut().filter(|v| v.confirm.is_none()) {
+                    view.select(pid);
+                }
+                Flow::Continue
+            }
             Some(Click::Logo) => self.press(KeyCode::Right),
             Some(Click::Prev) => self.press(KeyCode::Left),
             Some(Click::Next) => self.press(KeyCode::Right),
@@ -282,6 +343,21 @@ impl telmo_kit::App for App {
 
     fn event(&mut self, event: Event) -> Flow {
         match event {
+            Event::Apps(result) => {
+                if let Some(view) = self.view.as_mut() {
+                    view.set_rows(result);
+                }
+            }
+            Event::AppNote { pid, message, ok } => {
+                if let Some(view) = self.view.as_mut() {
+                    view.stop_quitting(pid);
+                }
+                self.toast = Some(if ok {
+                    Toast::ok(message)
+                } else {
+                    Toast::error(message)
+                });
+            }
             Event::Done(_) => return Flow::Quit,
             Event::Failed(message) => {
                 self.pending = false;
@@ -300,6 +376,11 @@ impl telmo_kit::App for App {
         self.last = Instant::now();
         if self.toast.as_ref().is_some_and(Toast::expired) {
             self.toast = None;
+        }
+        if let Some(view) = self.view.as_mut()
+            && let Some(message) = view.tick(Instant::now()).pop()
+        {
+            self.toast = Some(Toast::error(message));
         }
         self.advance(dt);
         Flow::Continue

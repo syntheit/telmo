@@ -15,7 +15,7 @@ const KEYS: [(&str, &str); 6] = [
     ("s", "sleep"),
     ("r", "restart"),
     ("p", "shut down"),
-    ("o", "log out"),
+    ("k", "force quit"),
     ("?", "more"),
 ];
 const BACKGROUND: Color = Color::Rgb(22, 23, 34);
@@ -28,6 +28,10 @@ pub fn draw(app: &App, frame: &mut Frame) {
         return;
     }
     draw_canvas(app, frame);
+    if let Some(view) = &app.view {
+        crate::apps::draw::draw(app, view, frame);
+        return;
+    }
     app.hits.add(logo_area(app), Click::Logo);
     if area.height > 1 {
         draw_switch_toast(app, frame, area.y + area.height - 2);
@@ -200,7 +204,13 @@ fn draw_switch_toast(app: &App, frame: &mut Frame, y: u16) {
 }
 
 /// Like `widgets::dialog`, and a click outside it closes it.
-fn open_dialog(app: &App, frame: &mut Frame, title: &str, width: u16, height: u16) -> Rect {
+pub(crate) fn open_dialog(
+    app: &App,
+    frame: &mut Frame,
+    title: &str,
+    width: u16,
+    height: u16,
+) -> Rect {
     let inner = widgets::dialog(frame, title, width, height);
     app.hits.add(frame.area(), Click::Outside);
     app.hits.add(inner.outer(Margin::new(1, 1)), Click::Inside);
@@ -233,7 +243,7 @@ fn draw_confirm(app: &App, frame: &mut Frame, cmd: Cmd) {
 }
 
 /// Dialog hints sit two columns in, like the body text.
-fn padded_hint(bindings: &[(&str, &str)]) -> Line<'static> {
+pub(crate) fn padded_hint(bindings: &[(&str, &str)]) -> Line<'static> {
     let mut line = widgets::hint(bindings);
     line.spans.insert(0, Span::raw(" "));
     line
@@ -247,6 +257,7 @@ fn draw_help(app: &App, frame: &mut Frame) {
         ("s", "sleep"),
         ("r", "restart (asks first)"),
         ("p", "shut down (asks first)"),
+        ("k", "force quit an app"),
         ("o", "log out (asks first)"),
         ("esc q", "close, then quit"),
     ];
