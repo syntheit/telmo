@@ -2,6 +2,8 @@
 
 use crate::actions::Cmd;
 use crate::app::{App, Click, Dialog, SWITCH_TOAST};
+use crate::rebuild::Status;
+use crate::tracker;
 use ratatui::{
     Frame,
     layout::{Margin, Rect},
@@ -10,11 +12,12 @@ use ratatui::{
 };
 use telmo_kit::{theme, widgets};
 
-const KEYS: [(&str, &str); 6] = [
+const KEYS: [(&str, &str); 7] = [
     ("l", "lock"),
     ("s", "sleep"),
     ("r", "restart"),
     ("p", "shut down"),
+    ("u", "rebuild"),
     ("o", "log out"),
     ("?", "more"),
 ];
@@ -97,7 +100,82 @@ fn fitting_keys(room: usize) -> Vec<(&'static str, &'static str)> {
     keys
 }
 
+/// Rebuild progress or the success line replaces the whole footer.
+fn draw_rebuild_footer(app: &App, frame: &mut Frame, y: u16) -> bool {
+    let line = if let Some((status, elapsed)) = app.rebuild.progress(app.now) {
+        progress_line(app, status, elapsed, frame.area().width)
+    } else if let Some(text) = app.rebuild.banner(app.now) {
+        Line::styled(text.to_string(), theme::ok().add_modifier(Modifier::BOLD))
+    } else {
+        return false;
+    };
+    let area = frame.area();
+    let x = area.x + area.width.saturating_sub(line.width() as u16) / 2;
+    let row = Rect {
+        x,
+        y,
+        width: (line.width() as u16).min(area.width),
+        height: 1,
+    };
+    frame.render_widget(line, row);
+    true
+}
+
+const BAR_WIDTH: usize = 18;
+
+fn progress_line(app: &App, status: &Status, elapsed: u64, width: u16) -> Line<'static> {
+    let spinner = ["-", "\\", "|", "/"][(app.now * 8.0) as usize % 4];
+    let mut spans = vec![
+        Span::styled(format!("{spinner} "), Style::new().fg(theme::YELLOW)),
+        Span::styled(format!("rebuilding {}   ", app.host), theme::text()),
+    ];
+    let clock = tracker::clock(elapsed);
+    let counted = if status.to_build > 0 {
+        Some((status.built, status.to_build, "built"))
+    } else if status.to_fetch > 0 {
+        Some((status.fetched, status.to_fetch, "fetched"))
+    } else {
+        None
+    };
+    match counted {
+        Some((done, total, what)) => {
+            let filled =
+                (done.min(total) as usize * BAR_WIDTH + total as usize / 2) / total as usize;
+            spans.push(Span::styled(
+                "━".repeat(filled),
+                Style::new().fg(theme::YELLOW),
+            ));
+            spans.push(Span::styled("─".repeat(BAR_WIDTH - filled), theme::faint()));
+            spans.push(Span::styled(
+                format!("   {done}/{total} {what} · {clock}"),
+                theme::dim(),
+            ));
+        }
+        None => {
+            let room = (width as usize)
+                .saturating_sub(spans.iter().map(Span::width).sum::<usize>() + clock.len() + 6);
+            spans.push(Span::styled(
+                format!("{} · {clock}", shorten(&status.last_line, room.min(48))),
+                theme::dim(),
+            ));
+        }
+    }
+    Line::from(spans)
+}
+
+/// Cuts `text` to `max` characters, ending in `…` when it was longer.
+fn shorten(text: &str, max: usize) -> String {
+    if text.chars().count() <= max {
+        return text.to_string();
+    }
+    let kept: String = text.chars().take(max.saturating_sub(1)).collect();
+    format!("{kept}…")
+}
+
 fn draw_footer(app: &App, frame: &mut Frame, y: u16) {
+    if draw_rebuild_footer(app, frame, y) {
+        return;
+    }
     let area = frame.area();
     let name = app.prefs.effect.as_str();
     let name_width = name.chars().count() as u16;
@@ -247,6 +325,8 @@ fn draw_help(app: &App, frame: &mut Frame) {
         ("s", "sleep"),
         ("r", "restart (asks first)"),
         ("p", "shut down (asks first)"),
+        ("u", "rebuild in the background"),
+        ("L", "open the rebuild log"),
         ("o", "log out (asks first)"),
         ("esc q", "close, then quit"),
     ];
@@ -366,6 +446,64 @@ mod tests {
         };
         app.mouse(click(right));
         assert_ne!(app.prefs.effect, first);
+    }
+
+    /// Runs the app's clock forward in whole seconds.
+    fn wait(app: &mut App, seconds: u32) {
+        for _ in 0..seconds {
+            app.advance(1.0);
+        }
+    }
+
+    #[test]
+    fn footer_while_waiting_for_touch_id() {
+        let (mut app, _rx) = app(90, 22);
+        press(&mut app, KeyCode::Char('u'));
+        wait(&mut app, 1);
+        insta::assert_snapshot!(render(&app, 90, 22));
+    }
+
+    #[test]
+    fn footer_while_rebuilding() {
+        let (mut app, _rx) = app(90, 22);
+        press(&mut app, KeyCode::Char('u'));
+        wait(&mut app, 6);
+        insta::assert_snapshot!(render(&app, 90, 22));
+    }
+
+    #[test]
+    fn footer_after_success_then_back_to_keys() {
+        let (mut app, _rx) = app(90, 22);
+        press(&mut app, KeyCode::Char('u'));
+        wait(&mut app, 13);
+        assert!(!app.rebuild.running());
+        insta::assert_snapshot!(render(&app, 90, 22));
+        wait(&mut app, 5);
+        assert!(render(&app, 90, 22).contains("l lock"));
+    }
+
+    #[test]
+    fn rebuild_speeds_up_the_effect_and_finale_lasts_one_frame() {
+        let (mut app, _rx) = app(90, 22);
+        press(&mut app, KeyCode::Char('u'));
+        wait(&mut app, 1);
+        assert!(app.rebuild.running());
+        wait(&mut app, 11);
+        assert!(!app.rebuild.running());
+        // The frame that saw the finish consumed the flag.
+        assert!(!app.finished_pending());
+    }
+
+    #[test]
+    fn a_second_u_says_one_is_running() {
+        let (mut app, _rx) = app(90, 22);
+        press(&mut app, KeyCode::Char('u'));
+        press(&mut app, KeyCode::Char('u'));
+        assert!(
+            app.toast
+                .as_ref()
+                .is_some_and(|t| t.message == "A rebuild is already running.")
+        );
     }
 
     #[test]

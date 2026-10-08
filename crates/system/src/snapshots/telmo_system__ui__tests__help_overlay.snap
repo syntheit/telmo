@@ -6,7 +6,6 @@ expression: "render(&app, 90, 22)"
                                                    ..'
                                                ,xNMM.
                                              .OMMMMo
-                                             lMM"
                  ╭─ Keys ───────────────────────────────────────────────╮
                  │                                                      │
                  │  ← →     previous and next effect                    │
@@ -15,12 +14,13 @@ expression: "render(&app, 90, 22)"
                  │  s       sleep                                       │
                  │  r       restart (asks first)                        │
                  │  p       shut down (asks first)                      │
+                 │  u       rebuild in the background                   │
+                 │  L       open the rebuild log                        │
                  │  o       log out (asks first)                        │
                  │  esc q   close, then quit                            │
                  │                                                      │
                  ╰──────────────────────────────────────────────────────╯
-                                     "cooc*"    "*coo'"
 
 
 
- l lock  s sleep  r restart  p shut down  o log out  ? more                     ‹ rain ›
+ l lock  s sleep  r restart  p shut down  u rebuild  o log out  ? more          ‹ rain ›

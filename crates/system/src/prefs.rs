@@ -19,6 +19,7 @@ pub struct Config {
     effect: Option<String>,
     logo: Option<LogoKind>,
     effects: Option<Vec<String>>,
+    rebuild: Option<Vec<String>>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -26,6 +27,8 @@ pub struct Resolved {
     pub prefs: Prefs,
     /// The effects the arrow keys cycle through, in order.
     pub cycle: Vec<String>,
+    /// The command `u` runs (without elevation), if configured.
+    pub rebuild: Option<Vec<String>>,
 }
 
 pub fn resolve(state: Option<Prefs>, config: Option<Config>) -> Resolved {
@@ -55,6 +58,7 @@ pub fn resolve(state: Option<Prefs>, config: Option<Config>) -> Resolved {
     Resolved {
         prefs: Prefs { effect, logo },
         cycle,
+        rebuild: config.rebuild.filter(|command| !command.is_empty()),
     }
 }
 

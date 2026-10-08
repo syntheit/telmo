@@ -4,6 +4,8 @@ use crate::actions::{Cmd, Event};
 use crate::canvas::Canvas;
 use crate::effects::{self, Effect, Frame, Logo, Transition};
 use crate::prefs::{self, Prefs};
+use crate::rebuild::{self, State, Status};
+use crate::tracker::{Change, Tracker};
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use std::{
     cell::Cell,
@@ -57,6 +59,16 @@ pub struct App {
     pending: bool,
     persist: bool,
     save_warned: bool,
+    /// The command `u` runs, from `system.json`.
+    rebuild_command: Option<Vec<String>>,
+    pub rebuild: Tracker,
+    /// Seconds until the state file is read again.
+    poll_in: f32,
+    /// Set for the one frame after a rebuild finished.
+    finished: bool,
+    /// `--mock`: `u` plays a fake rebuild that started at this app time.
+    mock: bool,
+    mock_start: Option<f32>,
     /// Tests draw only the logo, so snapshots don't depend on effect randomness.
     plain: bool,
 }
@@ -70,16 +82,37 @@ impl Effect for Plain {
     }
 }
 
+/// `--mock` rebuild: waiting for Touch ID, then 120 builds, ending at 12 s.
+const MOCK_SECONDS: f32 = 12.0;
+const MOCK_START: u64 = 1_000;
+const MOCK_WAITING: &str = "waiting for Touch ID…";
+
+fn mock_status(elapsed: f32) -> Status {
+    let mut status = Status::running(1, MOCK_START, MOCK_WAITING);
+    if elapsed >= MOCK_SECONDS {
+        status.state = State::Ok;
+        status.finished = Some(MOCK_START + MOCK_SECONDS as u64);
+        status.generation = Some(279);
+        status.built = 120;
+        status.to_build = 120;
+    } else if elapsed >= 2.0 {
+        status.to_build = 120;
+        status.built = ((elapsed - 2.0) * 12.0) as u32;
+        status.last_line = "building '/nix/store/abc-example.drv'...".into();
+    }
+    status
+}
+
 impl App {
     pub fn new(cmds: UnboundedSender<Cmd>, resolved: prefs::Resolved, host: String) -> Self {
         let (width, height) = crossterm::terminal::size().unwrap_or((90, 22));
-        Self::build(cmds, resolved, host, (width, height), true, false)
+        Self::build(cmds, resolved, host, (width, height), true, false, false)
     }
 
     #[cfg(test)]
     pub fn for_test(cmds: UnboundedSender<Cmd>, size: (u16, u16)) -> Self {
         let resolved = prefs::resolve(None, None);
-        let mut app = Self::build(cmds, resolved, "swift".into(), size, false, true);
+        let mut app = Self::build(cmds, resolved, "swift".into(), size, false, true, true);
         app.switched_at = -10.0;
         app.advance(0.0);
         app
@@ -92,9 +125,16 @@ impl App {
         size: (u16, u16),
         persist: bool,
         plain: bool,
+        mock: bool,
     ) -> Self {
         let logo = Logo::place(resolved.prefs.logo, size.0, size.1.saturating_sub(1));
         let mut app = Self {
+            rebuild_command: resolved.rebuild,
+            rebuild: Tracker::new(host.clone()),
+            poll_in: 0.0,
+            finished: false,
+            mock,
+            mock_start: None,
             effect: Box::new(Plain),
             transition: Transition::new(&logo),
             canvas: Canvas::new(size.0, size.1.saturating_sub(1)),
@@ -121,6 +161,16 @@ impl App {
         app
     }
 
+    /// `--mock`: `u` plays a fake rebuild instead of running the real one.
+    pub fn use_mock_rebuild(&mut self) {
+        self.mock = true;
+    }
+
+    #[cfg(test)]
+    pub fn finished_pending(&self) -> bool {
+        self.finished
+    }
+
     /// Places the logo again and starts a fresh effect and transition.
     fn rebuild(&mut self) {
         let (width, height) = self.area.get();
@@ -143,6 +193,7 @@ impl App {
         }
         self.now += dt;
         self.effect_t += dt;
+        self.poll_rebuild(dt);
         self.canvas.clear();
         // A terminal with no room for the effect (e.g. one row tall) draws nothing.
         if self.canvas.width == 0 || self.canvas.height == 0 {
@@ -153,12 +204,77 @@ impl App {
             logo: &mut self.logo,
             t: self.effect_t,
             dt,
-            busy: false,
-            finished: false,
+            busy: self.rebuild.running(),
+            finished: std::mem::take(&mut self.finished),
         };
         self.effect.frame(&mut frame);
         self.transition
             .apply(&mut self.canvas, &self.logo, self.now - self.switched_at);
+    }
+
+    /// Reads the rebuild's progress about once a second.
+    fn poll_rebuild(&mut self, dt: f32) {
+        self.poll_in -= dt;
+        if self.poll_in > 0.0 {
+            return;
+        }
+        self.poll_in = 1.0;
+        let unix = rebuild::unix_now();
+        let change = if self.mock {
+            let Some(start) = self.mock_start else { return };
+            let elapsed = self.now - start;
+            if elapsed >= MOCK_SECONDS {
+                self.mock_start = None;
+            }
+            self.rebuild
+                .apply(mock_status(elapsed), MOCK_START + elapsed as u64, self.now)
+        } else {
+            let Some(status) = rebuild::read() else {
+                return;
+            };
+            self.rebuild.apply(status, unix, self.now)
+        };
+        match change {
+            Some(Change::Finished) => self.finished = true,
+            Some(Change::Failed(message)) => self.toast = Some(Toast::error(message)),
+            None => {}
+        }
+    }
+
+    /// `u`: starts a rebuild that keeps going after the popup closes.
+    fn start_rebuild(&mut self) {
+        let result = if self.rebuild.running() {
+            Err(rebuild::ALREADY_RUNNING.to_string())
+        } else if self.mock {
+            self.mock_start = Some(self.now);
+            self.rebuild.launch(self.now, MOCK_START, MOCK_WAITING);
+            Ok(())
+        } else if self.rebuild_command.is_none() {
+            Err(rebuild::NOT_CONFIGURED.to_string())
+        } else {
+            rebuild::start().inspect(|()| {
+                self.rebuild
+                    .launch(self.now, rebuild::unix_now(), rebuild::waiting_text());
+            })
+        };
+        if let Err(message) = result {
+            self.toast = Some(Toast::error(message));
+        }
+    }
+
+    /// `L`: opens the rebuild log.
+    fn open_rebuild_log(&mut self) {
+        if self.mock {
+            self.toast = Some(Toast::ok("Would open the rebuild log."));
+            return;
+        }
+        let opened = rebuild::log_path()
+            .filter(|path| path.exists())
+            .ok_or_else(|| "There's no rebuild log yet. Press u to rebuild.".to_string())
+            .and_then(|path| telmo_kit::os::open(&path.to_string_lossy()));
+        if let Err(message) = opened {
+            self.toast = Some(Toast::error(message));
+        }
     }
 
     fn restart_clock(&mut self) {
@@ -221,6 +337,8 @@ impl App {
             KeyCode::Char('s') => self.send(Cmd::Sleep),
             KeyCode::Char('r') => self.dialog = Some(Dialog::Confirm(Cmd::Restart)),
             KeyCode::Char('p') => self.dialog = Some(Dialog::Confirm(Cmd::ShutDown)),
+            KeyCode::Char('u') => self.start_rebuild(),
+            KeyCode::Char('L') => self.open_rebuild_log(),
             KeyCode::Char('o') => self.dialog = Some(Dialog::Confirm(Cmd::LogOut)),
             KeyCode::Char('?') => self.dialog = Some(Dialog::Help),
             _ => {}

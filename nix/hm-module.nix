@@ -24,7 +24,7 @@ let
   ];
 
   # Only the options that are set, so system.json exists only when needed.
-  systemConfig = lib.filterAttrs (_: v: v != null) { inherit (cfg.system) effect logo effects; };
+  systemConfig = lib.filterAttrs (_: v: v != null) { inherit (cfg.system) effect logo effects rebuild; };
 
   # Where the app is run from. With a signing identity it's a signed copy in
   # ~/Applications, so macOS keeps Location/Bluetooth permissions across
@@ -77,6 +77,17 @@ in
         default = null;
         example = [ "aurora" "rain" "snow" ];
         description = "Subset and order of effects the arrow keys cycle through (default: all).";
+      };
+      rebuild = mkOption {
+        type = types.nullOr (types.listOf types.str);
+        default = null;
+        example = [ "/run/current-system/sw/bin/darwin-rebuild" "switch" "--flake" "/Users/me/nix#host" "--substituters" "https://cache.nixos.org" ];
+        description = ''
+          Command the system popup's `u` key runs as a background rebuild,
+          without elevation: telmo adds `sudo -A` (macOS, confirmed with Touch ID)
+          or `pkexec` (Linux, polkit dialog). Progress shows in the popup's
+          footer and a notification reports the end. Unset: `u` says so.
+        '';
       };
     };
 
