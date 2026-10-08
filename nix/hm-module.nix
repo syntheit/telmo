@@ -9,7 +9,7 @@ let
   cfg = config.programs.telmo;
   inherit (lib) mkEnableOption mkIf mkMerge mkOption types;
   isDarwin = pkgs.stdenv.hostPlatform.isDarwin;
-  builtIns = [ "net" "bt" "sound" "display" "power" "scale" ];
+  builtIns = [ "net" "bt" "sound" "display" "power" "scale" "system" ];
   customNames = lib.attrNames cfg.popups;
 
   # Hyprland size per custom popup: "large" is 80% of the monitor.
@@ -22,6 +22,9 @@ let
     "dim_around 1"
     "stay_focused 1"
   ];
+
+  # Only the options that are set, so system.json exists only when needed.
+  systemConfig = lib.filterAttrs (_: v: v != null) { inherit (cfg.system) effect logo effects; };
 
   # Where the app is run from. With a signing identity it's a signed copy in
   # ~/Applications, so macOS keeps Location/Bluetooth permissions across
@@ -49,6 +52,32 @@ in
         A stable signature keeps the Location and Bluetooth permissions
         across rebuilds.
       '';
+    };
+
+    system = {
+      effect = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        example = "aurora";
+        description = ''
+          Starting background effect of the system popup. Only a starting
+          value: the choice the popup saves itself (state file) wins.
+        '';
+      };
+      logo = mkOption {
+        type = types.nullOr (types.enum [ "apple" "nix" ]);
+        default = null;
+        description = ''
+          Starting logo of the system popup (default: the OS's own). The
+          popup's own saved choice (state file) wins.
+        '';
+      };
+      effects = mkOption {
+        type = types.nullOr (types.listOf types.str);
+        default = null;
+        example = [ "aurora" "rain" "snow" ];
+        description = "Subset and order of effects the arrow keys cycle through (default: all).";
+      };
     };
 
     popups = mkOption {
@@ -107,6 +136,10 @@ in
 
     (mkIf (cfg.popups != { }) {
       xdg.configFile."telmo/popups.json".text = builtins.toJSON cfg.popups;
+    })
+
+    (mkIf (systemConfig != { }) {
+      xdg.configFile."telmo/system.json".text = builtins.toJSON systemConfig;
     })
 
     (mkIf isDarwin {

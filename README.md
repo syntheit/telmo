@@ -10,6 +10,7 @@ and Linux.
 | `telmo-net` | Wi-Fi (scan, join, forget, power), Ethernet IPv4/DNS, VPNs (Tailscale, system/NetworkManager), speedtest (`s`) |
 | `telmo-bt` | Paired devices, connect/disconnect, scan and pair (with codes), battery |
 | `telmo-sound` | Output and input devices, volume, mute, per-app volume and routing (Linux), headset mode |
+| `telmo-system` | Apple-menu style popup: an animated logo, lock, sleep, restart, shut down, log out |
 
 Each module is a standalone binary that works in any terminal. `telmo <module>`
 runs one; `telmo popup <module>` opens it as a popup.

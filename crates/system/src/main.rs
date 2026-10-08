@@ -1,27 +1,49 @@
+mod actions;
+mod app;
 mod canvas;
 mod effects;
+mod prefs;
+mod ui;
 
-fn main() {
-    // STUB: the app shell replaces this.
-    let mut logo = effects::Logo::place(effects::LogoKind::native(), 90, 21);
-    let mut effect = effects::make(effects::NAMES[0], &logo);
-    let mut canvas = canvas::Canvas::new(90, 21);
-    canvas.clear();
-    let mut f = effects::Frame {
-        canvas: &mut canvas,
-        logo: &mut logo,
-        t: 0.0,
-        dt: 0.016,
-        busy: false,
-        finished: false,
-    };
-    effect.frame(&mut f);
-    let transition = effects::Transition::new(&logo);
-    transition.apply(&mut canvas, &logo, 0.0);
-    let _ = (
-        transition.done(0.0),
-        canvas.get(0, 0),
-        logo.kind.other(),
-        logo.masked(0, 0),
-    );
+use serde_json::json;
+use std::process::ExitCode;
+use tokio::sync::mpsc::unbounded_channel;
+
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> ExitCode {
+    let args = telmo_kit::cli::args();
+    let resolved = prefs::load();
+    if args.status {
+        return status(&resolved);
+    }
+    let (cmd_tx, cmd_rx) = unbounded_channel();
+    let (event_tx, event_rx) = unbounded_channel();
+    actions::spawn(args.mock, cmd_rx, event_tx);
+
+    let app = app::App::new(cmd_tx, resolved, app::host_name());
+    match telmo_kit::run(app, event_rx).await {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("telmo-system: Could not use the terminal: {e}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn status(resolved: &prefs::Resolved) -> ExitCode {
+    let status = json!({
+        "effect": resolved.prefs.effect,
+        "logo": resolved.prefs.logo,
+        "effects": resolved.cycle,
+    });
+    match serde_json::to_string_pretty(&status) {
+        Ok(json) => {
+            println!("{json}");
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("telmo-system: Could not print the status: {e}");
+            ExitCode::FAILURE
+        }
+    }
 }

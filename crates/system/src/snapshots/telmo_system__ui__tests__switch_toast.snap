@@ -1,0 +1,26 @@
+---
+source: crates/system/src/ui.rs
+expression: "render(&app, 90, 22)"
+---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                          plasma   ○ ● ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○
+ l lock  s sleep  r restart  p shut down  o log out  ? more                   ‹ plasma ›

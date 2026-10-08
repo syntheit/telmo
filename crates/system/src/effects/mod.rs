@@ -154,6 +154,7 @@ impl Transition {
         }
     }
 
+    #[cfg(test)]
     pub fn done(&self, t: f32) -> bool {
         self.reveal.iter().all(|r| t >= *r)
     }
