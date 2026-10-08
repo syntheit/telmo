@@ -1,23 +1,27 @@
 # System · Keep awake · mac
- System                                                                swift · up 19 days
-╭─ swift ────────────────╮╭─ Keep awake ────────────────────────────────────────── ● on ─╮
-│   About                ││                                                              │
-│   macOS 27.0           ││   ○ Off                                                      │
-│                        ││   ○ 30 min                                                   │
-│   Power                ││ ▌ ● 1 hour   47 min left                                     │
-│   sleep · restart      ││   ○ 2 hours                                                  │
-│                        ││   ○ Until turned off                                         │
-│ ▌ Keep awake        ●  ││                                                              │
-│   47 min left          ││                                                              │
-│                        ││   Also keeping it awake                                      │
-│   Apps                 ││   Spotify      playing audio                                 │
-│   12 open              ││   Zen          video playing                                 │
-│                        ││                                                              │
-│   Nix                  ││   Closing the lid still puts it to sleep.                    │
-│   gen 278 · 2 h ago    ││                                                              │
-│                        ││                                                              │
-│                        ││                                                              │
-│                        ││                                                              │
-╰────────────────────────╯╰──────────────────────────────────────────────────────────────╯
+ System                                                                                  swift · up 19 days
 
- ↵ choose  a toggle  tab sections  esc close
+╭─ swift ────────────────╮╭─ Keep awake ──────────────────────────────────────────────────────────── ● on ─╮
+│   Overview          ●  ││                                                                                │
+│   mic in use           ││   ○ Off                                                                        │
+│                        ││   ○ 30 min                                                                     │
+│   Power                ││ ▌ ● 1 hour   47 min left                                                       │
+│   sleep · restart      ││   ○ 2 hours                                                                    │
+│                        ││   ○ Until turned off                                                           │
+│ ▌ Keep awake        ●  ││                                                                                │
+│   47 min left          ││                                                                                │
+│                        ││   Also keeping it awake                                                        │
+│   Force quit        ●  ││   Spotify      playing audio                                                   │
+│   1 not responding     ││   Zen          video playing                                                   │
+│                        ││                                                                                │
+│   Storage              ││   Closing the lid still puts it to sleep.                                      │
+│   160 GB free          ││                                                                                │
+│                        ││                                                                                │
+│   Nix                  ││                                                                                │
+│   gen 278 · 2 h ago    ││                                                                                │
+│                        ││                                                                                │
+│                        ││                                                                                │
+│                        ││                                                                                │
+╰────────────────────────╯╰────────────────────────────────────────────────────────────────────────────────╯
+
+ ↵ choose  a toggle  tab panel  esc close

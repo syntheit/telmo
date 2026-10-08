@@ -1,23 +1,27 @@
 # System · Keep awake · linux
- System                                                                mantle · up 9 days
-╭─ mantle ───────────────╮╭─ Keep awake ───────────────────────────────────────── ○ off ─╮
-│   About                ││                                                              │
-│   NixOS 26.11          ││ ▌ ● Off                                                      │
-│                        ││   ○ 30 min                                                   │
-│   Power             ●  ││   ○ 1 hour                                                   │
-│   restart due          ││   ○ 2 hours                                                  │
-│                        ││   ○ Until turned off                                         │
-│ ▌ Keep awake        ○  ││                                                              │
-│   off                  ││                                                              │
-│                        ││   Also keeping it awake                                      │
-│   Apps                 ││   steam        downloading                                   │
-│   9 open               ││                                                              │
-│                        ││   Holds idle and sleep; the screens still turn off.          │
-│   Nix                  ││                                                              │
-│   gen 500 · 2 h ago    ││                                                              │
-│                        ││                                                              │
-│                        ││                                                              │
-│                        ││                                                              │
-╰────────────────────────╯╰──────────────────────────────────────────────────────────────╯
+ System                                                                                  mantle · up 9 days
 
- ↵ choose  a toggle  tab sections  esc close
+╭─ mantle ───────────────╮╭─ Keep awake ─────────────────────────────────────────────────────────── ○ off ─╮
+│   Overview          ●  ││                                                                                │
+│   mic in use           ││ ▌ ● Off                                                                        │
+│                        ││   ○ 30 min                                                                     │
+│   Power             ●  ││   ○ 1 hour                                                                     │
+│   restart due          ││   ○ 2 hours                                                                    │
+│                        ││   ○ Until turned off                                                           │
+│ ▌ Keep awake        ○  ││                                                                                │
+│   off                  ││                                                                                │
+│                        ││   Also keeping it awake                                                        │
+│   Force quit           ││   steam        downloading                                                     │
+│   9 apps               ││                                                                                │
+│                        ││   Holds idle and sleep; the screens still turn off.                            │
+│   Storage              ││                                                                                │
+│   218 GB free          ││                                                                                │
+│                        ││                                                                                │
+│   Nix                  ││                                                                                │
+│   gen 500 · 2 h ago    ││                                                                                │
+│                        ││                                                                                │
+│                        ││                                                                                │
+│                        ││                                                                                │
+╰────────────────────────╯╰────────────────────────────────────────────────────────────────────────────────╯
+
+ ↵ choose  a toggle  tab panel  esc close

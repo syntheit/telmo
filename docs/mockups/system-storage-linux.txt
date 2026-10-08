@@ -1,0 +1,27 @@
+# System · Storage · linux
+ System                                                                                  mantle · up 9 days
+
+╭─ mantle ───────────────╮╭─ Storage ────────────────────────────────────────────── 218 GB free of 921 GB ─╮
+│   Overview          ●  ││                                                                                │
+│   mic in use           ││ ▌ Nix store      212 GB   ━━━━━━━━━━━━━━━━━━━━   old generations               │
+│                        ││                                                                                │
+│   Power             ●  ││   Docker          41 GB   ━━━━────────────────   unused images                 │
+│   restart due          ││                                                                                │
+│                        ││   Caches         9.8 GB   ━───────────────────   ~/.cache                      │
+│   Keep awake        ○  ││                                                                                │
+│   off                  ││   Logs           3.2 GB   ────────────────────   journal older than 2 weeks    │
+│                        ││                                                                                │
+│   Force quit           ││   Trash          1.1 GB   ────────────────────                                 │
+│   9 apps               ││                                                                                │
+│                        ││                                                                                │
+│ ▌ Storage              ││   Sizes are measured in the background and cached.                             │
+│   218 GB free          ││   The Nix store takes about a minute to measure.                               │
+│                        ││   Every cleanup asks first and says how much it frees.                         │
+│   Nix                  ││                                                                                │
+│   gen 500 · 2 h ago    ││                                                                                │
+│                        ││                                                                                │
+│                        ││                                                                                │
+│                        ││                                                                                │
+╰────────────────────────╯╰────────────────────────────────────────────────────────────────────────────────╯
+
+ ↵ clean up  o open folder  r measure again  tab panel  esc close

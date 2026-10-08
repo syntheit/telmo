@@ -1,0 +1,27 @@
+# System · Overview · mac
+ System                                                                                  swift · up 19 days
+
+╭─ swift ────────────────╮╭─ Overview ─────────────────────────────────────────────────────────────────────╮
+│ ▌ Overview          ●  ││                                                                                │
+│   mic in use           ││                       ..'                                                      │
+│                        ││                   ,xNMM.                                                       │
+│   Power                ││                 .OMMMMo                                                        │
+│   sleep · restart      ││                 lMM"               Right now                                   │
+│                        ││       .;loddo:.  .olloddol;.       ● Microphone     Zen                        │
+│   Keep awake        ○  ││     cKMMMMMMMMMMNWMMMMMMMMMM0:     ● Screen         OBS is recording           │
+│   off                  ││   .KMMMMMMMMMMMMMMMMMMMMMMMWd.     ○ Camera         off                        │
+│                        ││   XMMMMMMMMMMMMMMMMMMMMMMMX.                                                   │
+│   Force quit        ●  ││  ;MMMMMMMMMMMMMMMMMMMMMMMM:        ○ Keep awake     off                      a │
+│   1 not responding     ││  :MMMMMMMMMMMMMMMMMMMMMMMM:        ○ Do not disturb off                      n │
+│                        ││  .MMMMMMMMMMMMMMMMMMMMMMMMX.                                                   │
+│   Storage              ││   kMMMMMMMMMMMMMMMMMMMMMMMMWd.     · Signed in      harbor over ssh            │
+│   160 GB free          ││   'XMMMMMMMMMMMMMMMMMMMMMMMMMMk    · Trash          empty                    e │
+│                        ││    'XMMMMMMMMMMMMMMMMMMMMMMMMK.    · Last restart   19 days ago                │
+│   Nix                  ││      kMMMMMMMMMMMMMMMMMMMMMMd                                                  │
+│   gen 278 · 2 h ago    ││       ;KMMMMMMMWXXWMMMMMMMk.                                                   │
+│                        ││         "cooc*"    "*coo'"                                                     │
+│                        ││                                                                                │
+│                        ││                                                                                │
+╰────────────────────────╯╰────────────────────────────────────────────────────────────────────────────────╯
+
+ a keep awake  n do not disturb  e empty trash  j/k sections  esc close

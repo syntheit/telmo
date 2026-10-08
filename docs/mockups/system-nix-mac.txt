@@ -1,23 +1,27 @@
 # System · Nix · mac
- System                                                                swift · up 19 days
-╭─ swift ────────────────╮╭─ Nix ──────────────────────────────────────────────── ~/nix ─╮
-│   About                ││   Generation   Built          Contents                       │
-│   macOS 27.0           ││   278          2 hours ago    nixpkgs 26.11.4cff07d current  │
-│                        ││ ▌ 277          yesterday      nixpkgs 26.11.4cff07d          │
-│   Power                ││   276          2 days ago     nixpkgs 26.11.91be2a0          │
-│   sleep · restart      ││   275          4 days ago     nixpkgs 26.11.91be2a0          │
-│                        ││                                                              │
-│   Keep awake        ○  ││   Inputs                                                     │
-│   off                  ││   nixpkgs        21 days old                                 │
-│                        ││   home-manager   21 days old                                 │
-│   Apps                 ││   telmo          today                                       │
-│   12 open              ││                                                              │
-│                        ││                                                              │
-│ ▌ Nix                  ││                                                              │
-│   gen 278 · 2 h ago    ││                                                              │
-│                        ││                                                              │
-│                        ││                                                              │
-│                        ││                                                              │
-╰────────────────────────╯╰──────────────────────────────────────────────────────────────╯
+ System                                                                                  swift · up 19 days
 
- u rebuild  U update + rebuild  tab sections  esc close
+╭─ swift ────────────────╮╭─ Nix ────────────────────────────────────────────────────────────────── ~/nix ─╮
+│   Overview          ●  ││   Generation   Built          Contents                                         │
+│   mic in use           ││   278          2 hours ago    nixpkgs 4cff07d                         current  │
+│                        ││ ▌ 277          yesterday      nixpkgs 4cff07d                                  │
+│   Power                ││   276          2 days ago     nixpkgs 91be2a0                                  │
+│   sleep · restart      ││   275          4 days ago     nixpkgs 91be2a0                                  │
+│                        ││                                                                                │
+│   Keep awake        ○  ││   Inputs                                                                       │
+│   off                  ││   nixpkgs        21 days old                                                   │
+│                        ││   home-manager   21 days old                                                   │
+│   Force quit        ●  ││   telmo          today                                                         │
+│   1 not responding     ││                                                                                │
+│                        ││                                                                                │
+│   Storage              ││                                                                                │
+│   160 GB free          ││                                                                                │
+│                        ││                                                                                │
+│ ▌ Nix                  ││                                                                                │
+│   gen 278 · 2 h ago    ││                                                                                │
+│                        ││                                                                                │
+│                        ││                                                                                │
+│                        ││                                                                                │
+╰────────────────────────╯╰────────────────────────────────────────────────────────────────────────────────╯
+
+ u rebuild  U update + rebuild  tab panel  esc close

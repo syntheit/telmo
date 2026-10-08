@@ -1,0 +1,27 @@
+# System · Force quit · mac
+ System                                                                                  swift · up 19 days
+
+╭─ swift ────────────────╮╭─ Force quit ─────────────────────────────────────────────────────── by memory ─╮
+│   Overview          ●  ││   App                      Memory       CPU                                    │
+│   mic in use           ││                                                                                │
+│                        ││ ▌ Telegram                 380 MB        0%     not responding                 │
+│   Power                ││   Zen                      1.9 GB       12%                                    │
+│   sleep · restart      ││   Spotify                  640 MB        3%                                    │
+│                        ││   Ghostty                  410 MB        1%                                    │
+│   Keep awake        ○  ││   OBS                      220 MB        4%     recording                      │
+│   off                  ││   Raycast                  190 MB        0%                                    │
+│                        ││   Finder                   120 MB        0%                                    │
+│ ▌ Force quit        ●  ││   Preview                   90 MB        0%                                    │
+│   1 not responding     ││                                                                                │
+│                        ││                                                                                │
+│   Storage              ││   Not responding goes to the top. Apps only; b adds background processes.      │
+│   160 GB free          ││                                                                                │
+│                        ││                                                                                │
+│   Nix                  ││                                                                                │
+│   gen 278 · 2 h ago    ││                                                                                │
+│                        ││                                                                                │
+│                        ││                                                                                │
+│                        ││                                                                                │
+╰────────────────────────╯╰────────────────────────────────────────────────────────────────────────────────╯
+
+ ↵ quit  K force quit  / search  b background  tab panel  esc close

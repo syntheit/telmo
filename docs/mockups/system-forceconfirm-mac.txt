@@ -1,0 +1,27 @@
+# System · Force quit ask · mac
+ System                                                                                  swift · up 19 days
+
+╭─ swift ────────────────╮╭─ Force quit ─────────────────────────────────────────────────────── by memory ─╮
+│   Overview          ●  ││   App                      Memory       CPU                                    │
+│   mic in use           ││                                                                                │
+│                        ││ ▌ Telegram                 380 MB        0%     not responding                 │
+│   Power                ││   Zen                      1.9 GB       12%                                    │
+│   sleep · restart      ││ ╭─ Force quit Telegram? ───────────────────────────╮                           │
+│                        ││ │                                                  │                           │
+│   Keep awake        ○  ││ │   Telegram hasn't responded for 40 seconds.      │rding                      │
+│   off                  ││ │   Unsaved changes in it are lost.                │                           │
+│                        ││ │                                                  │                           │
+│ ▌ Force quit        ●  ││ │   ↵ force quit  w wait  esc cancel               │                           │
+│   1 not responding     ││ │                                                  │                           │
+│                        ││ ╰──────────────────────────────────────────────────╯                           │
+│   Storage              ││   Not responding goes to the top. Apps only; b adds background processes.      │
+│   160 GB free          ││                                                                                │
+│                        ││                                                                                │
+│   Nix                  ││                                                                                │
+│   gen 278 · 2 h ago    ││                                                                                │
+│                        ││                                                                                │
+│                        ││                                                                                │
+│                        ││                                                                                │
+╰────────────────────────╯╰────────────────────────────────────────────────────────────────────────────────╯
+
+ ↵ quit  K force quit  / search  b background  tab panel  esc close

@@ -1,23 +1,27 @@
 # System · Power · mac
- System                                                                swift · up 19 days
-╭─ swift ────────────────╮╭─ Power ──────────────────────────────────────────────────────╮
-│   About                ││                                                              │
-│   macOS 27.0           ││ ▌ Lock screen                                             l  │
-│                        ││   Sleep                                                   s  │
-│ ▌ Power                ││   Turn off displays                                       d  │
-│   sleep · restart      ││   Restart…                                                r  │
-│                        ││   Shut down…                                              p  │
-│   Keep awake        ○  ││   Log out…                                                o  │
-│   off                  ││                                                              │
-│                        ││                                                              │
-│   Apps                 ││   Last restart 19 days ago. Last sleep today at 08:12.       │
-│   12 open              ││                                                              │
-│                        ││                                                              │
-│   Nix                  ││                                                              │
-│   gen 278 · 2 h ago    ││                                                              │
-│                        ││                                                              │
-│                        ││                                                              │
-│                        ││                                                              │
-╰────────────────────────╯╰──────────────────────────────────────────────────────────────╯
+ System                                                                                  swift · up 19 days
 
- ↵ do it  l s d r p o shortcuts  tab sections  esc close
+╭─ swift ────────────────╮╭─ Power ────────────────────────────────────────────────────────────────────────╮
+│   Overview          ●  ││                                                                                │
+│   mic in use           ││ ▌ Lock screen                                                               l  │
+│                        ││   Sleep                                                                     s  │
+│ ▌ Power                ││   Turn off displays                                                         d  │
+│   sleep · restart      ││   Restart…                                                                  r  │
+│                        ││   Shut down…                                                                p  │
+│   Keep awake        ○  ││   Log out…                                                                  o  │
+│   off                  ││                                                                                │
+│                        ││                                                                                │
+│   Force quit        ●  ││   Last restart 19 days ago. Last sleep today at 08:12.                         │
+│   1 not responding     ││                                                                                │
+│                        ││                                                                                │
+│   Storage              ││                                                                                │
+│   160 GB free          ││                                                                                │
+│                        ││                                                                                │
+│   Nix                  ││                                                                                │
+│   gen 278 · 2 h ago    ││                                                                                │
+│                        ││                                                                                │
+│                        ││                                                                                │
+│                        ││                                                                                │
+╰────────────────────────╯╰────────────────────────────────────────────────────────────────────────────────╯
+
+ ↵ do it  l s d r p o work from any section  tab panel  esc close

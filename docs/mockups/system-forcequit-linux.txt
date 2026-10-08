@@ -1,0 +1,27 @@
+# System · Force quit · linux
+ System                                                                                  mantle · up 9 days
+
+╭─ mantle ───────────────╮╭─ Force quit ─────────────────────────────────────────────────────── by memory ─╮
+│   Overview          ●  ││   App                      Memory       CPU                                    │
+│   mic in use           ││                                                                                │
+│                        ││ ▌ zen                      2.3 GB        9%     3 windows                      │
+│   Power             ●  ││   spotify                  710 MB        2%                                    │
+│   restart due          ││   discord                  520 MB        1%     using mic                      │
+│                        ││   ghostty                  380 MB        1%     4 windows                      │
+│   Keep awake        ○  ││   steam                    350 MB        0%                                    │
+│   off                  ││   nautilus                 140 MB        0%                                    │
+│                        ││   copyq                     60 MB        0%                                    │
+│ ▌ Force quit           ││                                                                                │
+│   9 apps               ││                                                                                │
+│                        ││   One row per app, all its windows together. b adds background processes.      │
+│   Storage              ││                                                                                │
+│   218 GB free          ││                                                                                │
+│                        ││                                                                                │
+│   Nix                  ││                                                                                │
+│   gen 500 · 2 h ago    ││                                                                                │
+│                        ││                                                                                │
+│                        ││                                                                                │
+│                        ││                                                                                │
+╰────────────────────────╯╰────────────────────────────────────────────────────────────────────────────────╯
+
+ ↵ quit  K force quit  / search  b background  tab panel  esc close

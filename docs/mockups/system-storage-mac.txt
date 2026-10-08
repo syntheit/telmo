@@ -1,0 +1,27 @@
+# System · Storage · mac
+ System                                                                                  swift · up 19 days
+
+╭─ swift ────────────────╮╭─ Storage ──────────────────────────────────────────────── 160 GB free of 1 TB ─╮
+│   Overview          ●  ││                                                                                │
+│   mic in use           ││ ▌ Nix store      114 GB   ━━━━━━━━━━━━━━━━━━━━   old generations               │
+│                        ││                                                                                │
+│   Power                ││   Caches          20 GB   ━━━━────────────────   ~/Library/Caches              │
+│   sleep · restart      ││                                                                                │
+│                        ││   Downloads      8.4 GB   ━───────────────────   files older than 30 days      │
+│   Keep awake        ○  ││                                                                                │
+│   off                  ││   Homebrew       2.1 GB   ────────────────────   old downloads                 │
+│                        ││                                                                                │
+│   Force quit        ●  ││   Trash           empty   ────────────────────                                 │
+│   1 not responding     ││                                                                                │
+│                        ││                                                                                │
+│ ▌ Storage              ││   Sizes are measured in the background and cached.                             │
+│   160 GB free          ││   The Nix store takes about a minute to measure.                               │
+│                        ││   Every cleanup asks first and says how much it frees.                         │
+│   Nix                  ││                                                                                │
+│   gen 278 · 2 h ago    ││                                                                                │
+│                        ││                                                                                │
+│                        ││                                                                                │
+│                        ││                                                                                │
+╰────────────────────────╯╰────────────────────────────────────────────────────────────────────────────────╯
+
+ ↵ clean up  o open folder  r measure again  tab panel  esc close
