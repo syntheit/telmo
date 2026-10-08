@@ -37,8 +37,9 @@ impl Fireflies {
     }
 
     fn wander(&mut self, dt: f32, speed: f32, w: f32, h: f32) {
-        // The random kicks are scaled so the walk looks the same at any frame rate.
-        let kick = dt * (dt * 60.0).sqrt();
+        // A random walk's spread grows with the square root of time, so kicks
+        // scale by sqrt(dt); at 60 fps this equals the mockup's per-frame kick.
+        let kick = (dt / 60.0).sqrt();
         let drag = (-dt * 0.8).exp();
         for fl in &mut self.flies {
             fl.vx = (fl.vx + self.rng.range(-6.0, 6.0) * kick) * drag;

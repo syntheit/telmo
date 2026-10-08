@@ -186,6 +186,37 @@ mod tests {
         (canvas, logo)
     }
 
+    /// A popup squeezed to almost nothing must not panic. (The app skips
+    /// zero-sized canvases, but effects are still built for them.)
+    #[test]
+    fn effects_survive_tiny_canvases() {
+        for name in NAMES {
+            for kind in KINDS {
+                for (w, h) in [(0, 0), (0, 5), (5, 0)] {
+                    let logo = Logo::place(kind, w, h);
+                    make_seeded(name, &logo, 3);
+                }
+                for (w, h) in [(1, 1), (2, 1), (5, 2), (12, 4), (40, 12)] {
+                    let mut logo = Logo::place(kind, w, h);
+                    let mut canvas = Canvas::new(w, h);
+                    let mut effect = make_seeded(name, &logo, 3);
+                    for i in 0..120 {
+                        canvas.clear();
+                        let mut f = Frame {
+                            canvas: &mut canvas,
+                            logo: &mut logo,
+                            t: i as f32 / 60.0,
+                            dt: 1.0 / 60.0,
+                            busy: i >= 60,
+                            finished: i == 90,
+                        };
+                        effect.frame(&mut f);
+                    }
+                }
+            }
+        }
+    }
+
     #[test]
     fn every_effect_runs_and_draws_the_logo() {
         for name in NAMES {

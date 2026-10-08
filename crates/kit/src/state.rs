@@ -26,7 +26,8 @@ pub fn save<T: Serialize>(name: &str, value: &T) -> io::Result<()> {
         std::fs::create_dir_all(dir)?;
     }
     let bytes = serde_json::to_vec(value).map_err(io::Error::other)?;
-    let temp = path.with_extension("json.tmp");
+    // Per-process name: two popups saving at once must not share a temp file.
+    let temp = path.with_extension(format!("json.{}.tmp", std::process::id()));
     std::fs::write(&temp, bytes)?;
     std::fs::rename(&temp, &path)
 }

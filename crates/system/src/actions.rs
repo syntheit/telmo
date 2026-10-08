@@ -102,12 +102,15 @@ fn lock_screen() -> Result<(), String> {
         }
         let symbol = libc::dlsym(handle, c"SACLockScreenImmediate".as_ptr());
         if symbol.is_null() {
+            libc::dlclose(handle);
             return Err(
                 "this macOS version has no lock call. Use the Lock Screen menu item.".into(),
             );
         }
         let lock: extern "C" fn() -> i32 = std::mem::transmute::<*mut c_void, _>(symbol);
-        match lock() {
+        let code = lock();
+        libc::dlclose(handle);
+        match code {
             0 => Ok(()),
             code => Err(format!(
                 "macOS refused (error {code}). Try Control-Command-Q."

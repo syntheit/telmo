@@ -144,6 +144,10 @@ impl App {
         self.now += dt;
         self.effect_t += dt;
         self.canvas.clear();
+        // A terminal with no room for the effect (e.g. one row tall) draws nothing.
+        if self.canvas.width == 0 || self.canvas.height == 0 {
+            return;
+        }
         let mut frame = Frame {
             canvas: &mut self.canvas,
             logo: &mut self.logo,
