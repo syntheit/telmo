@@ -57,7 +57,7 @@ code { color: #7dcfff; }
 <div class="wrap">
   <div>
     <h1>telmo System: main screen concepts</h1>
-    <div class="sub">Ten effects, live at the real popup size (90&times;22 cells). In the popup, <kbd>←</kbd> <kbd>→</kbd> (or clicking the logo) cycles them; this page does the same. The one you leave on is remembered: reload the page and it comes back. <kbd>o</kbd> switches OS.</div>
+    <div class="sub">Fifteen effects, live at the real popup size (90&times;22 cells). In the popup, <kbd>←</kbd> <kbd>→</kbd> (or clicking the logo) cycles them; this page does the same. The one you leave on is remembered: reload the page and it comes back. <kbd>o</kbd> switches OS.</div>
   </div>
 
   <div class="controls">
@@ -174,7 +174,7 @@ function layout(os) {
   });
   return { cells, mask, lw, lh, ox, oy };
 }
-function drawLogo(s, L, colorOf = c => PAL[c.col]) { for (const c of L.cells) s.set(c.x, c.y, c.c, colorOf(c), true); }
+function drawLogo(s, L, colorOf = c => PAL[c.col]) { for (const c of L.cells) s.set(c.x + (L.offX || 0), c.y + (L.offY || 0), c.c, colorOf(c), true); }
 
 // footer: keys, or rebuild progress
 
@@ -204,7 +204,7 @@ function footer(s, os, t, rb) {
 // After switching (or opening), the logo decrypts in and a row of dots shows where you are in the cycle.
 function transition(s, L, t) {
   const e = t - switchedAt;
-  L.cells.forEach((c, i) => { if (e < L.reveal[i]) s.set(c.x, c.y, pick(GLYPHS), e > L.reveal[i] - 0.15 ? PAL[c.col] : shade(PAL.b, 0.5)); });
+  L.cells.forEach((c, i) => { if (e < L.reveal[i]) s.set(c.x + (L.offX || 0), c.y + (L.offY || 0), pick(GLYPHS), e > L.reveal[i] - 0.15 ? PAL[c.col] : shade(PAL.b, 0.5)); });
   if (e < 1.6) {
     const fade = e < 1.0 ? 1 : 1 - (e - 1.0) / 0.6;
     const dots = EFFECTS.map((_, i) => (i === ci ? "●" : "○")).join(" ");
@@ -379,7 +379,9 @@ const EFFECTS = [
     frame(s, L, st, t, dt, os, rb) {
       const HH = H - 1, rate = building(rb) ? 70 : 28;
       const blocked = (x, y) => y >= HH || L.mask[y * W + x] || st.settled[y * W + x];
-      for (let n = 0; n < Math.floor(rnd(0, rate * dt * 2)); n++) st.flakes.push({ x: rnd(0, W), y: -1, v: rnd(2.5, 5), drift: rnd(0.6, 1.6), ph: rnd(0, 6), big: Math.random() < 0.25 });
+      // Accumulate fractional flakes: at 60 fps a single frame asks for less than one.
+      st.due = (st.due || 0) + rate * dt;
+      for (; st.due >= 1; st.due--) st.flakes.push({ x: rnd(0, W), y: -1, v: rnd(2.5, 5), drift: rnd(0.6, 1.6), ph: rnd(0, 6), big: Math.random() < 0.25 });
       for (const f of st.flakes) {
         const ny = f.y + f.v * dt, nx = (f.x + Math.sin(t * f.drift + f.ph) * dt * 2 + W) % W;
         const cx = Math.floor(nx), cy = Math.floor(ny);
@@ -388,12 +390,13 @@ const EFFECTS = [
           const side = [cx - 1, cx + 1].sort(() => Math.random() - 0.5).find(sx => sx >= 0 && sx < W && !blocked(sx, cy) && !blocked(sx, cy - 1));
           if (side !== undefined) { f.x = side + 0.5; f.y = cy - 0.5; continue; }
           const y = cy - 1;
-          if (y >= 0 && !blocked(cx, y)) { st.settled[y * W + cx] = 1; st.count++; }
+          const deep = st.settled[(y + 1) * W + cx] && st.settled[Math.min(HH - 1, y + 2) * W + cx];
+          if (y >= 0 && !blocked(cx, y) && !deep) { st.settled[y * W + cx] = 1; st.count++; }
           f.dead = true;
         } else { f.x = nx; f.y = ny; }
       }
       st.flakes = st.flakes.filter(f => !f.dead && f.y < HH);
-      if (st.count > 520) st.melt = 1;
+      if (st.count > 300) st.melt = 1;
       if (st.melt) { for (let i = 0; i < st.settled.length; i++) if (st.settled[i] && Math.random() < dt * 0.8) { st.settled[i] = 0; st.count--; } if (st.count < 20) st.melt = 0; }
       const flakeCol = os === "mac" ? WHITE : "#d7ecff";
       for (let i = 0; i < st.settled.length; i++) if (st.settled[i]) {
@@ -435,37 +438,39 @@ const EFFECTS = [
   },
   {
     key: "pipes", name: "Pipes", tag: "animated · new",
-    desc: "The classic pipes screensaver, in rounded box-drawing lines. Four pipes wander around the logo, turning at random and never crossing it. When the screen fills up, it clears and starts over.",
-    build: "Four heads, 25 steps a second, drawn into a persistent grid. Nearly free.",
-    init(st, L) { st.grid = new Array(W * H).fill(null); st.pipes = Array.from({ length: 4 }, (_, i) => this.spawn(L, i)); st.acc = 0; st.filled = 0; },
+    desc: "The classic pipes screensaver in rounded box-drawing lines, but each pipe is a snake: it fades out from its tail as it grows, so the screen never fills up and never clears all at once. Four pipes wander around the logo and never cross it.",
+    build: "Four heads with 120-cell tails, 25 steps a second. Nearly free.",
+    init(st, L) { st.pipes = Array.from({ length: 4 }, (_, i) => this.spawn(L, i)); st.ghosts = []; st.acc = 0; },
     spawn(L, i) {
-      for (;;) { const x = Math.floor(rnd(0, W)), y = Math.floor(rnd(0, H - 1)); if (!L.mask[y * W + x]) return { x, y, d: Math.floor(rnd(0, 4)), c: i }; }
+      for (;;) { const x = Math.floor(rnd(0, W)), y = Math.floor(rnd(0, H - 1)); if (!L.mask[y * W + x]) return { x, y, d: Math.floor(rnd(0, 4)), c: i, trail: [] }; }
     },
     frame(s, L, st, t, dt, os, rb) {
       const cols = os === "mac" ? [PAL.g, PAL.o, PAL.m, PAL.b] : [PAL.b, PAL.c, PAL.m, PAL.f];
-      const DX = [1, 0, -1, 0], DY = [0, 1, 0, -1];
+      const DX = [1, 0, -1, 0], DY = [0, 1, 0, -1], MAX = 120;
       // corner glyph for coming in with direction a and leaving with direction b
       const corner = (a, b) => ({ "0,1": "╮", "0,3": "╯", "2,1": "╭", "2,3": "╰", "1,0": "╰", "1,2": "╯", "3,0": "╭", "3,2": "╮" })[a + "," + b];
+      const bad = (x, y) => x < 0 || x >= W || y < 0 || y >= H - 1 || L.mask[y * W + x];
       st.acc += dt * (building(rb) ? 2.5 : 1);
       while (st.acc > 1 / 25) {
         st.acc -= 1 / 25;
-        for (const p of st.pipes) {
+        st.pipes.forEach((p, n) => {
           let d = p.d;
           if (Math.random() < 0.12) d = (d + (Math.random() < 0.5 ? 1 : 3)) % 4;
           let nx = p.x + DX[d], ny = p.y + DY[d];
-          const bad = (x, y) => x < 0 || x >= W || y < 0 || y >= H - 1 || L.mask[y * W + x];
           if (bad(nx, ny)) { d = (p.d + (Math.random() < 0.5 ? 1 : 3)) % 4; nx = p.x + DX[d]; ny = p.y + DY[d]; }
           if (bad(nx, ny)) { d = (d + 2) % 4; nx = p.x + DX[d]; ny = p.y + DY[d]; }
-          if (bad(nx, ny)) { Object.assign(p, this.spawn(L, p.c)); continue; }
-          const i = p.y * W + p.x;
-          if (!st.grid[i]) st.filled++;
-          st.grid[i] = { ch: d % 2 === p.d % 2 ? (d % 2 ? "│" : "─") : corner(p.d, d), c: p.c };
+          if (bad(nx, ny)) { st.ghosts.push(p.trail); st.pipes[n] = this.spawn(L, p.c); return; }
+          p.trail.push({ x: p.x, y: p.y, ch: d % 2 === p.d % 2 ? (d % 2 ? "│" : "─") : corner(p.d, d) });
+          if (p.trail.length > MAX) p.trail.shift();
           p.x = nx; p.y = ny; p.d = d;
-        }
-        if (st.filled > 650) { st.grid.fill(null); st.filled = 0; }
+        });
+        // A pipe that got stuck and respawned keeps fading out from its tail.
+        st.ghosts.forEach(g => g.shift());
+        st.ghosts = st.ghosts.filter(g => g.length);
       }
-      st.grid.forEach((g, i) => { if (g) s.set(i % W, Math.floor(i / W), g.ch, shade(cols[g.c], 0.8)); });
-      for (const p of st.pipes) s.set(p.x, p.y, "●", cols[p.c], true);
+      const paint = (trail, col) => trail.forEach((c, i) => { const k = (i + 1) / MAX; s.set(c.x, c.y, c.ch, shade(col, 0.12 + 0.78 * Math.pow(k, 0.8))); });
+      st.ghosts.forEach((g, i) => paint(g, cols[i % cols.length]));
+      for (const p of st.pipes) { paint(p.trail, cols[p.c]); s.set(p.x, p.y, "●", cols[p.c], true); }
       drawLogo(s, L);
     },
   },
@@ -485,6 +490,125 @@ const EFFECTS = [
         for (const b of pos) { const dx = (x - b.x) / 2, dy = y - b.y, v = (b.r * b.r) / (dx * dx * 4 + dy * dy * 4 + 1) ; f += v; if (v > best) { best = v; col = b.col; } }
         const ch = chars.find(([lim]) => f < lim)[1];
         if (ch !== " ") s.set(x, y, ch, shade(col, Math.min(1, 0.35 + f / 5)));
+      }
+      drawLogo(s, L);
+    },
+  },
+  {
+    key: "dvd", name: "DVD", tag: "animated · new",
+    desc: "The logo bounces around the popup like the old DVD screensaver, changing color at every wall. Hit a corner exactly and it celebrates.",
+    build: "Moves the logo one cell at a time, 30 fps. Nearly free.",
+    init(st) { st.x = 0; st.y = 0; st.vx = 9; st.vy = 4.2; st.hue = 0; st.party = -9; st.sparks = []; },
+    frame(s, L, st, t, dt, os, rb) {
+      const sp = building(rb) ? 2 : 1;
+      const minX = -L.ox, maxX = W - L.lw - L.ox, minY = -L.oy, maxY = H - 1 - L.lh - L.oy;
+      st.x += st.vx * dt * sp; st.y += st.vy * dt * sp;
+      let hits = 0;
+      if (st.x < minX || st.x > maxX) { st.vx *= -1; st.x = Math.max(minX, Math.min(maxX, st.x)); hits++; }
+      if (st.y < minY || st.y > maxY) { st.vy *= -1; st.y = Math.max(minY, Math.min(maxY, st.y)); hits++; }
+      if (hits) st.hue++;
+      if (hits === 2) {
+        st.party = t;
+        const cx = L.ox + st.x + L.lw / 2, cy = L.oy + st.y + L.lh / 2;
+        for (let k = 0; k < 70; k++) { const a = rnd(0, Math.PI * 2), v = rnd(8, 20); st.sparks.push({ x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.5, age: 0, col: pick(Object.values(PAL)) }); }
+      }
+      L.offX = Math.round(st.x); L.offY = Math.round(st.y);
+      for (const p of st.sparks) { p.age += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 6 * dt; }
+      st.sparks = st.sparks.filter(p => p.age < 1.6);
+      for (const p of st.sparks) { const x = Math.round(p.x), y = Math.round(p.y); if (y >= 0 && y < H - 1) s.set(x, y, p.age < 0.6 ? "*" : "·", shade(p.col, 1 - p.age / 1.6)); }
+      const cols = os === "mac" ? RAINBOW.map(k => PAL[k]) : [PAL.b, PAL.c, PAL.m, PAL.g];
+      const party = t - st.party < 1.2;
+      drawLogo(s, L, c => party ? PAL[pick(RAINBOW)] : cols[st.hue % cols.length]);
+      if (party) { const msg = "corner!"; s.text(Math.floor((W - msg.length) / 2), H - 2, msg, PAL.y, true); }
+    },
+  },
+  {
+    key: "tunnel", name: "Tunnel", tag: "animated · new",
+    desc: "The demoscene tunnel: a twisting checkerboard tube rushing toward you, with the logo sitting over the far end. It rushes faster during a rebuild.",
+    build: "One depth and angle lookup per cell, 30 fps. Light.",
+    init(st) { st.tt = 0; },
+    frame(s, L, st, t, dt, os, rb) {
+      st.tt += dt * (building(rb) ? 2.4 : 1);
+      const T = st.tt, cx = L.ox + L.lw / 2, cy = L.oy + L.lh / 2;
+      const bands = os === "mac" ? RAINBOW.map(k => PAL[k]) : [PAL.b, PAL.c];
+      for (let y = 0; y < H - 1; y++) for (let x = 0; x < W; x++) {
+        if (L.mask[y * W + x]) continue;
+        const dx = x - cx, dy = (y - cy) * 2.1, r = Math.hypot(dx, dy) + 0.5;
+        const depth = 48 / r + T * 2.2, ang = (Math.atan2(dy, dx) / Math.PI) * 6 + T * 0.35 + 0.8 * Math.sin(depth * 0.3);
+        const on = (Math.floor(depth) + Math.floor(ang)) & 1;
+        const light = Math.min(1, r / 34);
+        const col = bands[Math.floor(depth) % bands.length];
+        if (on) s.set(x, y, light > 0.55 ? "▒" : light > 0.3 ? "░" : "·", shade(col, 0.15 + 0.75 * light));
+      }
+      drawLogo(s, L);
+    },
+  },
+  {
+    key: "aurora", name: "Aurora", tag: "animated · new",
+    desc: "Northern lights: slow curtains of light ripple across the sky above and behind the logo, under a few faint stars. Green and violet on swift, cyan and blue on mantle.",
+    build: "A few sine waves per column, 20 fps. Light.",
+    init(st) { st.tt = 0; st.stars = Array.from({ length: 40 }, () => ({ x: Math.floor(rnd(0, W)), y: Math.floor(rnd(0, H - 1)), ph: rnd(0, 6) })); },
+    frame(s, L, st, t, dt, os, rb) {
+      st.tt += dt * (building(rb) ? 2.2 : 1);
+      const T = st.tt;
+      for (const p of st.stars) if (!L.mask[p.y * W + p.x]) s.set(p.x, p.y, "·", shade(WHITE, 0.25 + 0.2 * Math.sin(t * 1.5 + p.ph)));
+      const layers = os === "mac" ? [[PAL.g, 0], [PAL.m, 2.4]] : [[PAL.c, 0], [PAL.b, 2.4]];
+      for (const [col, off] of layers) for (let x = 0; x < W; x++) {
+        const top = 2 + off + 2.6 * Math.sin(x * 0.06 + T * 0.35 + off) + 1.6 * Math.sin(x * 0.15 - T * 0.6 + off * 2);
+        const len = 7 + 3 * Math.sin(x * 0.045 + T * 0.25 + off);
+        const rays = 0.55 + 0.45 * Math.sin(x * 1.3 + 3 * Math.sin(x * 0.2 + T * 0.8) + off);
+        const shimmer = rays * (0.6 + 0.4 * Math.sin(x * 0.11 - T * 0.9 + off));
+        for (let y = Math.max(0, Math.floor(top)); y < Math.min(H - 1, top + len); y++) {
+          if (L.mask[y * W + x]) continue;
+          const k = shimmer * Math.pow(1 - (y - top) / len, 1.4) * (y - top < 1 ? (y - top) : 1);
+          if (k < 0.08) continue;
+          s.set(x, y, k > 0.65 ? "▓" : k > 0.4 ? "▒" : k > 0.2 ? "░" : "·", shade(col, 0.25 + 0.75 * k));
+        }
+      }
+      drawLogo(s, L);
+    },
+  },
+  {
+    key: "fireflies", name: "Fireflies", tag: "animated · new",
+    desc: "A summer night: fireflies wander slowly around the logo, each glowing up and fading on its own rhythm. The calmest one here.",
+    build: "Thirty points with a soft glow, 30 fps. Nearly free.",
+    init(st) { st.flies = Array.from({ length: 30 }, () => ({ x: rnd(0, W), y: rnd(0, H - 1), vx: 0, vy: 0, w: rnd(0.4, 1.1), ph: rnd(0, 6) })); },
+    frame(s, L, st, t, dt, os, rb) {
+      const sp = building(rb) ? 2 : 1, col = os === "mac" ? "#d9f99d" : PAL.c, glow = os === "mac" ? PAL.g : PAL.b;
+      for (const f of st.flies) {
+        f.vx = (f.vx + rnd(-6, 6) * dt) * Math.exp(-dt * 0.8); f.vy = (f.vy + rnd(-3, 3) * dt) * Math.exp(-dt * 0.8);
+        f.x = (f.x + f.vx * dt * 3 * sp + W) % W; f.y = Math.max(0, Math.min(H - 2, f.y + f.vy * dt * 3 * sp));
+        const k = Math.pow(Math.max(0, Math.sin(t * f.w * sp + f.ph)), 3);
+        if (k < 0.05) continue;
+        const x = Math.round(f.x), y = Math.round(f.y);
+        const put = (xx, yy, ch, c) => { if (xx >= 0 && xx < W && yy >= 0 && yy < H - 1 && !L.mask[yy * W + xx]) s.set(xx, yy, ch, c); };
+        if (k > 0.5) for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-2, 0], [2, 0]]) put(x + dx, y + dy, "·", shade(glow, 0.5 * k / (Math.abs(dx) + Math.abs(dy))));
+        put(x, y, k > 0.6 ? "●" : k > 0.25 ? "•" : "·", shade(col, 0.3 + 0.7 * k));
+      }
+      drawLogo(s, L);
+    },
+  },
+  {
+    key: "galaxy", name: "Galaxy", tag: "animated · new",
+    desc: "A spiral galaxy turns slowly behind the logo, its inner stars moving a little faster than the outer ones. The logo sits where the core would be.",
+    build: "About 900 stars on a tilted disk, 30 fps. Light.",
+    init(st) {
+      st.stars = Array.from({ length: 900 }, () => {
+        const arm = Math.floor(rnd(0, 2)), r = Math.pow(Math.random(), 0.8) * 30 + 2;
+        return { r, a: arm * Math.PI + r * 0.17 + rnd(-0.3, 0.3) * (1 + 4 / r), b: Math.random() };
+      });
+      st.tt = 0;
+    },
+    frame(s, L, st, t, dt, os, rb) {
+      st.tt += dt * (building(rb) ? 3 : 1);
+      const cx = L.ox + L.lw / 2, cy = L.oy + L.lh / 2;
+      const cols = os === "mac" ? [PAL.m, PAL.b, "#f5d0fe"] : [PAL.b, PAL.c, "#e6f6ff"];
+      for (const p of st.stars) {
+        const a = p.a + st.tt * (0.22 + 0.25 / Math.sqrt(p.r));
+        const x = Math.round(cx + Math.cos(a) * p.r * 1.7), y = Math.round(cy + Math.sin(a) * p.r * 0.45);
+        if (x < 0 || x >= W || y < 0 || y >= H - 1 || L.mask[y * W + x]) continue;
+        const k = Math.max(0.2, 1 - p.r / 34) * (0.5 + 0.5 * p.b);
+        s.set(x, y, k > 0.7 ? "*" : k > 0.45 ? "•" : "·", shade(cols[p.b > 0.85 ? 2 : p.r < 18 ? 0 : 1], 0.3 + 0.7 * k));
       }
       drawLogo(s, L);
     },
