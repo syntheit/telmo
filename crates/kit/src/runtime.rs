@@ -1,7 +1,8 @@
 //! The event loop shared by every module.
 //!
 //! The UI redraws only when something happens: a key, a backend event, or a
-//! 100 ms tick while the app says it is animating. An idle popup costs nothing.
+//! tick (100 ms unless the app asks for another `frame_interval`) while the
+//! app says it is animating. An idle popup costs nothing.
 
 use crossterm::event::{
     DisableMouseCapture, EnableMouseCapture, Event, EventStream, KeyCode, KeyEventKind,
@@ -36,9 +37,13 @@ pub trait App {
         Flow::Continue
     }
 
-    /// Called every 100 ms while `animating` returns true.
+    /// Called every `frame_interval` while `animating` returns true.
     fn tick(&mut self) -> Flow {
         Flow::Continue
+    }
+    /// Time between ticks; read once when the loop starts.
+    fn frame_interval(&self) -> Duration {
+        Duration::from_millis(100)
     }
     fn animating(&self) -> bool {
         false
@@ -60,7 +65,7 @@ pub async fn run<A: App>(mut app: A, mut events: UnboundedReceiver<A::Event>) ->
     execute!(io::stdout(), EnableMouseCapture)?;
 
     let mut keys = EventStream::new();
-    let mut tick = tokio::time::interval(Duration::from_millis(100));
+    let mut tick = tokio::time::interval(app.frame_interval());
     let result = async {
         terminal.draw(|f| app.draw(f))?;
         loop {

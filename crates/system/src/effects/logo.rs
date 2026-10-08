@@ -24,7 +24,11 @@ impl LogoKind {
 
     /// The logo of the OS we run on.
     pub fn native() -> LogoKind {
-        if cfg!(target_os = "macos") { LogoKind::Apple } else { LogoKind::Nix }
+        if cfg!(target_os = "macos") {
+            LogoKind::Apple
+        } else {
+            LogoKind::Nix
+        }
     }
 }
 
@@ -72,8 +76,14 @@ impl Logo {
     }
 
     pub fn masked(&self, x: i32, y: i32) -> bool {
-        x >= 0 && y >= 0 && x < self.canvas_width as i32
-            && self.mask.get(y as usize * self.canvas_width as usize + x as usize).copied().unwrap_or(false)
+        x >= 0
+            && y >= 0
+            && x < self.canvas_width as i32
+            && self
+                .mask
+                .get(y as usize * self.canvas_width as usize + x as usize)
+                .copied()
+                .unwrap_or(false)
     }
 
     pub fn draw(&self, canvas: &mut Canvas) {
@@ -82,7 +92,13 @@ impl Logo {
 
     pub fn draw_with(&self, canvas: &mut Canvas, color: impl Fn(&LogoCell) -> Color) {
         for cell in &self.cells {
-            canvas.set(cell.x + self.offset.0, cell.y + self.offset.1, cell.ch, color(cell), true);
+            canvas.set(
+                cell.x + self.offset.0,
+                cell.y + self.offset.1,
+                cell.ch,
+                color(cell),
+                true,
+            );
         }
     }
 }

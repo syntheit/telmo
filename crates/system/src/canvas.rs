@@ -18,7 +18,11 @@ pub struct Canvas {
 
 impl Canvas {
     pub fn new(width: u16, height: u16) -> Canvas {
-        Canvas { width, height, cells: vec![None; width as usize * height as usize] }
+        Canvas {
+            width,
+            height,
+            cells: vec![None; width as usize * height as usize],
+        }
     }
 
     pub fn clear(&mut self) {

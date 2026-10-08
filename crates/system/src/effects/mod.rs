@@ -29,8 +29,21 @@ pub trait Effect {
 
 /// Every effect's name, in cycle order. Names are what the state file stores.
 pub const NAMES: [&str; 15] = [
-    "rain", "plasma", "glitch", "warp", "fire", "radar", "snow", "fireworks", "pipes", "lava", "dvd",
-    "tunnel", "aurora", "fireflies", "galaxy",
+    "rain",
+    "plasma",
+    "glitch",
+    "warp",
+    "fire",
+    "radar",
+    "snow",
+    "fireworks",
+    "pipes",
+    "lava",
+    "dvd",
+    "tunnel",
+    "aurora",
+    "fireflies",
+    "galaxy",
 ];
 
 /// A fresh effect by name; unknown names fall back to the first one.
@@ -55,7 +68,9 @@ pub struct Transition {
 
 impl Transition {
     pub fn new(logo: &Logo) -> Transition {
-        Transition { reveal: vec![0.0; logo.cells.len()] }
+        Transition {
+            reveal: vec![0.0; logo.cells.len()],
+        }
     }
 
     /// `t` is seconds since the switch. Drawn after the effect's frame.

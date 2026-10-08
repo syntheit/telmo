@@ -1,0 +1,26 @@
+---
+source: crates/system/src/ui.rs
+expression: "render(&app, 90, 22)"
+---
+
+
+
+
+
+                 ╭─ Keys ───────────────────────────────────────────────╮
+                 │                                                      │
+                 │  ← →     previous and next effect                    │
+                 │  space   switch between the Apple and Nix logo       │
+                 │  l       lock the screen                             │
+                 │  s       sleep                                       │
+                 │  r       restart (asks first)                        │
+                 │  p       shut down (asks first)                      │
+                 │  o       log out (asks first)                        │
+                 │  esc q   close, then quit                            │
+                 │                                                      │
+                 ╰──────────────────────────────────────────────────────╯
+
+
+
+
+ l lock  s sleep  r restart  p shut down  o log out  ? more                     ‹ rain ›

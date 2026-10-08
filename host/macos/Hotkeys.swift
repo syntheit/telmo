@@ -9,7 +9,7 @@ final class Hotkeys {
 
     private static let defaults = [
         "net": "ctrl+opt+cmd+n", "bt": "ctrl+opt+cmd+b", "sound": "ctrl+opt+cmd+m",
-        "display": "ctrl+opt+cmd+d", "power": "ctrl+opt+cmd+u",
+        "display": "ctrl+opt+cmd+d", "power": "ctrl+opt+cmd+u", "system": "ctrl+opt+cmd+x",
     ]
     private static let modifiers: [String: Int] = ["ctrl": controlKey, "opt": optionKey, "alt": optionKey, "cmd": cmdKey, "shift": shiftKey]
     private static let keyCodes: [Character: Int] = [

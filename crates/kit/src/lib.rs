@@ -7,6 +7,7 @@ pub mod hits;
 pub mod input;
 pub mod os;
 pub mod runtime;
+pub mod state;
 pub mod test;
 pub mod theme;
 pub mod widgets;

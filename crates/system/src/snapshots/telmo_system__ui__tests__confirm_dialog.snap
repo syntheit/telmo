@@ -1,0 +1,26 @@
+---
+source: crates/system/src/ui.rs
+expression: "render(&app, 90, 22)"
+---
+
+
+
+
+
+
+
+
+                      ╭─ Restart swift? ───────────────────────────╮
+                      │                                            │
+                      │  Open apps will be asked to close.         │
+                      │                                            │
+                      │  ↵ restart   esc cancel                    │
+                      ╰────────────────────────────────────────────╯
+
+
+
+
+
+
+
+ l lock  s sleep  r restart  p shut down  o log out  ? more                     ‹ rain ›

@@ -1,0 +1,26 @@
+---
+source: crates/system/src/ui.rs
+expression: "render(&app, 60, 22)"
+---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ l lock  s sleep  r restart  p shut down  ? more  ‹ rain ›
