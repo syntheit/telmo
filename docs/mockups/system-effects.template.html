@@ -1,0 +1,672 @@
+<title>telmo System Menu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: concept strip and controls, then one live popup on a dimmed desktop, then the concept's note and the rebuild plan. One dark look: it mocks a terminal. */
+:root {
+  color-scheme: dark;
+  --page: #0d0e16;
+  --panel: #141521;
+  --ink: #c9d0ee;
+  --mute: #7a81a6;
+  --line: #24273a;
+  --accent: #7aa2f7;
+  --term-bg: rgba(22, 23, 34, 0.9);
+  --ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--ink); font-family: var(--ui); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 64px; display: grid; gap: 18px; }
+h1 { font-size: 22px; font-weight: 600; margin: 0; text-wrap: balance; }
+h2 { font-size: 17px; font-weight: 600; margin: 0 0 8px; text-wrap: balance; }
+p { margin: 0 0 8px; max-width: 72ch; }
+.sub { color: var(--mute); max-width: 80ch; }
+code, kbd { font-family: var(--mono); font-size: 0.85em; }
+kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--panel); color: var(--ink); }
+code { color: #7dcfff; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.seg button, .act { font: inherit; font-size: 13.5px; color: var(--mute); background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 4px 11px; cursor: pointer; }
+.seg button[aria-pressed="true"] { color: var(--page); background: var(--accent); border-color: var(--accent); font-weight: 500; }
+.act { color: var(--ink); }
+.act:disabled { opacity: 0.4; cursor: default; }
+.seg button:focus-visible, .act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lbl { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mute); margin-right: 8px; }
+.seg small { opacity: 0.7; margin-left: 5px; font-size: 11px; }
+
+.stage-scroll { overflow-x: auto; border-radius: 14px; }
+.stage { position: relative; padding: 44px 24px; border-radius: 14px; display: grid; place-items: center; min-width: min-content;
+  background: radial-gradient(120% 90% at 15% 10%, #2b2f55 0%, transparent 55%), radial-gradient(90% 80% at 90% 100%, #3a2340 0%, transparent 60%), #151827; }
+.stage[data-os="linux"] { background: radial-gradient(120% 90% at 80% 0%, #1f3b4a 0%, transparent 55%), radial-gradient(90% 80% at 0% 100%, #2a2d4a 0%, transparent 60%), #121722; }
+.stage::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: rgba(0, 0, 0, 0.45); }
+.popup { position: relative; border-radius: 22px; background: var(--term-bg); backdrop-filter: blur(18px); box-shadow: 0 24px 70px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.06); padding: 18px 20px; }
+.term { margin: 0; font-family: var(--mono); font-size: clamp(7px, 1.12vw, 13px); line-height: 1.3; color: #c0caf5; white-space: pre; }
+.term b { font-weight: 700; }
+
+.note { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; }
+.card { min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.k { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mute); margin-bottom: 4px; }
+.card ol, .card ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.tag { display: inline-block; font-size: 11.5px; letter-spacing: 0.04em; color: var(--mute); border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; margin-left: 6px; vertical-align: 1px; }
+@media (max-width: 760px) { .note { grid-template-columns: 1fr; } .stage { padding: 24px 10px; } .popup { padding: 12px; border-radius: 16px; } }
+</style>
+
+<div class="wrap">
+  <div>
+    <h1>telmo System: main screen concepts</h1>
+    <div class="sub">Fifteen effects, live at the real popup size (90&times;22 cells). In the popup, <kbd>←</kbd> <kbd>→</kbd> (or clicking the logo) cycles them; this page does the same. The one you leave on is remembered: reload the page and it comes back. <kbd>o</kbd> switches OS.</div>
+  </div>
+
+  <div class="controls">
+    <div><span class="lbl">Effect</span><span class="seg" id="concepts"></span></div>
+  </div>
+  <div class="controls">
+    <div><span class="lbl">OS</span><span class="seg" id="oses"></span></div>
+    <button class="act" id="reopen" type="button">Replay open</button>
+    <button class="act" id="rebuild" type="button">Simulate rebuild</button>
+  </div>
+
+  <div class="stage-scroll">
+    <div class="stage" id="stage" data-os="mac">
+      <div class="popup"><pre class="term" id="term" aria-label="Popup preview"></pre></div>
+    </div>
+  </div>
+
+  <div class="note">
+    <div class="card"><div class="k" id="cname">Effect</div><div id="cdesc"></div></div>
+    <div class="card"><div class="k">In the terminal</div><div id="cbuild"></div></div>
+  </div>
+
+  <div class="note">
+    <div class="card">
+      <h2>Switching</h2>
+      <ul>
+        <li><kbd>←</kbd> <kbd>→</kbd> cycle through the effects. Clicking the logo or the <code>‹ name ›</code> in the corner does the same.</li>
+        <li>The logo decrypts into each new effect, and a row of dots under it shows where you are in the cycle, then fades out after a second.</li>
+        <li>Decrypt is no longer an effect of its own. It's the opening and switching transition for all of them.</li>
+        <li>The bottom-right corner always names the current effect. It's the only addition to the key line.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Remembering your choice</h2>
+      <ul>
+        <li>Each open is a fresh process, so the choice lives in a file: <code>~/.local/state/telmo/system.json</code>, written the moment you switch.</li>
+        <li>Nothing from Nix ever writes that file, so a rebuild can't reset it. Home Manager only owns files under <code>~/.config</code> and the store.</li>
+        <li>Nix sets the starting point only: <code>programs.telmo.system.effect = "rain"</code> is used until you first switch. An <code>effects</code> list can trim the cycle.</li>
+        <li>A small shared <code>state</code> module in the kit (next to the existing cache) does the reading and the atomic write. Other popups can reuse it for things like a last tab.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note">
+    <div class="card">
+      <h2>Rebuild in the background</h2>
+      <ol>
+        <li>Press <kbd>u</kbd>. On swift the Touch ID sheet appears (sudo Touch ID is already on). On mantle, hyprpolkitagent asks for the password.</li>
+        <li>Telmo.app runs the rebuild on its own, so you can close the popup right away.</li>
+        <li>Your effect keeps running and speeds up while it builds; the key line turns into progress. Reopen the popup any time to see it.</li>
+        <li>A notification says when it's done or failed. On failure, <kbd>L</kbd> opens the log in a terminal.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h2>Dropped</h2>
+      <p>Life and Prompt are gone. Decrypt became the transition.</p>
+      <p class="sub">To check before building: Touch ID sudo from a process with no terminal. If it fails, the popup does the sudo step and hands off.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const LOGOS = __LOGOS__;
+const W = 90, H = 22;
+const PAL = { r: "#f7768e", o: "#ff9e64", g: "#9ece6a", y: "#e0af68", b: "#7aa2f7", m: "#bb9af7", c: "#7dcfff", f: "#c0caf5" };
+const BG = [22, 23, 34];
+const DIM = "#565f89", FAINT = "#2f334d", WHITE = "#e9ecff";
+const HOST = { mac: "swift", linux: "mantle" };
+const KEYS = [["l", "lock"], ["s", "sleep"], ["r", "restart"], ["p", "shut down"], ["u", "rebuild"], ["k", "force quit"], ["?", "more"]];
+const RAINBOW = ["g", "y", "o", "r", "m", "b"];
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+function shade(h, t) { // t=1 full color, t=0 background
+  const c = hex(h);
+  return "#" + c.map((v, i) => Math.round(BG[i] + (v - BG[i]) * t).toString(16).padStart(2, "0")).join("");
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+const pick = s => s[Math.floor(Math.random() * s.length)];
+const GLYPHS = "0123456789ABCDEF<>/\\|=+*#%&$@:;{}[]";
+
+// ---------------------------------------------------------------- screen
+class Screen {
+  constructor() { this.ch = new Array(W * H); this.co = new Array(W * H); this.bold = new Array(W * H); this.clear(); }
+  clear() { this.ch.fill(" "); this.co.fill(null); this.bold.fill(false); }
+  set(x, y, c, color, bold = false) { if (x < 0 || y < 0 || x >= W || y >= H) return; const i = y * W + x; this.ch[i] = c; this.co[i] = color; this.bold[i] = bold; }
+  text(x, y, s, color, bold) { [...s].forEach((c, i) => this.set(x + i, y, c, color, bold)); }
+  html() {
+    let out = "";
+    for (let y = 0; y < H; y++) {
+      let run = "", key = null;
+      const flush = () => { if (!run) return; const [col, b] = key.split("|"); const esc = run.replace(/&/g, "&amp;").replace(/</g, "&lt;"); out += col === "null" ? esc : `<span style="color:${col}">${b === "1" ? "<b>" + esc + "</b>" : esc}</span>`; run = ""; };
+      for (let x = 0; x < W; x++) { const i = y * W + x; const k = this.co[i] + "|" + (this.bold[i] ? 1 : 0); if (k !== key) { flush(); key = k; } run += this.ch[i]; }
+      flush(); out += "\n";
+    }
+    return out;
+  }
+}
+
+// logo placement + mask
+function layout(os) {
+  const rows = LOGOS[os];
+  const lw = Math.max(...rows.map(r => [...r[0]].length)), lh = rows.length;
+  // Center by visual weight, not the bounding box: the apple's thin leaf would otherwise push its body low.
+  const weight = c => "▘▝▖▗".includes(c) ? 0.25 : "▀▄▌▐▚▞".includes(c) ? 0.5 : "▛▜▙▟".includes(c) ? 0.75 : c === "█" || /[A-Za-z0-9]/.test(c) ? 1 : 0.25;
+  let sx = 0, sy = 0, sw = 0;
+  rows.forEach(([text], y) => [...text].forEach((c, x) => { if (c !== " ") { const w = weight(c); sx += w * (x + 0.5); sy += w * (y + 0.5); sw += w; } }));
+  const ox = Math.round(W / 2 - sx / sw), oy = Math.max(0, Math.min(H - 2 - lh, Math.round((H - 1) / 2 - sy / sw)));
+  const cells = [], mask = new Uint8Array(W * H);
+  rows.forEach(([text, cols], y) => {
+    const chars = [...text]; let first = -1, last = -1;
+    chars.forEach((c, x) => { if (c !== " ") { cells.push({ x: ox + x, y: oy + y, c, col: cols[x], lx: x, ly: y }); if (first < 0) first = x; last = x; } });
+    if (first >= 0) for (let x = first - 1; x <= last + 1; x++) mask[(oy + y) * W + ox + x] = 1;
+  });
+  return { cells, mask, lw, lh, ox, oy };
+}
+function drawLogo(s, L, colorOf = c => PAL[c.col]) { for (const c of L.cells) s.set(c.x + (L.offX || 0), c.y + (L.offY || 0), c.c, colorOf(c), true); }
+
+// footer: keys, or rebuild progress
+
+// footer: keys on the left, the effect switcher on the right. A rebuild's progress replaces both.
+function footer(s, os, t, rb) {
+  const y = H - 1;
+  if (rb) {
+    if (rb.phase === "build") {
+      const p = Math.min(1, (t - rb.start) / 12), n = Math.floor(p * 120), secs = Math.floor((t - rb.start) * 4.2);
+      const spin = "-\\|/"[Math.floor(t * 8) % 4];
+      const barW = 18, f = Math.round(p * barW);
+      const parts = [[spin + " ", PAL.y], [`rebuilding ${HOST[os]}   `, PAL.f], ["━".repeat(f), PAL.y], ["─".repeat(barW - f), FAINT], [`   ${n}/120 built · ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`, DIM]];
+      let x = Math.floor((W - parts.reduce((a, p) => a + [...p[0]].length, 0)) / 2);
+      for (const [str, col] of parts) { s.text(x, y, str, col); x += [...str].length; }
+    } else {
+      const msg = `✓ ${HOST[os]} is on generation ${os === "mac" ? 279 : 501} · 3:05`;
+      s.text(Math.floor((W - [...msg].length) / 2), y, msg, PAL.g, true);
+    }
+    return;
+  }
+  let x = 1;
+  KEYS.forEach(([k, l], i) => { if (i) x += 2; s.text(x, y, k, PAL.b); x += k.length + 1; s.text(x, y, l, DIM); x += l.length; });
+  const name = EFFECTS[ci].key, sx = W - 2 - (name.length + 4);
+  s.text(sx, y, "‹", PAL.b); s.text(sx + 2, y, name, PAL.f, true); s.text(sx + 3 + name.length, y, "›", PAL.b);
+}
+
+// After switching (or opening), the logo decrypts in and a row of dots shows where you are in the cycle.
+function transition(s, L, t) {
+  const e = t - switchedAt;
+  L.cells.forEach((c, i) => { if (e < L.reveal[i]) s.set(c.x + (L.offX || 0), c.y + (L.offY || 0), pick(GLYPHS), e > L.reveal[i] - 0.15 ? PAL[c.col] : shade(PAL.b, 0.5)); });
+  if (e < 1.6) {
+    const fade = e < 1.0 ? 1 : 1 - (e - 1.0) / 0.6;
+    const dots = EFFECTS.map((_, i) => (i === ci ? "●" : "○")).join(" ");
+    const label = EFFECTS[ci].key + "   ";
+    let x = Math.floor((W - label.length - dots.length) / 2);
+    s.text(x, H - 2, EFFECTS[ci].key, shade(PAL.f, fade), true);
+    x += label.length;
+    [...dots].forEach((d, i) => s.set(x + i, H - 2, d, d === "●" ? shade(PAL.b, fade) : shade(DIM, fade)));
+  }
+}
+
+const building = rb => rb && rb.phase === "build";
+
+// ---------------------------------------------------------------- effects
+const EFFECTS = [
+  {
+    key: "rain", name: "Rain", tag: "animated",
+    desc: "Digital rain falls behind the logo and stops at its edges, so the logo stands in front of it. On swift the rain takes the apple's rainbow bands as it falls; on mantle it's blue and cyan. It pours harder while a rebuild runs.",
+    build: "A drop per column with a fading trail, about 30 fps. ASCII and hex only, so every font draws it at the right width. A few percent of one core.",
+    init(st) { st.drops = Array.from({ length: W }, () => ({ y: rnd(-2 * H, H), v: rnd(6, 16), last: -1 })); st.inten = new Float32Array(W * H); st.glyph = new Array(W * H).fill(" "); },
+    frame(s, L, st, t, dt, os, rb) {
+      const sp = rb && rb.phase === "build" ? 2.4 : 1;
+      for (let i = 0; i < st.inten.length; i++) { st.inten[i] *= Math.exp(-dt * 2.6 * sp); if (Math.random() < 0.01) st.glyph[i] = pick(GLYPHS); }
+      st.drops.forEach((d, x) => {
+        d.y += d.v * dt * sp;
+        const row = Math.floor(d.y);
+        if (row !== d.last && row >= 0 && row < H - 1) { const i = row * W + x; st.inten[i] = 1; st.glyph[i] = pick(GLYPHS); d.last = row; }
+        if (d.y > H + 8) { d.y = rnd(-30, -1); d.v = rnd(6, 16); d.last = -1; }
+      });
+      for (let y = 0; y < H - 1; y++) for (let x = 0; x < W; x++) {
+        const i = y * W + x, v = st.inten[i];
+        if (v < 0.06 || L.mask[i]) continue;
+        const base = os === "mac" ? PAL[RAINBOW[Math.min(5, Math.floor(y / (H - 1) * 6))]] : (x % 3 === 0 ? PAL.c : PAL.b);
+        s.set(x, y, st.glyph[i], v > 0.97 ? WHITE : shade(base, Math.min(1, v * 0.9)), v > 0.97);
+      }
+      drawLogo(s, L);
+    },
+  },
+  {
+    key: "plasma", name: "Plasma", tag: "animated",
+    desc: "The logo's own characters, recolored by a slow moving wave of color. The apple drifts through the rainbow; NixOS stays in its blues and cyans. Nothing else moves.",
+    build: "One color per cell per frame from three sine waves. 15 fps is enough because it moves slowly. Very light.",
+    init() {},
+    frame(s, L, st, t, dt, os, rb) {
+      const sp = rb && rb.phase === "build" ? 2.5 : 1;
+      st.tt = (st.tt || 0) + dt * sp;
+      const T = st.tt;
+      drawLogo(s, L, c => {
+        const v = Math.sin(c.lx * 0.16 + T * 1.1) + Math.sin(c.ly * 0.35 - T * 0.9) + Math.sin((c.lx * 0.5 + c.ly) * 0.12 + T * 0.6);
+        const h = os === "mac" ? (v * 50 + T * 30 + 360) % 360 : 210 + 28 * Math.sin(v * 0.9 + T * 0.5);
+        return `hsl(${h.toFixed(0)} 82% 70%)`;
+      });
+    },
+  },
+  {
+    key: "glitch", name: "Glitch", tag: "mostly still",
+    desc: "A still logo with a soft scanline passing over it. Every few seconds it glitches for a fifth of a second: rows jump sideways, split into red and cyan, and break into blocks.",
+    build: "Redraws only for the scanline (10 fps) and the short bursts. Light.",
+    init(st) { st.next = 0; st.until = 0; st.rows = new Map(); },
+    frame(s, L, st, t, dt, os, rb) {
+      const every = rb && rb.phase === "build" ? 1.1 : 2.8;
+      if (t > st.next) { st.until = t + 0.22; st.next = t + every * rnd(0.7, 1.3); st.rows = new Map(); for (let n = 0; n < 5; n++) st.rows.set(L.oy + Math.floor(Math.random() * L.lh), { dx: Math.round(rnd(-5, 5)), col: Math.random() < 0.5 ? PAL.r : PAL.c }); }
+      const glitch = t < st.until;
+      const scan = L.oy + ((t * 5) % (L.lh + 10)) - 5;
+      for (const c of L.cells) {
+        const g = glitch && st.rows.get(c.y);
+        const near = Math.abs(c.y - scan) < 1;
+        if (g) s.set(c.x + g.dx, c.y, Math.random() < 0.25 ? pick("▓▒░█") : c.c, g.col, true);
+        else s.set(c.x, c.y, c.c, near ? WHITE : PAL[c.col], true);
+      }
+      for (let n = 0; n < 6; n++) { const x = Math.floor(Math.random() * W), y = Math.floor(Math.random() * (H - 1)); if (!L.mask[y * W + x]) s.set(x, y, "░", FAINT); }
+    },
+  },
+  {
+    key: "warp", name: "Warp", tag: "animated",
+    desc: "Stars stream out from behind the logo and stretch into streaks as they speed up, like jumping to hyperspace. Polished from last round: stars start spread out instead of in bursts, accelerate smoothly, and leave tails that brighten toward the head.",
+    build: "About 110 points with short tails, 30 fps. Light.",
+    init(st) { st.stars = []; },
+    frame(s, L, st, t, dt, os, rb) {
+      const sp = building(rb) ? 2.4 : 1;
+      const cx = L.ox + L.lw / 2, cy = L.oy + L.lh / 2;
+      for (let n = 0; n < 3 && st.stars.length < 110; n++) st.stars.push({ a: rnd(0, Math.PI * 2), r: rnd(1, 20), v: rnd(2, 5), hue: Math.random() });
+      for (const p of st.stars) { p.v *= Math.exp(1.5 * dt * sp); p.r += p.v * dt * sp; }
+      st.stars = st.stars.filter(p => p.r < 80);
+      for (const p of st.stars) {
+        const col = os === "mac" ? PAL[RAINBOW[Math.floor(p.hue * 6)]] : (p.hue < 0.5 ? PAL.c : PAL.b);
+        const tail = Math.min(7, p.v * 0.12);
+        const cos = Math.cos(p.a), sin = Math.sin(p.a);
+        const line = Math.abs(cos) > 0.88 ? "─" : Math.abs(sin) > 0.93 ? "│" : (cos * sin > 0 ? "╲" : "╱");
+        for (let k = tail; k >= 0; k -= 0.5) {
+          const r = p.r - k, x = Math.round(cx + cos * r), y = Math.round(cy + sin * r * 0.5);
+          if (x < 0 || x >= W || y < 0 || y >= H - 1 || L.mask[y * W + x]) continue;
+          const head = k < 0.5, bright = Math.min(1, 0.2 + p.r / 40) * (head ? 1 : 0.35 + 0.65 * (1 - k / Math.max(tail, 0.01)));
+          const ch = head ? (p.v > 18 ? line : p.v > 8 ? "•" : "·") : (tail > 1.5 ? line : "·");
+          s.set(x, y, ch, head && p.r > 30 ? shade(WHITE, bright) : shade(col, bright), head);
+        }
+      }
+      drawLogo(s, L);
+    },
+  },
+  {
+    key: "fire", name: "Fire", tag: "animated · new",
+    desc: "The old demoscene fire, rising from the bottom of the popup and licking up around the logo. Classic orange on swift; a blue gas flame on mantle. It burns hotter and taller during a rebuild.",
+    build: "A heat grid that rises and cools, 30 fps, drawn with ░▒▓█. Light.",
+    init(st) { st.heat = new Float32Array(W * H); st.acc = 0; },
+    frame(s, L, st, t, dt, os, rb) {
+      const HH = H - 1, hot = building(rb) ? 1 : 0.8, cool = building(rb) ? 0.075 : 0.11;
+      st.acc += dt;
+      while (st.acc > 1 / 30) {
+        st.acc -= 1 / 30;
+        for (let x = 0; x < W; x++) st.heat[(HH - 1) * W + x] = Math.random() < 0.55 ? rnd(0.75, 1) * hot : rnd(0, 0.35);
+        for (let y = 0; y < HH - 1; y++) for (let x = 0; x < W; x++) {
+          const b = (yy, xx) => st.heat[Math.min(HH - 1, yy) * W + ((xx + W) % W)];
+          const v = (b(y + 1, x - 1) + b(y + 1, x) + b(y + 1, x + 1) + b(y + 2, x)) / 4;
+          st.heat[y * W + x] = Math.max(0, v - rnd(0, cool));
+        }
+      }
+      const ramp = os === "mac" ? [shade(PAL.r, 0.35), PAL.r, PAL.o, PAL.y, "#fff4d6"] : [shade(PAL.m, 0.35), PAL.m, PAL.b, PAL.c, "#e6f6ff"];
+      const chars = [[0.1, "."], [0.2, ":"], [0.32, "░"], [0.48, "▒"], [0.64, "▓"], [2, "█"]];
+      for (let y = 0; y < HH; y++) for (let x = 0; x < W; x++) {
+        const i = y * W + x, v = st.heat[i];
+        if (v < 0.04 || L.mask[i]) continue;
+        const ch = chars.find(([lim]) => v < lim)[1];
+        const k = Math.min(ramp.length - 1, Math.floor(v * ramp.length));
+        s.set(x, y, ch, ramp[k]);
+      }
+      drawLogo(s, L);
+    },
+  },
+  {
+    key: "radar", name: "Radar", tag: "animated · new",
+    desc: "A radar sweep turns around the logo over faint range rings, leaving a fading phosphor trail. Contacts light up as the beam passes over them and fade until the next pass. Green on swift, cyan on mantle.",
+    build: "One angle per frame, then a cheap per-cell check, 30 fps. Light.",
+    init(st, L) { st.ang = 0; st.blips = Array.from({ length: 8 }, () => this.blip(L)); },
+    blip(L) {
+      for (;;) {
+        const x = Math.floor(rnd(2, W - 2)), y = Math.floor(rnd(1, H - 2));
+        if (!L.mask[y * W + x]) return { x, y, lit: -99 };
+      }
+    },
+    frame(s, L, st, t, dt, os, rb) {
+      const sp = building(rb) ? 2.2 : 1, prev = st.ang;
+      st.ang += dt * 1.25 * sp;
+      const TAU = Math.PI * 2, cx = L.ox + L.lw / 2, cy = L.oy + L.lh / 2, base = os === "mac" ? PAL.g : PAL.c;
+      const behind = (phi, ang) => { let d = (ang - phi) % TAU; return d < 0 ? d + TAU : d; };
+      for (let y = 0; y < H - 1; y++) for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        if (L.mask[i]) continue;
+        const dx = x - cx, dy = (y - cy) * 2.1, r = Math.hypot(dx, dy), phi = Math.atan2(dy, dx);
+        const d = behind(phi, st.ang), trail = 1.25;
+        if (d < trail && r > 3) {
+          const k = Math.pow(1 - d / trail, 1.6);
+          s.set(x, y, k > 0.75 ? "▒" : k > 0.4 ? "░" : "·", shade(base, 0.15 + 0.75 * k));
+        } else if (r > 6 && Math.abs((r % 14) - 7) > 6.45 && x % 2 === 0) s.set(x, y, "·", FAINT);
+        else if (Math.abs(y - cy) < 0.5 || Math.abs(dx) < 0.5) s.set(x, y, Math.abs(dx) < 0.5 ? "│" : "─", FAINT);
+      }
+      for (const b of st.blips) {
+        const phi = Math.atan2((b.y - cy) * 2.1, b.x - cx);
+        if (behind(phi, st.ang) < st.ang - prev + 0.001) b.lit = t;
+        const age = t - b.lit;
+        if (age < 3) s.set(b.x, b.y, "●", shade(age < 0.15 ? WHITE : PAL.y, 1 - age / 3), true);
+        else if (age < 99 && Math.random() < dt * 0.4) Object.assign(b, this.blip(L));
+      }
+      drawLogo(s, L);
+    },
+  },
+  {
+    key: "snow", name: "Snow", tag: "animated · new",
+    desc: "Snow drifts down and settles: on the floor, on the shoulders of the apple and the arms of the snowflake, and on top of itself. When it has piled up, it melts away and starts again.",
+    build: "Up to 140 flakes plus a grid of settled cells, 30 fps. Light.",
+    init(st) { st.flakes = []; st.settled = new Uint8Array(W * H); st.count = 0; st.melt = 0; },
+    frame(s, L, st, t, dt, os, rb) {
+      const HH = H - 1, rate = building(rb) ? 70 : 28;
+      const blocked = (x, y) => y >= HH || L.mask[y * W + x] || st.settled[y * W + x];
+      // Accumulate fractional flakes: at 60 fps a single frame asks for less than one.
+      st.due = (st.due || 0) + rate * dt;
+      for (; st.due >= 1; st.due--) st.flakes.push({ x: rnd(0, W), y: -1, v: rnd(2.5, 5), drift: rnd(0.6, 1.6), ph: rnd(0, 6), big: Math.random() < 0.25 });
+      for (const f of st.flakes) {
+        const ny = f.y + f.v * dt, nx = (f.x + Math.sin(t * f.drift + f.ph) * dt * 2 + W) % W;
+        const cx = Math.floor(nx), cy = Math.floor(ny);
+        if (cy >= 0 && blocked(cx, cy)) {
+          // Slide down a free side first, like sand, so snow forms mounds instead of towers.
+          const side = [cx - 1, cx + 1].sort(() => Math.random() - 0.5).find(sx => sx >= 0 && sx < W && !blocked(sx, cy) && !blocked(sx, cy - 1));
+          if (side !== undefined) { f.x = side + 0.5; f.y = cy - 0.5; continue; }
+          const y = cy - 1;
+          const deep = st.settled[(y + 1) * W + cx] && st.settled[Math.min(HH - 1, y + 2) * W + cx];
+          if (y >= 0 && !blocked(cx, y) && !deep) { st.settled[y * W + cx] = 1; st.count++; }
+          f.dead = true;
+        } else { f.x = nx; f.y = ny; }
+      }
+      st.flakes = st.flakes.filter(f => !f.dead && f.y < HH);
+      if (st.count > 300) st.melt = 1;
+      if (st.melt) { for (let i = 0; i < st.settled.length; i++) if (st.settled[i] && Math.random() < dt * 0.8) { st.settled[i] = 0; st.count--; } if (st.count < 20) st.melt = 0; }
+      const flakeCol = os === "mac" ? WHITE : "#d7ecff";
+      for (let i = 0; i < st.settled.length; i++) if (st.settled[i]) {
+        const x = i % W, y = (i - x) / W;
+        const under = blocked(x, y + 1) && !st.settled[(y + 1) * W + x] ? "▄" : "█";
+        s.set(x, y, st.melt ? "▄" : under, shade(flakeCol, st.melt ? 0.5 : 0.85));
+      }
+      for (const f of st.flakes) { const x = Math.floor(f.x), y = Math.floor(f.y); if (y >= 0 && !L.mask[y * W + x]) s.set(x, y, f.big ? "*" : "·", shade(flakeCol, f.big ? 0.95 : 0.6)); }
+      drawLogo(s, L);
+    },
+  },
+  {
+    key: "fireworks", name: "Fireworks", tag: "animated · new",
+    desc: "Rockets climb from the bottom and burst into sparks that fall and fade. On swift the bursts take the apple's colors. When a rebuild finishes, there's a finale.",
+    build: "A few hundred particles at peak, 30 fps. Light.",
+    init(st) { st.rockets = []; st.sparks = []; st.next = 0; st.finale = false; },
+    frame(s, L, st, t, dt, os, rb) {
+      const cols = os === "mac" ? RAINBOW.map(k => PAL[k]) : [PAL.b, PAL.c, PAL.m, "#e6f6ff"];
+      const launch = () => st.rockets.push({ x: rnd(6, W - 6), y: H - 2, vx: rnd(-4, 4), vy: -rnd(16, 22), col: pick(cols) });
+      if (t > st.next) { launch(); st.next = t + (building(rb) ? rnd(0.15, 0.5) : rnd(0.5, 1.4)); }
+      if (rb && rb.phase === "done" && !st.finale) { st.finale = true; for (let n = 0; n < 9; n++) launch(); }
+      if (!rb) st.finale = false;
+      for (const r of st.rockets) {
+        r.x += r.vx * dt; r.y += r.vy * dt; r.vy += 14 * dt;
+        if (r.vy > -2) {
+          r.dead = true;
+          const n = Math.floor(rnd(40, 60)), speed = rnd(10, 16);
+          for (let k = 0; k < n; k++) { const a = (k / n) * Math.PI * 2 + rnd(-0.1, 0.1), v = speed * rnd(0.6, 1); st.sparks.push({ x: r.x, y: r.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.5, life: rnd(1.1, 1.8), age: 0, col: Math.random() < 0.2 ? WHITE : r.col }); }
+        }
+      }
+      st.rockets = st.rockets.filter(r => !r.dead);
+      for (const p of st.sparks) { p.age += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= Math.exp(-dt * 1.4); p.vy = p.vy * Math.exp(-dt * 1.4) + 5 * dt; }
+      st.sparks = st.sparks.filter(p => p.age < p.life);
+      const put = (x, y, ch, col, b) => { x = Math.round(x); y = Math.round(y); if (y >= 0 && y < H - 1 && x >= 0 && x < W && !L.mask[y * W + x]) s.set(x, y, ch, col, b); };
+      for (const r of st.rockets) { put(r.x, r.y + 1, "·", shade(PAL.y, 0.4)); put(r.x, r.y, "^", PAL.y, true); }
+      for (const p of st.sparks) { const k = 1 - p.age / p.life; put(p.x, p.y, k > 0.6 ? "*" : k > 0.3 ? "+" : "·", shade(p.col, 0.25 + 0.75 * k), k > 0.6); }
+      drawLogo(s, L);
+    },
+  },
+  {
+    key: "pipes", name: "Pipes", tag: "animated · new",
+    desc: "The classic pipes screensaver in rounded box-drawing lines, but each pipe is a snake: it fades out from its tail as it grows, so the screen never fills up and never clears all at once. Four pipes wander around the logo and never cross it.",
+    build: "Four heads with 120-cell tails, 25 steps a second. Nearly free.",
+    init(st, L) { st.pipes = Array.from({ length: 4 }, (_, i) => this.spawn(L, i)); st.ghosts = []; st.acc = 0; },
+    spawn(L, i) {
+      for (;;) { const x = Math.floor(rnd(0, W)), y = Math.floor(rnd(0, H - 1)); if (!L.mask[y * W + x]) return { x, y, d: Math.floor(rnd(0, 4)), c: i, trail: [] }; }
+    },
+    frame(s, L, st, t, dt, os, rb) {
+      const cols = os === "mac" ? [PAL.g, PAL.o, PAL.m, PAL.b] : [PAL.b, PAL.c, PAL.m, PAL.f];
+      const DX = [1, 0, -1, 0], DY = [0, 1, 0, -1], MAX = 120;
+      // corner glyph for coming in with direction a and leaving with direction b
+      const corner = (a, b) => ({ "0,1": "╮", "0,3": "╯", "2,1": "╭", "2,3": "╰", "1,0": "╰", "1,2": "╯", "3,0": "╭", "3,2": "╮" })[a + "," + b];
+      const bad = (x, y) => x < 0 || x >= W || y < 0 || y >= H - 1 || L.mask[y * W + x];
+      st.acc += dt * (building(rb) ? 2.5 : 1);
+      while (st.acc > 1 / 25) {
+        st.acc -= 1 / 25;
+        st.pipes.forEach((p, n) => {
+          let d = p.d;
+          if (Math.random() < 0.12) d = (d + (Math.random() < 0.5 ? 1 : 3)) % 4;
+          let nx = p.x + DX[d], ny = p.y + DY[d];
+          if (bad(nx, ny)) { d = (p.d + (Math.random() < 0.5 ? 1 : 3)) % 4; nx = p.x + DX[d]; ny = p.y + DY[d]; }
+          if (bad(nx, ny)) { d = (d + 2) % 4; nx = p.x + DX[d]; ny = p.y + DY[d]; }
+          if (bad(nx, ny)) { st.ghosts.push(p.trail); st.pipes[n] = this.spawn(L, p.c); return; }
+          p.trail.push({ x: p.x, y: p.y, ch: d % 2 === p.d % 2 ? (d % 2 ? "│" : "─") : corner(p.d, d) });
+          if (p.trail.length > MAX) p.trail.shift();
+          p.x = nx; p.y = ny; p.d = d;
+        });
+        // A pipe that got stuck and respawned keeps fading out from its tail.
+        st.ghosts.forEach(g => g.shift());
+        st.ghosts = st.ghosts.filter(g => g.length);
+      }
+      const paint = (trail, col) => trail.forEach((c, i) => { const k = (i + 1) / MAX; s.set(c.x, c.y, c.ch, shade(col, 0.12 + 0.78 * Math.pow(k, 0.8))); });
+      st.ghosts.forEach((g, i) => paint(g, cols[i % cols.length]));
+      for (const p of st.pipes) { paint(p.trail, cols[p.c]); s.set(p.x, p.y, "●", cols[p.c], true); }
+      drawLogo(s, L);
+    },
+  },
+  {
+    key: "lava", name: "Lava", tag: "animated · new",
+    desc: "A lava lamp behind the logo: soft blobs drift, merge and split. Each blob carries its own color, blending where they meet. Very slow and calm, the closest to Plasma.",
+    build: "Six metaballs evaluated per cell, 20 fps. Light.",
+    init(st) { st.blobs = Array.from({ length: 6 }, (_, i) => ({ px: rnd(0, 6), py: rnd(0, 6), sx: rnd(0.12, 0.25), sy: rnd(0.15, 0.3), r: rnd(4.5, 7), k: i })); st.tt = 0; },
+    frame(s, L, st, t, dt, os, rb) {
+      st.tt += dt * (building(rb) ? 2.5 : 1);
+      const cols = os === "mac" ? RAINBOW.map(k => PAL[k]) : [PAL.b, PAL.c, PAL.m, PAL.b, PAL.c, PAL.m];
+      const pos = st.blobs.map(b => ({ x: W / 2 + Math.sin(st.tt * b.sx + b.px) * (W / 2 - 6), y: (H - 1) / 2 + Math.sin(st.tt * b.sy + b.py) * ((H - 1) / 2 - 1), r: b.r, col: cols[b.k] }));
+      const chars = [[1.0, " "], [1.25, "·"], [1.6, "░"], [2.2, "▒"], [3.2, "▓"], [1e9, "█"]];
+      for (let y = 0; y < H - 1; y++) for (let x = 0; x < W; x++) {
+        if (L.mask[y * W + x]) continue;
+        let f = 0, best = 0, col = null;
+        for (const b of pos) { const dx = (x - b.x) / 2, dy = y - b.y, v = (b.r * b.r) / (dx * dx * 4 + dy * dy * 4 + 1) ; f += v; if (v > best) { best = v; col = b.col; } }
+        const ch = chars.find(([lim]) => f < lim)[1];
+        if (ch !== " ") s.set(x, y, ch, shade(col, Math.min(1, 0.35 + f / 5)));
+      }
+      drawLogo(s, L);
+    },
+  },
+  {
+    key: "dvd", name: "DVD", tag: "animated · new",
+    desc: "The logo bounces around the popup like the old DVD screensaver, changing color at every wall. Hit a corner exactly and it celebrates.",
+    build: "Moves the logo one cell at a time, 30 fps. Nearly free.",
+    init(st) { st.x = 0; st.y = 0; st.vx = 9; st.vy = 4.2; st.hue = 0; st.party = -9; st.sparks = []; },
+    frame(s, L, st, t, dt, os, rb) {
+      const sp = building(rb) ? 2 : 1;
+      const minX = -L.ox, maxX = W - L.lw - L.ox, minY = -L.oy, maxY = H - 1 - L.lh - L.oy;
+      st.x += st.vx * dt * sp; st.y += st.vy * dt * sp;
+      let hits = 0;
+      if (st.x < minX || st.x > maxX) { st.vx *= -1; st.x = Math.max(minX, Math.min(maxX, st.x)); hits++; }
+      if (st.y < minY || st.y > maxY) { st.vy *= -1; st.y = Math.max(minY, Math.min(maxY, st.y)); hits++; }
+      if (hits) st.hue++;
+      if (hits === 2) {
+        st.party = t;
+        const cx = L.ox + st.x + L.lw / 2, cy = L.oy + st.y + L.lh / 2;
+        for (let k = 0; k < 70; k++) { const a = rnd(0, Math.PI * 2), v = rnd(8, 20); st.sparks.push({ x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.5, age: 0, col: pick(Object.values(PAL)) }); }
+      }
+      L.offX = Math.round(st.x); L.offY = Math.round(st.y);
+      for (const p of st.sparks) { p.age += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 6 * dt; }
+      st.sparks = st.sparks.filter(p => p.age < 1.6);
+      for (const p of st.sparks) { const x = Math.round(p.x), y = Math.round(p.y); if (y >= 0 && y < H - 1) s.set(x, y, p.age < 0.6 ? "*" : "·", shade(p.col, 1 - p.age / 1.6)); }
+      const cols = os === "mac" ? RAINBOW.map(k => PAL[k]) : [PAL.b, PAL.c, PAL.m, PAL.g];
+      const party = t - st.party < 1.2;
+      drawLogo(s, L, c => party ? PAL[pick(RAINBOW)] : cols[st.hue % cols.length]);
+      if (party) { const msg = "corner!"; s.text(Math.floor((W - msg.length) / 2), H - 2, msg, PAL.y, true); }
+    },
+  },
+  {
+    key: "tunnel", name: "Tunnel", tag: "animated · new",
+    desc: "The demoscene tunnel: a twisting checkerboard tube rushing toward you, with the logo sitting over the far end. It rushes faster during a rebuild.",
+    build: "One depth and angle lookup per cell, 30 fps. Light.",
+    init(st) { st.tt = 0; },
+    frame(s, L, st, t, dt, os, rb) {
+      st.tt += dt * (building(rb) ? 2.4 : 1);
+      const T = st.tt, cx = L.ox + L.lw / 2, cy = L.oy + L.lh / 2;
+      const bands = os === "mac" ? RAINBOW.map(k => PAL[k]) : [PAL.b, PAL.c];
+      for (let y = 0; y < H - 1; y++) for (let x = 0; x < W; x++) {
+        if (L.mask[y * W + x]) continue;
+        const dx = x - cx, dy = (y - cy) * 2.1, r = Math.hypot(dx, dy) + 0.5;
+        const depth = 48 / r + T * 2.2, ang = (Math.atan2(dy, dx) / Math.PI) * 6 + T * 0.35 + 0.8 * Math.sin(depth * 0.3);
+        const on = (Math.floor(depth) + Math.floor(ang)) & 1;
+        const light = Math.min(1, r / 34);
+        const col = bands[Math.floor(depth) % bands.length];
+        if (on) s.set(x, y, light > 0.55 ? "▒" : light > 0.3 ? "░" : "·", shade(col, 0.15 + 0.75 * light));
+      }
+      drawLogo(s, L);
+    },
+  },
+  {
+    key: "aurora", name: "Aurora", tag: "animated · new",
+    desc: "Northern lights: slow curtains of light ripple across the sky above and behind the logo, under a few faint stars. Green and violet on swift, cyan and blue on mantle.",
+    build: "A few sine waves per column, 20 fps. Light.",
+    init(st) { st.tt = 0; st.stars = Array.from({ length: 40 }, () => ({ x: Math.floor(rnd(0, W)), y: Math.floor(rnd(0, H - 1)), ph: rnd(0, 6) })); },
+    frame(s, L, st, t, dt, os, rb) {
+      st.tt += dt * (building(rb) ? 2.2 : 1);
+      const T = st.tt;
+      for (const p of st.stars) if (!L.mask[p.y * W + p.x]) s.set(p.x, p.y, "·", shade(WHITE, 0.25 + 0.2 * Math.sin(t * 1.5 + p.ph)));
+      const layers = os === "mac" ? [[PAL.g, 0], [PAL.m, 2.4]] : [[PAL.c, 0], [PAL.b, 2.4]];
+      for (const [col, off] of layers) for (let x = 0; x < W; x++) {
+        const top = 2 + off + 2.6 * Math.sin(x * 0.06 + T * 0.35 + off) + 1.6 * Math.sin(x * 0.15 - T * 0.6 + off * 2);
+        const len = 7 + 3 * Math.sin(x * 0.045 + T * 0.25 + off);
+        const rays = 0.55 + 0.45 * Math.sin(x * 1.3 + 3 * Math.sin(x * 0.2 + T * 0.8) + off);
+        const shimmer = rays * (0.6 + 0.4 * Math.sin(x * 0.11 - T * 0.9 + off));
+        for (let y = Math.max(0, Math.floor(top)); y < Math.min(H - 1, top + len); y++) {
+          if (L.mask[y * W + x]) continue;
+          const k = shimmer * Math.pow(1 - (y - top) / len, 1.4) * (y - top < 1 ? (y - top) : 1);
+          if (k < 0.08) continue;
+          s.set(x, y, k > 0.65 ? "▓" : k > 0.4 ? "▒" : k > 0.2 ? "░" : "·", shade(col, 0.25 + 0.75 * k));
+        }
+      }
+      drawLogo(s, L);
+    },
+  },
+  {
+    key: "fireflies", name: "Fireflies", tag: "animated · new",
+    desc: "A summer night: fireflies wander slowly around the logo, each glowing up and fading on its own rhythm. The calmest one here.",
+    build: "Thirty points with a soft glow, 30 fps. Nearly free.",
+    init(st) { st.flies = Array.from({ length: 30 }, () => ({ x: rnd(0, W), y: rnd(0, H - 1), vx: 0, vy: 0, w: rnd(0.4, 1.1), ph: rnd(0, 6) })); },
+    frame(s, L, st, t, dt, os, rb) {
+      const sp = building(rb) ? 2 : 1, col = os === "mac" ? "#d9f99d" : PAL.c, glow = os === "mac" ? PAL.g : PAL.b;
+      for (const f of st.flies) {
+        f.vx = (f.vx + rnd(-6, 6) * dt) * Math.exp(-dt * 0.8); f.vy = (f.vy + rnd(-3, 3) * dt) * Math.exp(-dt * 0.8);
+        f.x = (f.x + f.vx * dt * 3 * sp + W) % W; f.y = Math.max(0, Math.min(H - 2, f.y + f.vy * dt * 3 * sp));
+        const k = Math.pow(Math.max(0, Math.sin(t * f.w * sp + f.ph)), 3);
+        if (k < 0.05) continue;
+        const x = Math.round(f.x), y = Math.round(f.y);
+        const put = (xx, yy, ch, c) => { if (xx >= 0 && xx < W && yy >= 0 && yy < H - 1 && !L.mask[yy * W + xx]) s.set(xx, yy, ch, c); };
+        if (k > 0.5) for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-2, 0], [2, 0]]) put(x + dx, y + dy, "·", shade(glow, 0.5 * k / (Math.abs(dx) + Math.abs(dy))));
+        put(x, y, k > 0.6 ? "●" : k > 0.25 ? "•" : "·", shade(col, 0.3 + 0.7 * k));
+      }
+      drawLogo(s, L);
+    },
+  },
+  {
+    key: "galaxy", name: "Galaxy", tag: "animated · new",
+    desc: "A spiral galaxy turns slowly behind the logo, its inner stars moving a little faster than the outer ones. The logo sits where the core would be.",
+    build: "About 900 stars on a tilted disk, 30 fps. Light.",
+    init(st) {
+      st.stars = Array.from({ length: 900 }, () => {
+        const arm = Math.floor(rnd(0, 2)), r = Math.pow(Math.random(), 0.8) * 30 + 2;
+        return { r, a: arm * Math.PI + r * 0.17 + rnd(-0.3, 0.3) * (1 + 4 / r), b: Math.random() };
+      });
+      st.tt = 0;
+    },
+    frame(s, L, st, t, dt, os, rb) {
+      st.tt += dt * (building(rb) ? 3 : 1);
+      const cx = L.ox + L.lw / 2, cy = L.oy + L.lh / 2;
+      const cols = os === "mac" ? [PAL.m, PAL.b, "#f5d0fe"] : [PAL.b, PAL.c, "#e6f6ff"];
+      for (const p of st.stars) {
+        const a = p.a + st.tt * (0.22 + 0.25 / Math.sqrt(p.r));
+        const x = Math.round(cx + Math.cos(a) * p.r * 1.7), y = Math.round(cy + Math.sin(a) * p.r * 0.45);
+        if (x < 0 || x >= W || y < 0 || y >= H - 1 || L.mask[y * W + x]) continue;
+        const k = Math.max(0.2, 1 - p.r / 34) * (0.5 + 0.5 * p.b);
+        s.set(x, y, k > 0.7 ? "*" : k > 0.45 ? "•" : "·", shade(cols[p.b > 0.85 ? 2 : p.r < 18 ? 0 : 1], 0.3 + 0.7 * k));
+      }
+      drawLogo(s, L);
+    },
+  },
+];
+
+// ---------------------------------------------------------------- page
+const STORE = "telmo-effect";
+const saved = (() => { try { return localStorage.getItem(STORE); } catch { return null; } })();
+let ci = Math.max(0, EFFECTS.findIndex(e => e.key === saved)), os = "mac", L = layout(os), st = {}, rb = null;
+let last = performance.now() / 1000, switchedAt = last;
+const screen = new Screen();
+const $ = id => document.getElementById(id);
+
+function relayout() {
+  L = layout(os);
+  L.reveal = L.cells.map(c => (c.lx / L.lw) * 0.35 + Math.random() * 0.2);
+}
+function select(i, newOs) {
+  ci = (i + EFFECTS.length) % EFFECTS.length;
+  if (newOs) os = newOs;
+  relayout(); st = {}; EFFECTS[ci].init.call(EFFECTS[ci], st, L);
+  switchedAt = performance.now() / 1000;
+  try { localStorage.setItem(STORE, EFFECTS[ci].key); } catch {}
+  $("stage").dataset.os = os;
+  $("cname").innerHTML = EFFECTS[ci].name + `<span class="tag">${EFFECTS[ci].tag}</span>`;
+  $("cdesc").textContent = EFFECTS[ci].desc;
+  $("cbuild").textContent = EFFECTS[ci].build;
+  document.querySelectorAll("#concepts button").forEach((b, j) => b.setAttribute("aria-pressed", j === ci));
+  document.querySelectorAll("#oses button").forEach(b => b.setAttribute("aria-pressed", b.dataset.os === os));
+  if (reduce) draw(switchedAt + 2, 0.016);
+}
+function draw(t, dt) {
+  screen.clear();
+  EFFECTS[ci].frame.call(EFFECTS[ci], screen, L, st, t, dt, os, rb);
+  transition(screen, L, t);
+  footer(screen, os, t, rb);
+  $("term").innerHTML = screen.html();
+}
+
+EFFECTS.forEach((c, i) => { const b = document.createElement("button"); b.type = "button"; b.id = "c-" + c.key; b.innerHTML = c.name + (c.tag.includes("new") ? "<small>new</small>" : ""); b.onclick = () => select(i); $("concepts").append(b); });
+[["mac", "macOS · swift"], ["linux", "NixOS · mantle"]].forEach(([k, n]) => { const b = document.createElement("button"); b.type = "button"; b.id = "os-" + k; b.dataset.os = k; b.textContent = n; b.onclick = () => select(ci, k); $("oses").append(b); });
+$("rebuild").onclick = () => { rb = { phase: "build", start: performance.now() / 1000 }; $("rebuild").disabled = true; if (reduce) draw(performance.now() / 1000, 0.016); };
+$("reopen").onclick = () => select(ci);
+$("term").onclick = () => select(ci + 1);
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight" || e.key === "]") select(ci + 1);
+  else if (e.key === "ArrowLeft" || e.key === "[") select(ci - 1);
+  else if (e.key === "o") select(ci, os === "mac" ? "linux" : "mac");
+});
+
+function loop() {
+  const t = performance.now() / 1000, dt = Math.min(0.1, t - last); last = t;
+  if (rb && rb.phase === "build" && t - rb.start > 12) { rb.phase = "done"; rb.doneAt = t; }
+  if (rb && rb.phase === "done" && t - rb.doneAt > 4) { rb = null; $("rebuild").disabled = false; }
+  if (!document.hidden) draw(t, dt);
+  requestAnimationFrame(loop);
+}
+select(ci);
+if (!reduce) requestAnimationFrame(loop);
+</script>
