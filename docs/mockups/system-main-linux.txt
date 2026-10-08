@@ -1,0 +1,23 @@
+# System · Menu · linux
+             ▗▄▄▄       ▗▄▄▄▄    ▄▄▄▖
+             ▜███▙       ▜███▙  ▟███▛              daniel@mantle
+              ▜███▙       ▜███▙▟███▛               ────────────────────────────────────
+               ▜███▙       ▜██████▛                NixOS   26.11 (Zokor)
+        ▟█████████████████▙ ▜████▛     ▟▙          Kernel  7.2.6 · 7.2.8 after restart
+       ▟███████████████████▙ ▜███▙    ▟██▙         CPU     Ryzen 7 3700X · 32 GB
+              ▄▄▄▄▖           ▜███▙  ▟███▛         GPU     RTX 2070 SUPER
+             ▟███▛             ▜██▛ ▟███▛          Up      9 days, 4 hours
+            ▟███▛               ▜▛ ▟███▛           Disk    218 GB free of 921 GB
+   ▟███████████▛                  ▟██████████▙     Nix     generation 500 · 2 hours ago
+   ▜██████████▛                  ▟███████████▛
+         ▟███▛ ▟▙               ▟███▛              ▌ Lock screen                      l
+        ▟███▛ ▟██▙             ▟███▛                 Sleep                            s
+       ▟███▛  ▜███▙           ▝▀▀▀▀                  Turn off displays                d
+       ▜██▛    ▜███▙ ▜██████████████████▛            Keep awake           off         a
+        ▜▛     ▟████▙ ▜████████████████▛             Restart…                         r
+              ▟██████▙         ▜███▙                 Restart into…                    b
+             ▟███▛▜███▙         ▜███▙                Shut down…                       p
+            ▟███▛  ▜███▙         ▜███▙               Log out…                         o
+            ▝▀▀▀    ▀▀▀▀▘         ▀▀▀▘
+
+ ↵ choose  f force quit  c copy info  ? more  esc close

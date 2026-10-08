@@ -1,0 +1,23 @@
+# System · Force quit · linux
+ System › Force quit
+
+ ╭─ Apps ───────────────────────────────────────────────────────────────────────────────╮
+ │   App                           Memory      CPU                                      │
+ │ ▌ zen                           2.3 GB       9%                                      │
+ │   spotify                       710 MB       2%                                      │
+ │   ghostty                       380 MB       1%                                      │
+ │   steam                         350 MB       0%                                      │
+ │   nautilus                      140 MB       0%                                      │
+ │   copyq                          60 MB       0%                                      │
+ ╰──────────────────────────────────────────────────────────────────────────────────────╯
+
+
+
+
+
+
+
+
+
+
+ ↵ quit  K force quit  / search  esc back

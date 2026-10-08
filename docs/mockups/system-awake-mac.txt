@@ -1,0 +1,23 @@
+# System · Keep awake · mac
+
+                        ..'           daniel@swift
+                    ,xNMM.            ──────────────────────────────────────────────
+                  .OMMMMo╭─ Keep awake ─────────────────────────╮
+                  lMM"   │                                      │3 · 24 GB
+        .;loddo:.  .ollod│   ● Off                              │
+      cKMMMMMMMMMMNWMMMMM│     30 min                           │
+    .KMMMMMMMMMMMMMMMMMMM│ ▌   1 hour                           │ilt 2 hours ago
+    XMMMMMMMMMMMMMMMMMMMM│     2 hours                          │
+   ;MMMMMMMMMMMMMMMMMMMMM│     Until turned off                 │                  l
+   :MMMMMMMMMMMMMMMMMMMMM│                                      │                  s
+   .MMMMMMMMMMMMMMMMMMMMM│   Already keeping it awake:          │                  d
+    kMMMMMMMMMMMMMMMMMMMM│   Spotify · playing audio            │      off         a
+    'XMMMMMMMMMMMMMMMMMMM│                                      │                  r
+     'XMMMMMMMMMMMMMMMMMM│   ↵ choose  esc cancel               │                  p
+       kMMMMMMMMMMMMMMMMM│                                      │                  o
+        ;KMMMMMMMWXXWMMMM╰──────────────────────────────────────╯
+          "cooc*"    "*coo'"
+
+
+
+ ↵ choose  f force quit  c copy info  ? more  esc close

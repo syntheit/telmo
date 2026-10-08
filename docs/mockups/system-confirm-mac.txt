@@ -1,0 +1,23 @@
+# System · Restart · mac
+
+                        ..'           daniel@swift
+                    ,xNMM.            ──────────────────────────────────────────────
+                  .OMMMMo             macOS   27.0 (26A428)
+                  lMM"                Mac     MacBook Air 15" · M3 · 24 GB
+        .;loddo:.  .olloddol;.        Up      19 days, 20 hours
+      cKMMMMMMMMM╭─ Restart swift? ─────────────────────────────────────╮
+    .KMMMMMMMMMMM│                                                      │urs ago
+    XMMMMMMMMMMMM│   Apps are asked to quit first. One with unsaved     │
+   ;MMMMMMMMMMMMM│   work can still stop the restart.                   │          l
+   :MMMMMMMMMMMMM│                                                      │          s
+   .MMMMMMMMMMMMM│   ↵ restart  esc cancel                              │          d
+    kMMMMMMMMMMMM│                                                      │f         a
+    'XMMMMMMMMMMM╰──────────────────────────────────────────────────────╯          r
+     'XMMMMMMMMMMMMMMMMMMMMMMMMK.       Shut down…                                 p
+       kMMMMMMMMMMMMMMMMMMMMMMd         Log out…                                   o
+        ;KMMMMMMMWXXWMMMMMMMk.
+          "cooc*"    "*coo'"
+
+
+
+ ↵ choose  f force quit  c copy info  ? more  esc close

@@ -1,0 +1,23 @@
+# System · Force quit · mac
+ System › Force quit
+
+ ╭─ Apps ───────────────────────────────────────────────────────────────────────────────╮
+ │   App                           Memory      CPU                                      │
+ │ ▌ Zen                           1.9 GB      12%                                      │
+ │   Spotify                       640 MB       3%                                      │
+ │   Ghostty                       410 MB       1%                                      │
+ │   Telegram                      380 MB       0%                                      │
+ │   OBS                           220 MB       0%                                      │
+ │   Raycast                       190 MB       0%                                      │
+ │   Finder                        120 MB       0%                                      │
+ ╰──────────────────────────────────────────────────────────────────────────────────────╯
+
+
+
+
+
+
+
+
+
+ ↵ quit  K force quit  / search  esc back

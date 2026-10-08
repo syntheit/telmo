@@ -1,0 +1,23 @@
+# System · Restart · linux
+             ▗▄▄▄       ▗▄▄▄▄    ▄▄▄▖
+             ▜███▙       ▜███▙  ▟███▛              daniel@mantle
+              ▜███▙       ▜███▙▟███▛               ────────────────────────────────────
+               ▜███▙       ▜██████▛                NixOS   26.11 (Zokor)
+        ▟█████████████████▙ ▜████▛     ▟▙          Kernel  7.2.6 · 7.2.8 after restart
+       ▟███████████████████▙ ▜███▙    ▟██▙         CPU     Ryzen 7 3700X · 32 GB
+              ╭─ Restart mantle? ──────────────────────────────────────────╮
+             ▟│                                                            │
+            ▟█│   ! 2 SSH sessions will drop (from swift, harbor)          │1 GB
+   ▟██████████│   ! 4 Docker containers will stop                          │2 hours ago
+   ▜██████████│     Comes back on generation 500 · kernel 7.2.8            │
+         ▟███▛│                                                            │          l
+        ▟███▛ │   ↵ restart  esc cancel                                    │          s
+       ▟███▛  │                                                            │          d
+       ▜██▛   ╰────────────────────────────────────────────────────────────╯f         a
+        ▜▛     ▟████▙ ▜████████████████▛           ▌ Restart…                         r
+              ▟██████▙         ▜███▙                 Restart into…                    b
+             ▟███▛▜███▙         ▜███▙                Shut down…                       p
+            ▟███▛  ▜███▙         ▜███▙               Log out…                         o
+            ▝▀▀▀    ▀▀▀▀▘         ▀▀▀▘
+
+ ↵ choose  f force quit  c copy info  ? more  esc close
