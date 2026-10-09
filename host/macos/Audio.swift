@@ -155,8 +155,7 @@ enum Audio {
     @available(macOS 14.2, *)
     private final class Tap: Source {
         private(set) var rate = 48_000.0
-        private var tap = AudioObjectID(kAudioObjectUnknown)
-        private var aggregate = AudioObjectID(kAudioObjectUnknown)
+        private var tapAggregate: TapAggregate?
         private var ioProc: AudioDeviceIOProcID?
         private let queue = DispatchQueue(label: "telmo.audio", qos: .userInteractive)
 
@@ -168,41 +167,16 @@ enum Audio {
         }
 
         private func open(ring: Ring) throws {
-            let ours = Self.ownProcessObject().map { [$0] } ?? []
-            let description = CATapDescription(stereoGlobalTapButExcludeProcesses: ours)
-            description.name = "Telmo visualizer"
-            description.isPrivate = true
-            description.muteBehavior = .unmuted
-            // The first attempt is what makes macOS ask for System Audio Recording.
-            guard AudioHardwareCreateProcessTap(description, &tap) == noErr else {
+            // Unmuted: the visualizer only listens. (The system EQ runs its own muted tap, see Equalizer.swift.)
+            do { tapAggregate = try TapAggregate(name: "Telmo visualizer", mute: .unmuted) } catch TapAggregate.Failure.denied {
                 throw TapFailure(message: "denied")
-            }
-            var format = AudioStreamBasicDescription()
-            var size = UInt32(MemoryLayout.size(ofValue: format))
-            var address = Self.address(kAudioTapPropertyFormat)
-            if AudioObjectGetPropertyData(tap, &address, 0, nil, &size, &format) == noErr, format.mSampleRate > 0 {
-                rate = format.mSampleRate
-            }
-
-            guard let output = Self.defaultOutputUID() else {
+            } catch TapAggregate.Failure.noOutput {
                 throw TapFailure(message: "There is no sound output device to listen to.")
-            }
-            let aggregateDescription: [String: Any] = [
-                kAudioAggregateDeviceUIDKey: "io.telmo.visualizer.\(getpid())",
-                kAudioAggregateDeviceNameKey: "Telmo visualizer",
-                kAudioAggregateDeviceMainSubDeviceKey: output,
-                kAudioAggregateDeviceIsPrivateKey: true,
-                kAudioAggregateDeviceIsStackedKey: false,
-                kAudioAggregateDeviceTapAutoStartKey: true,
-                kAudioAggregateDeviceSubDeviceListKey: [[kAudioSubDeviceUIDKey: output]],
-                kAudioAggregateDeviceTapListKey: [[
-                    kAudioSubTapUIDKey: description.uuid.uuidString,
-                    kAudioSubTapDriftCompensationKey: true,
-                ]],
-            ]
-            guard AudioHardwareCreateAggregateDevice(aggregateDescription as CFDictionary, &aggregate) == noErr else {
+            } catch {
                 throw TapFailure(message: "Couldn't listen to the system audio.")
             }
+            guard let aggregate = tapAggregate?.aggregate else { throw TapFailure(message: "Couldn't listen to the system audio.") }
+            rate = tapAggregate?.tapRate ?? rate
             let status = AudioDeviceCreateIOProcIDWithBlock(&ioProc, aggregate, queue) { _, input, _, _, _ in
                 Tap.downmix(input, into: ring)
             }
@@ -212,19 +186,13 @@ enum Audio {
         }
 
         func close() {
-            if let ioProc {
+            if let ioProc, let aggregate = tapAggregate?.aggregate {
                 AudioDeviceStop(aggregate, ioProc)
                 AudioDeviceDestroyIOProcID(aggregate, ioProc)
                 self.ioProc = nil
             }
-            if aggregate != kAudioObjectUnknown {
-                AudioHardwareDestroyAggregateDevice(aggregate)
-                aggregate = AudioObjectID(kAudioObjectUnknown)
-            }
-            if tap != kAudioObjectUnknown {
-                AudioHardwareDestroyProcessTap(tap)
-                tap = AudioObjectID(kAudioObjectUnknown)
-            }
+            tapAggregate?.close()
+            tapAggregate = nil
         }
 
         /// Mono is all the spectrum needs. Handles interleaved and one-buffer-per-channel layouts.
@@ -245,33 +213,6 @@ enum Audio {
             let scale = 1 / Float(channels)
             for i in 0..<frames { mono[i] *= scale }
             mono.withUnsafeBufferPointer { ring.add($0) }
-        }
-
-        private static func address(_ selector: AudioObjectPropertySelector) -> AudioObjectPropertyAddress {
-            AudioObjectPropertyAddress(mSelector: selector, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
-        }
-
-        private static func defaultOutputUID() -> String? {
-            var device = AudioObjectID(kAudioObjectUnknown)
-            var size = UInt32(MemoryLayout<AudioObjectID>.size)
-            var address = address(kAudioHardwarePropertyDefaultOutputDevice)
-            guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &device) == noErr,
-                  device != kAudioObjectUnknown else { return nil }
-            var uid: Unmanaged<CFString>?
-            size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
-            address = Self.address(kAudioDevicePropertyDeviceUID)
-            guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &uid) == noErr else { return nil }
-            return uid?.takeRetainedValue() as String?
-        }
-
-        /// Core Audio's object for this process, so the tap leaves us out.
-        private static func ownProcessObject() -> AudioObjectID? {
-            var pid = getpid()
-            var object = AudioObjectID(kAudioObjectUnknown)
-            var size = UInt32(MemoryLayout<AudioObjectID>.size)
-            var address = address(kAudioHardwarePropertyTranslatePIDToProcessObject)
-            let status = AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, UInt32(MemoryLayout<pid_t>.size), &pid, &size, &object)
-            return status == noErr && object != kAudioObjectUnknown ? object : nil
         }
     }
 }
