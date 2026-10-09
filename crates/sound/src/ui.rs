@@ -1,5 +1,6 @@
 //! Drawing only: a pure function of the app state.
 
+mod equalizer;
 mod song;
 
 use crate::app::{App, Click, Dialog, Pane};
@@ -51,13 +52,16 @@ fn key_hits(app: &App, areas: Vec<Rect>, bindings: &[(&str, &str)], dialog: bool
 
 pub fn draw(app: &App, frame: &mut Frame) {
     app.hits.clear();
+    if let Some(view) = &app.eq_view {
+        return equalizer::draw(app, frame, view);
+    }
     let screen = widgets::screen(frame.area());
     widgets::header(frame, screen.header, "Sound", Line::default());
     draw_panes(app, frame, screen.body);
     if let Some(toast) = app.toast.as_ref().filter(|t| !t.expired()) {
         toast.render(frame, screen.toast);
     }
-    let bindings = key_bar(app);
+    let bindings = fit(key_bar(app), screen.keys.width);
     let areas = widgets::keys(frame, screen.keys, &bindings);
     key_hits(app, areas, &bindings, false);
     if let Some(dialog) = &app.dialog {
@@ -66,18 +70,35 @@ pub fn draw(app: &App, frame: &mut Frame) {
 }
 
 fn key_bar(app: &App) -> Vec<(&'static str, &'static str)> {
-    let action = match app.pane {
-        Pane::Playing => ("o", "output"),
-        _ => ("↵", "set default"),
+    let actions = match app.pane {
+        Pane::Playing => vec![("o", "output")],
+        Pane::Output if app.has_eq() => vec![("e", "next preset"), ("E", "EQ")],
+        _ => vec![("↵", "set default")],
     };
-    vec![
-        ("←→", "volume"),
-        ("m", "mute"),
-        action,
-        ("f", "song"),
-        ("?", "more"),
-        ("esc", "close"),
-    ]
+    let mut bindings = vec![("←→", "volume"), ("m", "mute")];
+    bindings.extend(actions);
+    bindings.extend([("f", "song"), ("?", "more"), ("esc", "close")]);
+    bindings
+}
+
+/// Drops the song and mute keys when the bar is wider than the screen.
+fn fit(
+    mut bindings: Vec<(&'static str, &'static str)>,
+    width: u16,
+) -> Vec<(&'static str, &'static str)> {
+    let used = |bindings: &[(&str, &str)]| {
+        let text: usize = bindings
+            .iter()
+            .map(|(key, label)| key.chars().count() + 1 + label.chars().count())
+            .sum();
+        1 + text + 2 * bindings.len().saturating_sub(1)
+    };
+    for dropped in ["f", "m"] {
+        if used(&bindings) > width as usize {
+            bindings.retain(|(key, _)| *key != dropped);
+        }
+    }
+    bindings
 }
 
 fn draw_panes(app: &App, frame: &mut Frame, body: Rect) {
@@ -192,14 +213,19 @@ fn draw_pane(app: &App, frame: &mut Frame, area: Rect, pane: Pane) {
         Pane::Playing => "Playing",
     };
     let active = app.pane == pane;
-    let block = widgets::pane(title, active, None, None);
+    let tag = (pane == Pane::Output && app.has_eq()).then(|| Line::styled("EQ", eq_style(app)));
+    let block = widgets::pane(title, active, None, tag);
     let inner = block.inner(area);
     frame.render_widget(block, area);
     app.hits.add(area, Click::Pane(pane));
 
     let lines = match pane {
         Pane::Playing => stream_lines(app),
-        _ => app.devices(pane).iter().map(device_line).collect(),
+        _ => app
+            .devices(pane)
+            .iter()
+            .map(|d| device_line(app, d, inner.width))
+            .collect(),
     };
     if lines.is_empty() {
         let empty = match pane {
@@ -241,13 +267,32 @@ fn gauge_hits(app: &App, row: Rect, pane: Pane, i: usize) {
     }
 }
 
-fn device_line(device: &Device) -> Line<'static> {
+fn device_line(app: &App, device: &Device, width: u16) -> Line<'static> {
     let dot = if device.default {
         Span::styled("● ", theme::accent())
     } else {
         Span::raw("  ")
     };
-    level_line(dot, &device.name, device.volume, device.muted, None)
+    let mut line = level_line(dot, &device.name, device.volume, device.muted, None);
+    if let Some(choice) = app.eq_choice(device) {
+        let name = choice.preset().name;
+        // Right-aligned, two columns from the border; the row's marker takes three.
+        let room = (width as usize).saturating_sub(3 + line.width() + name.chars().count() + 2);
+        if room > 0 {
+            line.spans.push(Span::raw(" ".repeat(room)));
+            line.spans.push(Span::styled(name, eq_style(app)));
+        }
+    }
+    line
+}
+
+/// Magenta while the EQ is on, dim while it is off.
+fn eq_style(app: &App) -> Style {
+    if app.eq.enabled {
+        Style::new().fg(theme::MAGENTA)
+    } else {
+        theme::dim()
+    }
 }
 
 fn stream_lines(app: &App) -> Vec<Line<'static>> {
@@ -460,12 +505,14 @@ fn draw_profile_info(app: &App, frame: &mut Frame, device: &str) {
 }
 
 fn draw_help(app: &App, frame: &mut Frame) {
-    const KEYS: [(&str, &str); 11] = [
+    const KEYS: [(&str, &str); 13] = [
         ("tab", "switch pane"),
         ("j k", "move up and down"),
         ("h l", "volume down and up by 5%"),
         ("m", "mute or unmute"),
         ("↵", "make the device the default"),
+        ("e", "next EQ preset for the output"),
+        ("E", "EQ: presets, bass nudge, on/off"),
         ("o", "move the app to another output"),
         ("P", "Bluetooth mode (best sound or headset)"),
         ("f", "identify the song that's playing"),
@@ -1127,5 +1174,231 @@ mod tests {
             "Telmo isn't allowed to use the microphone. Turn it on in System Settings > Privacy & Security > Microphone.".into(),
         ));
         insta::assert_snapshot!(render(&app));
+    }
+
+    /// The mac mock with the visualizer showing, as in the mockups.
+    fn eq_app(keys: &str) -> App {
+        let mut app = app(mock::mac(), "");
+        app.motion.show(&canned());
+        press(&mut app, keys);
+        app
+    }
+
+    fn press(app: &mut App, keys: &str) {
+        for c in keys.chars() {
+            let code = match c {
+                '<' => KeyCode::Left,
+                '>' => KeyCode::Right,
+                '^' => KeyCode::Up,
+                'v' => KeyCode::Down,
+                '!' => KeyCode::Esc,
+                c => KeyCode::Char(c),
+            };
+            app.key(KeyEvent::new(code, KeyModifiers::NONE));
+        }
+    }
+
+    /// What the speakers have chosen, as the file would say.
+    fn speakers_entry(app: &App) -> &crate::eq::Entry {
+        &app.eq.devices["BuiltInSpeakerDevice#ispk"]
+    }
+
+    #[test]
+    fn eq_main_shows_each_outputs_preset() {
+        insta::assert_snapshot!(render(&eq_app("")));
+    }
+
+    #[test]
+    fn eq_main_cycle_toast() {
+        insta::assert_snapshot!(render(&eq_app("e")));
+    }
+
+    #[test]
+    fn eq_main_auto_switch_toast() {
+        let mut app = eq_app("je");
+        app.event(Event::Snapshot(mock::mac()));
+        let mut moved = mock::mac();
+        moved.outputs[0].default = false;
+        moved.outputs[1].default = true;
+        app.event(Event::Snapshot(moved));
+        insta::assert_snapshot!(render(&app));
+    }
+
+    #[test]
+    fn eq_view_speakers() {
+        insta::assert_snapshot!(render(&eq_app("E")));
+    }
+
+    #[test]
+    fn eq_view_off() {
+        insta::assert_snapshot!(render(&eq_app("Eb")));
+    }
+
+    #[test]
+    fn eq_view_nudged() {
+        insta::assert_snapshot!(render(&eq_app("E>>")));
+    }
+
+    #[test]
+    fn eq_view_earfun_with_its_note() {
+        insta::assert_snapshot!(render(&eq_app("jEv")));
+    }
+
+    #[test]
+    fn eq_view_wired_headphones() {
+        insta::assert_snapshot!(render(&eq_app("jjE")));
+    }
+
+    #[test]
+    fn e_steps_through_the_presets_and_wraps() {
+        let mut app = eq_app("");
+        press(&mut app, "e");
+        assert_eq!(speakers_entry(&app).preset, "Speakers ++");
+        assert_eq!(app.eq_choice(&app.snapshot.outputs[0]).unwrap().active, 1);
+        press(&mut app, "eeeee");
+        assert_eq!(speakers_entry(&app).preset, "Speakers +");
+        // The other outputs are untouched.
+        assert!(!app.eq.devices.contains_key("EF-AA-11:output"));
+    }
+
+    #[test]
+    fn e_acts_on_the_selected_output() {
+        let mut app = eq_app("j");
+        press(&mut app, "e");
+        assert_eq!(app.eq.devices["EF-AA-11:output"].preset, "Your EarFun EQ");
+        assert!(!app.eq.devices.contains_key("BuiltInSpeakerDevice#ispk"));
+    }
+
+    #[test]
+    fn e_turns_the_eq_back_on() {
+        let mut app = eq_app("Eb");
+        press(&mut app, "!");
+        assert!(!app.eq.enabled);
+        press(&mut app, "e");
+        assert!(app.eq.enabled);
+    }
+
+    #[test]
+    fn an_output_that_cannot_be_equalized_says_so() {
+        let mut app = eq_app("");
+        app.snapshot.outputs[0].eq = None;
+        press(&mut app, "e");
+        assert!(app.toast.as_ref().is_some_and(|t| !t.ok));
+        press(&mut app, "E");
+        assert!(app.eq_view.is_none());
+    }
+
+    #[test]
+    fn up_and_down_move_and_apply_the_preset() {
+        let mut app = eq_app("E");
+        press(&mut app, "v");
+        assert_eq!(speakers_entry(&app).preset, "Speakers ++");
+        assert_eq!(speakers_entry(&app).preamp, -4.5);
+        press(&mut app, "vvvv");
+        assert_eq!(speakers_entry(&app).preset, "Late night");
+        press(&mut app, "v");
+        assert_eq!(speakers_entry(&app).preset, "Late night");
+        press(&mut app, "^");
+        assert_eq!(speakers_entry(&app).preset, "Vocal");
+    }
+
+    #[test]
+    fn b_switches_the_eq_off_and_on() {
+        let mut app = eq_app("E");
+        assert!(app.eq.enabled);
+        press(&mut app, "b");
+        assert!(!app.eq.enabled);
+        press(&mut app, "b");
+        assert!(app.eq.enabled);
+    }
+
+    #[test]
+    fn the_bass_nudge_stays_within_six_and_resets() {
+        let mut app = eq_app("E");
+        press(&mut app, ">>>>>>>>");
+        assert_eq!(speakers_entry(&app).bass, 6);
+        assert_eq!(speakers_entry(&app).preamp, -9.0);
+        press(&mut app, "r");
+        assert_eq!(speakers_entry(&app).bass, 0);
+        assert_eq!(speakers_entry(&app).preamp, -3.0);
+        press(&mut app, "<<<<<<<<");
+        assert_eq!(speakers_entry(&app).bass, -6);
+        assert_eq!(speakers_entry(&app).preamp, -3.0);
+    }
+
+    #[test]
+    fn the_nudge_is_remembered_per_output() {
+        let mut app = eq_app("E");
+        press(&mut app, ">>!jEv");
+        assert_eq!(app.eq.devices["EF-AA-11:output"].bass, 0);
+        press(&mut app, "!k");
+        press(&mut app, "E");
+        assert_eq!(app.eq_choice(&app.snapshot.outputs[0]).unwrap().bass, 2);
+    }
+
+    #[test]
+    fn esc_goes_back_to_the_mixer() {
+        let mut app = eq_app("E");
+        assert!(app.eq_view.is_some());
+        press(&mut app, "!");
+        assert!(app.eq_view.is_none());
+        assert!(!render(&app).contains("Presets"));
+    }
+
+    #[test]
+    fn clicking_a_preset_applies_it() {
+        let mut app = eq_app("E");
+        // Header, blank, border, then the third preset.
+        click(&mut app, 8, FIRST_ROW + 2);
+        assert_eq!(speakers_entry(&app).preset, "Flat");
+        assert_eq!(app.eq_view.as_ref().map(|v| v.cursor), Some(2));
+    }
+
+    #[test]
+    fn scrolling_the_eq_view_moves_the_preset_not_the_mixer() {
+        let mut app = eq_app("E");
+        mouse(&mut app, MouseEventKind::ScrollDown, 8, FIRST_ROW);
+        assert_eq!(speakers_entry(&app).preset, "Speakers ++");
+        assert_eq!(app.selected(Pane::Output), 0);
+    }
+
+    #[test]
+    fn new_outputs_are_given_their_default_preset() {
+        let mut app = eq_app("");
+        app.event(Event::Snapshot(mock::mac()));
+        assert_eq!(speakers_entry(&app).preset, "Speakers +");
+        assert_eq!(
+            app.eq.devices["BuiltInHeadphoneOutputDevice#hdpn"].preset,
+            "+ Sub-bass"
+        );
+        assert_eq!(app.eq.devices["EF-AA-11:output"].preset, "Flat");
+    }
+
+    #[test]
+    fn an_output_that_disappears_closes_its_view() {
+        let mut app = eq_app("jEv");
+        let mut gone = mock::mac();
+        gone.outputs.remove(1);
+        app.event(Event::Snapshot(gone));
+        assert!(app.eq_view.is_none());
+    }
+
+    #[test]
+    fn linux_has_no_eq() {
+        let mut app = app(mock::linux(), "");
+        let screen = render(&app);
+        assert!(!screen.contains("EQ") && !screen.contains("next preset"));
+        press(&mut app, "e");
+        assert!(app.toast.as_ref().is_some_and(|t| !t.ok));
+        assert!(app.eq.devices.is_empty());
+    }
+
+    #[test]
+    fn the_key_bar_drops_keys_that_do_not_fit() {
+        let full = key_bar(&eq_app(""));
+        assert_eq!(fit(full.clone(), 90), full);
+        let narrow = fit(full, 50);
+        assert!(narrow.iter().all(|(key, _)| *key != "f" && *key != "m"));
+        assert!(narrow.iter().any(|(key, _)| *key == "E"));
     }
 }

@@ -4,16 +4,16 @@ expression: "render(&app(mock::mac(), \"jP\"))"
 ---
  Sound
 
-╭─ Output ───────────────────────────────────────────────────────────────────────────────╮
-│   ● MacBook Pro Speakers      ━━━━━━━━━━━━━━━━━━━───────────    62%                    │
-│ ▌   AirPods Pro               ━━━━━━━━━━━━──────────────────    40%                    │
-│     LG UltraFine              fixed volume                                             │
-╰────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Input ────────╭─ AirPods Pro mode ───────────────────────────────────╮────────────────╮
-│   ● MacBook Pro│                                                      │                │
-│     AirPods Pro│  macOS switches this on its own: picking AirPods     │                │
-╰────────────────│  as the input turns on headset mode.                 │────────────────╯
-                 │                                                      │
+╭─ Output ────────────────────────────────────────────────────────────────────────── EQ ─╮
+│   ● MacBook Air Speakers      ━━━━━━━━━━━━━━━━━━━───────────    62%        Speakers +  │
+│ ▌   EarFun Air Pro 4          ━━━━━━━━━━━━──────────────────    40%              Flat  │
+│     External Headphones       ━━━━━━━━━━━━━━━───────────────    50%        + Sub-bass  │
+│     LG UltraFine              fixed volume                                       Flat  │
+╰────────────────╭─ EarFun Air Pro 4 mode ──────────────────────────────╮────────────────╯
+╭─ Input ────────│                                                      │────────────────╮
+│   ● MacBook Air│  macOS switches this on its own: picking AirPods     │                │
+│     EarFun Air │  as the input turns on headset mode.                 │                │
+╰────────────────│                                                      │────────────────╯
                  │  esc back                                            │
                  │                                                      │
                  ╰──────────────────────────────────────────────────────╯
@@ -23,4 +23,4 @@ expression: "render(&app(mock::mac(), \"jP\"))"
 
 ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁
 
- ←→ volume  m mute  ↵ set default  f song  ? more  esc close
+ ←→ volume  m mute  e next preset  E EQ  f song  ? more  esc close

@@ -472,6 +472,7 @@ fn device(d: &Dev, default: bool, cards: &[Card]) -> Device {
         bluetooth: d.bluetooth,
         profiles,
         playing: d.running,
+        eq: None,
     }
 }
 

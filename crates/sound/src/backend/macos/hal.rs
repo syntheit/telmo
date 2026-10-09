@@ -261,6 +261,12 @@ impl Drop for Listeners {
 
 pub fn device_addresses() -> Vec<AudioObjectPropertyAddress> {
     let mut addresses = vec![global(kAudioDevicePropertyDeviceIsRunningSomewhere)];
+    // Plugging in the headphone jack can switch a built-in output's source.
+    addresses.push(scoped(
+        kAudioDevicePropertyDataSource,
+        kAudioObjectPropertyScopeOutput,
+        kAudioObjectPropertyElementMain,
+    ));
     for scope in [
         kAudioObjectPropertyScopeOutput,
         kAudioObjectPropertyScopeInput,
@@ -276,6 +282,18 @@ pub fn device_addresses() -> Vec<AudioObjectPropertyAddress> {
         }
     }
     addresses
+}
+
+/// The output's current data source as its four-character code: 'ispk' for
+/// the speakers, 'hdpn' for the headphone jack. Devices without one say None.
+pub fn data_source(device: u32) -> Option<String> {
+    let address = scoped(
+        kAudioDevicePropertyDataSource,
+        kAudioObjectPropertyScopeOutput,
+        kAudioObjectPropertyElementMain,
+    );
+    let code = get::<u32>(device, address)?;
+    Some(String::from_utf8_lossy(&code.to_be_bytes()).into_owned())
 }
 
 pub fn has_streams(device: u32, direction: Direction) -> bool {

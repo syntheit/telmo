@@ -4,16 +4,16 @@ expression: render(&app)
 ---
  Sound
 
-╭─ Output ───────────────────────────────────────────────────────────────────────────────╮
-│   ● MacBook Pro Speakers      ━━━━━━━━━━━━━━━━━━━───────────    62%                    │
-│ ▌   AirPods Pro               ━━━━━━━━━━━━──────────────────    40%                    │
-│     LG UltraFine              fixed volume                                             │
+╭─ Output ────────────────────────────────────────────────────────────────────────── EQ ─╮
+│   ● MacBook Air Speakers      ━━━━━━━━━━━━━━━━━━━───────────    62%        Speakers +  │
+│ ▌   EarFun Air Pro 4          ━━━━━━━━━━━━──────────────────    40%              Flat  │
+│     External Headphones       ━━━━━━━━━━━━━━━───────────────    50%        + Sub-bass  │
+│     LG UltraFine              fixed volume                                       Flat  │
 ╰────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Input ────────────────────────────────────────────────────────────────────────────────╮
-│   ● MacBook Pro Microphone    ━━━━━━━━━━━━━━━━━━━━━━━───────    75%                    │
-│     AirPods Pro               ━━━━━━━━━━━━━━━───────────────    50%                    │
+│   ● MacBook Air Microphone    ━━━━━━━━━━━━━━━━━━━━━━━───────    75%                    │
+│     EarFun Air Pro 4          ━━━━━━━━━━━━━━━───────────────    50%                    │
 ╰────────────────────────────────────────────────────────────────────────────────────────╯
-
 
 
 
@@ -23,4 +23,4 @@ expression: render(&app)
      Allow System Audio Recording for Telmo in System Settings to see the visualizer.
 ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁
 
- ←→ volume  m mute  ↵ set default  f song  ? more  esc close
+ ←→ volume  m mute  e next preset  E EQ  f song  ? more  esc close

@@ -1,14 +1,17 @@
 //! State and key handling. No drawing here.
 
+pub mod equalizer;
 pub mod listen;
 
 use crate::backend::{Cmd, Event, Tx};
 use crate::capture::Capture;
+use crate::eq::Config;
 use crate::history;
 use crate::identify::{self, Recognizer};
 use crate::model::{Device, Direction, Snapshot, Source, Target};
 use crate::motion::{FPS, Motion};
 use crate::song::{Found, Listen};
+use equalizer::EqView;
 use ratatui::crossterm::event::{KeyCode, KeyModifiers};
 use ratatui_image::{picker::Picker, protocol::Protocol};
 use std::{cell::RefCell, path::PathBuf, rc::Rc, time::Instant};
@@ -39,6 +42,8 @@ pub enum Click {
     /// A gauge cell: the volume (0.0-1.0) it stands for.
     Volume(Pane, usize, f32),
     Key(KeyCode),
+    /// A preset of the EQ view.
+    Preset(usize),
     DialogKey(KeyCode),
     /// A row of a pick list in a dialog.
     DialogRow(usize),
@@ -82,6 +87,14 @@ pub struct App {
     capture: Option<Capture>,
     /// Listening to the microphone for the song dialog.
     mic: Option<Capture>,
+    /// The EQ presets each output has chosen.
+    pub eq: Config,
+    /// The EQ screen, instead of the mixer, while it is open.
+    pub eq_view: Option<EqView>,
+    /// Whether EQ changes are written to disk and sent to Telmo.app.
+    persist_eq: bool,
+    /// The backend has answered, so the snapshot is no longer the cached one.
+    live: bool,
     /// Songs found before, newest first.
     pub history: Vec<Found>,
     history_path: Option<PathBuf>,
@@ -126,6 +139,14 @@ impl App {
             blocked: false,
             capture: None,
             mic: None,
+            eq: if mock {
+                Config::default()
+            } else {
+                Config::load()
+            },
+            eq_view: None,
+            persist_eq: !mock,
+            live: false,
             history,
             history_path,
             run: 0,
@@ -311,6 +332,7 @@ impl App {
                 self.select(pane, i);
                 self.set_volume(volume);
             }
+            Some(Click::Preset(i)) => self.pick_preset(i),
             Some(Click::Key(code)) => flow = self.key(KeyEvent::new(code, KeyModifiers::NONE)),
             _ => {}
         }
@@ -347,6 +369,9 @@ impl App {
                 KeyCode::Up
             };
             return self.dialog_key(KeyEvent::new(code, KeyModifiers::NONE));
+        }
+        if self.eq_view.is_some() {
+            return self.move_preset(delta);
         }
         match at {
             Some(Click::Row(pane, i) | Click::Volume(pane, i, _)) => {
@@ -536,6 +561,9 @@ impl telmo_kit::App for App {
             }
             return Flow::Continue;
         }
+        if self.eq_view.is_some() {
+            return self.eq_key(key);
+        }
         match key.code {
             KeyCode::Esc | KeyCode::Char('q') => return Flow::Quit,
             KeyCode::Char('?') => self.dialog = Some(Dialog::Help),
@@ -548,6 +576,8 @@ impl telmo_kit::App for App {
             KeyCode::Enter => self.set_default(),
             KeyCode::Char('o') => self.open_route(),
             KeyCode::Char('P') => self.open_profile(),
+            KeyCode::Char('e') => self.next_preset(),
+            KeyCode::Char('E') => self.open_eq(),
             KeyCode::Char('f') => self.open_song(),
             _ => {}
         }
@@ -569,7 +599,22 @@ impl telmo_kit::App for App {
         match event {
             Event::Snapshot(snapshot) => {
                 *self.last.borrow_mut() = Some(snapshot.clone());
+                let before = if self.live {
+                    self.default_output()
+                } else {
+                    None
+                };
+                self.live = true;
                 self.snapshot = snapshot;
+                self.seed_eq();
+                self.announce_default_eq(before);
+                if self
+                    .eq_view
+                    .as_ref()
+                    .is_some_and(|v| self.eq_output(&v.device).is_none())
+                {
+                    self.eq_view = None;
+                }
                 if !self.panes().contains(&self.pane) {
                     self.pane = Pane::Output;
                 }

@@ -1,8 +1,9 @@
 //! Fake system for `--mock`, UI work and tests. `TELMO_MOCK_OS=mac` gives the
-//! macOS variant: no per-app volume, no profiles, one fixed-volume monitor.
+//! macOS variant: no per-app volume, no profiles, one fixed-volume monitor,
+//! and outputs the EQ can tune.
 
 use super::{Cmd, Event, Rx, Tx};
-use crate::model::{Caps, Device, Direction, Profile, Snapshot, Stream, Target};
+use crate::model::{Caps, Device, Direction, EqTarget, Profile, Snapshot, Stream, Target};
 
 pub fn spawn(mut cmds: Rx, events: Tx) {
     let mut snapshot = if std::env::var("TELMO_MOCK_OS").is_ok_and(|os| os == "mac") {
@@ -34,6 +35,7 @@ fn device(id: &str, name: &str, default: bool, volume: Option<f32>) -> Device {
         bluetooth: false,
         profiles: Vec::new(),
         playing: false,
+        eq: None,
     }
 }
 
@@ -92,26 +94,41 @@ pub fn linux() -> Snapshot {
 }
 
 pub fn mac() -> Snapshot {
-    let airpods = Device {
-        bluetooth: true,
-        ..device("airpods", "AirPods Pro", false, Some(0.4))
+    let eq = |key: &str, builtin| {
+        Some(EqTarget {
+            key: key.into(),
+            builtin,
+        })
     };
-    let airpods_mic = Device {
+    let earfun = Device {
         bluetooth: true,
-        ..device("airpods-mic", "AirPods Pro", false, Some(0.5))
+        eq: eq("EF-AA-11:output", false),
+        ..device("earfun", "EarFun Air Pro 4", false, Some(0.4))
+    };
+    let earfun_mic = Device {
+        bluetooth: true,
+        ..device("earfun-mic", "EarFun Air Pro 4", false, Some(0.5))
     };
     Snapshot {
         outputs: vec![
             Device {
                 playing: true,
-                ..device("speakers", "MacBook Pro Speakers", true, Some(0.62))
+                eq: eq("BuiltInSpeakerDevice#ispk", true),
+                ..device("speakers", "MacBook Air Speakers", true, Some(0.62))
             },
-            airpods,
-            device("lg", "LG UltraFine", false, None),
+            earfun,
+            Device {
+                eq: eq("BuiltInHeadphoneOutputDevice#hdpn", true),
+                ..device("headphones", "External Headphones", false, Some(0.5))
+            },
+            Device {
+                eq: eq("lg", false),
+                ..device("lg", "LG UltraFine", false, None)
+            },
         ],
         inputs: vec![
-            device("mic", "MacBook Pro Microphone", true, Some(0.75)),
-            airpods_mic,
+            device("mic", "MacBook Air Microphone", true, Some(0.75)),
+            earfun_mic,
         ],
         streams: Vec::new(),
         caps: Caps::default(),

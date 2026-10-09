@@ -1,12 +1,12 @@
 ---
 source: crates/sound/src/ui.rs
-expression: "render(&app(mock::mac(), \"j\"))"
+expression: render(&app)
 ---
  Sound
 
 ╭─ Output ────────────────────────────────────────────────────────────────────────── EQ ─╮
-│   ● MacBook Air Speakers      ━━━━━━━━━━━━━━━━━━━───────────    62%        Speakers +  │
-│ ▌   EarFun Air Pro 4          ━━━━━━━━━━━━──────────────────    40%              Flat  │
+│     MacBook Air Speakers      ━━━━━━━━━━━━━━━━━━━───────────    62%        Speakers +  │
+│ ▌ ● EarFun Air Pro 4          ━━━━━━━━━━━━──────────────────    40%    Your EarFun EQ  │
 │     External Headphones       ━━━━━━━━━━━━━━━───────────────    50%        + Sub-bass  │
 │     LG UltraFine              fixed volume                                       Flat  │
 ╰────────────────────────────────────────────────────────────────────────────────────────╯
@@ -17,10 +17,10 @@ expression: "render(&app(mock::mac(), \"j\"))"
 
 
 
-
-
-
-
-▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁
-
+    ▁ ▂
+  ▄ █ █ ▇ ▁                               ▂ ▁
+▄ █ █ █ █ █ ▃       ▂ ▃ ▂             ▄ █ █ █ ▅                               ▁ ▁
+█ █ █ █ █ █ █ ▇ ▆ █ █ █ █ ▆ ▂     ▁ ▆ █ █ █ █ █ █ ▄ ▁ ▁ ▂ ▄ ▅ ▄ ▂       ▁ ▄ ▇ █ █ ▇ ▄ ▁
+█ █ █ █ █ █ █ █ █ █ █ █ █ █ █ ▇ ▇ █ █ █ █ █ █ █ █ █ █ █ █ █ █ █ █ █ ▇ ▇ █ █ █ █ █ █ █ █ ▆
+  ✓  EarFun Air Pro 4 · EQ Your EarFun EQ
  ←→ volume  m mute  e next preset  E EQ  f song  ? more  esc close
