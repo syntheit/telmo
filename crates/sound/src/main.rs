@@ -2,11 +2,13 @@ mod app;
 mod backend;
 mod capture;
 mod cover;
+mod eq;
 mod history;
 mod identify;
 mod model;
 mod motion;
 mod rainbow;
+mod response;
 mod song;
 mod spectrum;
 mod ui;
@@ -18,6 +20,9 @@ use tokio::sync::mpsc::unbounded_channel;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
+    if std::env::args().nth(1).as_deref() == Some("eq-seed") {
+        return eq_seed().await;
+    }
     let args = telmo_kit::cli::args();
     if args.status {
         return status(args.mock).await;
@@ -41,9 +46,30 @@ async fn main() {
     }
 }
 
-/// Asks the terminal which image protocol it speaks and how big a cell is.
-/// Without an answer the covers are drawn in half-blocks.
 async fn status(mock: bool) {
+    match first_snapshot(mock).await {
+        Some(snapshot) => match serde_json::to_string_pretty(&snapshot) {
+            Ok(json) => println!("{json}"),
+            Err(e) => fail(&format!("could not encode the snapshot: {e}")),
+        },
+        None => fail("the audio system did not answer within 5 seconds. Is it running?"),
+    }
+}
+
+/// Gives every output that has no EQ settings yet its default preset, then
+/// exits. Telmo.app runs this when it meets an output the popup hasn't seen.
+async fn eq_seed() {
+    let Some(snapshot) = first_snapshot(false).await else {
+        fail("the audio system did not answer within 5 seconds. Is it running?");
+    };
+    if let Err(e) = eq::Config::update(|config| {
+        config.seed(&snapshot.outputs);
+    }) {
+        fail(&format!("could not save the EQ settings: {e}"));
+    }
+}
+
+async fn first_snapshot(mock: bool) -> Option<Snapshot> {
     let (_cmd_tx, cmd_rx) = unbounded_channel();
     let (event_tx, mut event_rx) = unbounded_channel();
     backend::spawn(mock, cmd_rx, event_tx);
@@ -56,13 +82,7 @@ async fn status(mock: bool) {
         None
     })
     .await;
-    match first {
-        Ok(Some(snapshot)) => match serde_json::to_string_pretty(&snapshot) {
-            Ok(json) => println!("{json}"),
-            Err(e) => fail(&format!("could not encode the snapshot: {e}")),
-        },
-        _ => fail("the audio system did not answer within 5 seconds. Is it running?"),
-    }
+    first.ok().flatten()
 }
 
 fn fail(message: &str) -> ! {

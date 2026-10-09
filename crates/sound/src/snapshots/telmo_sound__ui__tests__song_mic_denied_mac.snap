@@ -4,16 +4,16 @@ expression: render(&app)
 ---
  Sound
 
-╭─ Output ───────────────────────────────────────────────────────────────────────────────╮
-│ ▌ ● Mac╭─ What's playing? ────────────────────────────────────────────────────╮        │
-│     Air│                                                                      │        │
-│     LG │  Telmo isn't allowed to use the microphone. Turn it on in System     │        │
-╰────────│  Settings > Privacy & Security > Microphone.                         │────────╯
+╭─ Output ────────────────────────────────────────────────────────────────────────── EQ ─╮
+│ ▌ ● Mac╭─ What's playing? ────────────────────────────────────────────────────╮kers +  │
+│     Ear│                                                                      │  Flat  │
+│     Ext│  Telmo isn't allowed to use the microphone. Turn it on in System     │b-bass  │
+│     LG │  Settings > Privacy & Security > Microphone.                         │  Flat  │
+╰────────│                                                                      │────────╯
 ╭─ Input │                                                                      │────────╮
 │   ● Mac│                                                                      │        │
-│     Air│                                                                      │        │
+│     Ear│                                                                      │        │
 ╰────────│                                                                      │────────╯
-         │                                                                      │
          │                                                                      │
          │                                                                      │
          │                                                                      │
@@ -23,4 +23,4 @@ expression: render(&app)
          ╰──────────────────────────────────────────────────────────────────────╯
 ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁
 
- ←→ volume  m mute  ↵ set default  f song  ? more  esc close
+ ←→ volume  m mute  e next preset  E EQ  f song  ? more  esc close

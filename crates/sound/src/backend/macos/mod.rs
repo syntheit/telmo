@@ -2,7 +2,7 @@
 //! poke that thread, which rebuilds the whole snapshot (debounced).
 
 use super::{Cmd, Event, Rx, Tx};
-use crate::model::{Caps, Device, Direction, Snapshot, Target};
+use crate::model::{Caps, Device, Direction, EqTarget, Snapshot, Target};
 pub mod hal;
 
 use hal::*;
@@ -72,6 +72,7 @@ struct Info {
     aggregate: bool,
     hidden: bool,
     bluetooth: bool,
+    builtin: bool,
 }
 
 impl Info {
@@ -85,6 +86,7 @@ impl Info {
             hidden: get::<u32>(id, global(kAudioDevicePropertyIsHidden)).unwrap_or(0) != 0,
             bluetooth: transport == kAudioDeviceTransportTypeBluetooth
                 || transport == kAudioDeviceTransportTypeBluetoothLE,
+            builtin: transport == kAudioDeviceTransportTypeBuiltIn,
         })
     }
 
@@ -149,6 +151,22 @@ fn device_row(info: &Info, direction: Direction, default: bool) -> Device {
             )
             .unwrap_or(0)
                 != 0,
+        eq: (direction == Direction::Output).then(|| eq_target(info)),
+    }
+}
+
+/// The key Telmo.app builds for the output it equalizes: the UID, and for a
+/// built-in device its data source too, so the speakers and the headphone
+/// jack (a source of the same device on some Macs, a device of its own on
+/// others) never share a preset.
+fn eq_target(info: &Info) -> EqTarget {
+    let source = info.builtin.then(|| data_source(info.id)).flatten();
+    EqTarget {
+        key: match source {
+            Some(source) => format!("{}#{source}", info.uid),
+            None => info.uid.clone(),
+        },
+        builtin: info.builtin,
     }
 }
 

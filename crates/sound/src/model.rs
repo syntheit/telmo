@@ -37,6 +37,19 @@ pub struct Device {
     /// Sound is coming out of (or going into) this device right now.
     #[serde(default)]
     pub playing: bool,
+    /// Set when the output can be equalized (macOS only for now).
+    #[serde(default)]
+    pub eq: Option<EqTarget>,
+}
+
+/// How the EQ recognizes an output.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EqTarget {
+    /// The device UID, plus `#<data source>` on a built-in device, so the
+    /// speakers and the headphone jack keep separate presets. Telmo.app builds
+    /// the same key for the output it equalizes.
+    pub key: String,
+    pub builtin: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

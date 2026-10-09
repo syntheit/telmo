@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
     private let dim = DimWindows()
     private let island = RebuildIsland()
     private let bluetooth = BluetoothGuard()
+    private let equalizer = Equalizer()
     private var hotkeys: Hotkeys?
     private var clipboard: ClipboardWatcher?
     private var ipc: IPCServer?
@@ -37,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
         }
 
         bluetooth.start()
+        equalizer.start()
         island.start()
         if ClipboardWatcher.isEnabled {
             clipboard = ClipboardWatcher()
@@ -47,6 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
 
     func applicationWillTerminate(_ note: Notification) {
         popup.terminateChild() // otherwise the telmo-* child outlives the host
+        equalizer.stop()
     }
 
     // MARK: Commands (main thread)
@@ -57,6 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
         case ("ping", 1): return "ok"
         case ("hide", 1): hide(); return "ok"
         case ("dump", 1): return popup.isRunning ? popup.visibleText() : "error no popup is open"
+        case ("eq", 2) where words[1] == "reload": equalizer.reload(); return "ok"
         case ("location-status", 1): return locationStatus()
         case ("request-location", 1): return requestLocation()
         case ("toggle", 2), ("show", 2):

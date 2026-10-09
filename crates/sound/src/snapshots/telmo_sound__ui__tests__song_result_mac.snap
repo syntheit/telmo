@@ -4,16 +4,16 @@ expression: render(&app)
 ---
  Sound
 
-╭─ Output ───────────────────────────────────────────────────────────────────────────────╮
-│ ▌ ● Mac╭─ What's playing? ────────────────────────────────────────────────────╮        │
-│     Air│                                                                      │        │
-│     LG │  ╭──────────╮                                                        │        │
-╰────────│  │          │  Sneaky Snitch                                         │────────╯
-╭─ Input │  │          │  Kevin MacLeod                                         │────────╮
-│   ● Mac│  │    ♪     │  YouTube Audio Library · 2012                          │        │
-│     Air│  │          │                                                        │        │
-╰────────│  ╰──────────╯                                                        │────────╯
-         │                                                                      │
+╭─ Output ────────────────────────────────────────────────────────────────────────── EQ ─╮
+│ ▌ ● Mac╭─ What's playing? ────────────────────────────────────────────────────╮kers +  │
+│     Ear│                                                                      │  Flat  │
+│     Ext│  ╭──────────╮                                                        │b-bass  │
+│     LG │  │          │  Sneaky Snitch                                         │  Flat  │
+╰────────│  │          │  Kevin MacLeod                                         │────────╯
+╭─ Input │  │    ♪     │  YouTube Audio Library · 2012                          │────────╮
+│   ● Mac│  │          │                                                        │        │
+│     Ear│  ╰──────────╯                                                        │        │
+╰────────│                                                                      │────────╯
          │  Recent                                                              │
          │  Windowlicker — Aphex Twin                                           │
          │  Teardrop — Massive Attack                                           │
@@ -23,4 +23,4 @@ expression: render(&app)
          ╰──────────────────────────────────────────────────────────────────────╯
 ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁
 
- ←→ volume  m mute  ↵ set default  f song  ? more  esc close
+ ←→ volume  m mute  e next preset  E EQ  f song  ? more  esc close
