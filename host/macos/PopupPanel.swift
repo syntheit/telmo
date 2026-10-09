@@ -14,7 +14,7 @@ final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
     private var escapeMonitor: Any?
     // Every child gets its own terminal view, so a late callback from a replaced
     // child (source !== terminal) is recognisably stale.
-    private var terminal = LocalProcessTerminalView(frame: .zero)
+    private var terminal = PopupTerminalView(frame: .zero)
     private let holder = NSView()
     private(set) var isRunning = false
 
@@ -39,7 +39,7 @@ final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
 
     // MARK: Setup
 
-    private func configureTerminal(_ terminal: LocalProcessTerminalView, cols: Int, rows: Int) {
+    private func configureTerminal(_ terminal: PopupTerminalView, cols: Int, rows: Int) {
         let size: CGFloat = 13
         terminal.font = NSFont(name: "JetBrainsMono Nerd Font Mono", size: size)
             ?? NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
@@ -93,6 +93,7 @@ final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
         env["TERM"] = "xterm-256color"
         env["COLORTERM"] = "truecolor"
         env["TELMO_HOST"] = "1"
+        env["TELMO_IMAGE_PROTOCOL"] = "iterm2" // SwiftTerm claims kitty graphics but does not draw ratatui-image's placements
         env["PATH"] = ModuleLookup.searchPath.joined(separator: ":")
         terminal.startProcess(executable: launch.executable, args: launch.args, environment: env.map { "\($0.key)=\($0.value)" })
     }
@@ -131,7 +132,7 @@ final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
 
     /// Cell size in points, from how the fitted frame grows with one more column and row.
     private func cellSize() -> NSSize {
-        let probe = LocalProcessTerminalView(frame: .zero)
+        let probe = PopupTerminalView(frame: .zero)
         configureTerminal(probe, cols: normalCols, rows: normalRows)
         let small = probe.getOptimalFrameSize().size
         probe.getTerminal().resize(cols: normalCols + 1, rows: normalRows + 1)
@@ -146,7 +147,7 @@ final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
 
     private func replaceTerminal() {
         let old = terminal
-        let fresh = LocalProcessTerminalView(frame: old.frame)
+        let fresh = PopupTerminalView(frame: old.frame)
         configureTerminal(fresh, cols: cols, rows: rows)
         old.processDelegate = nil
         old.removeFromSuperview()
