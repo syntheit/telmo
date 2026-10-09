@@ -50,10 +50,29 @@ async fn main() -> ExitCode {
 }
 
 /// Asks the terminal which image protocol it speaks and how big a cell is.
-/// Without an answer pictures are drawn in half-blocks.
+/// Without an answer pictures are drawn in half-blocks. `TELMO_IMAGE_PROTOCOL`
+/// overrides the protocol for hosts that know better than their own answer
+/// (Telmo.app's SwiftTerm claims kitty graphics but never draws ratatui-image's
+/// placements, which carry no size).
 fn image_picker() -> ratatui_image::picker::Picker {
-    ratatui_image::picker::Picker::from_query_stdio()
-        .unwrap_or_else(|_| ratatui_image::picker::Picker::halfblocks())
+    let mut picker = ratatui_image::picker::Picker::from_query_stdio()
+        .unwrap_or_else(|_| ratatui_image::picker::Picker::halfblocks());
+    if let Some(protocol) = protocol_override(std::env::var("TELMO_IMAGE_PROTOCOL").ok().as_deref())
+    {
+        picker.set_protocol_type(protocol);
+    }
+    picker
+}
+
+fn protocol_override(value: Option<&str>) -> Option<ratatui_image::picker::ProtocolType> {
+    use ratatui_image::picker::ProtocolType;
+    match value? {
+        "iterm2" => Some(ProtocolType::Iterm2),
+        "sixel" => Some(ProtocolType::Sixel),
+        "kitty" => Some(ProtocolType::Kitty),
+        "halfblocks" => Some(ProtocolType::Halfblocks),
+        _ => None,
+    }
 }
 
 fn status(source: &dyn backend::Source) -> ExitCode {
@@ -81,4 +100,31 @@ fn status(source: &dyn backend::Source) -> ExitCode {
 fn fail(message: &str) -> ExitCode {
     eprintln!("telmo-clipboard: {message}");
     ExitCode::FAILURE
+}
+
+#[cfg(test)]
+mod tests {
+    use super::protocol_override;
+    use ratatui_image::picker::ProtocolType;
+
+    #[test]
+    fn the_host_can_name_the_protocol() {
+        assert_eq!(
+            protocol_override(Some("iterm2")),
+            Some(ProtocolType::Iterm2)
+        );
+        assert_eq!(protocol_override(Some("sixel")), Some(ProtocolType::Sixel));
+        assert_eq!(protocol_override(Some("kitty")), Some(ProtocolType::Kitty));
+        assert_eq!(
+            protocol_override(Some("halfblocks")),
+            Some(ProtocolType::Halfblocks)
+        );
+    }
+
+    #[test]
+    fn anything_else_keeps_the_terminal_answer() {
+        assert_eq!(protocol_override(None), None);
+        assert_eq!(protocol_override(Some("")), None);
+        assert_eq!(protocol_override(Some("bogus")), None);
+    }
 }
