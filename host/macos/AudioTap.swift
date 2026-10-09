@@ -59,6 +59,8 @@ final class TapAggregate {
         /// The tap itself was refused, which is what a missing System Audio Recording grant looks like.
         case denied
         case noOutput
+        /// Core Audio doesn't know this process, so a tap couldn't leave it out (see `leaveOutSelf`).
+        case unknownSelf
         case aggregate
     }
 
@@ -67,16 +69,18 @@ final class TapAggregate {
     /// The sample rate of the tapped audio.
     private(set) var tapRate = 48_000.0
 
-    /// `output` is the UID of the device to tap; nil takes the current default output.
-    init(name: String, mute: CATapMuteBehavior, output: String? = nil) throws {
-        do { try open(name: name, mute: mute, output: output) } catch {
+    /// `output` is the UID of the device to tap; nil takes the current default output. With `leaveOutSelf` the tap refuses to
+    /// exist unless it can exclude this process, which an EQ needs: it would otherwise hear its own output and feed back.
+    init(name: String, mute: CATapMuteBehavior, output: String? = nil, leaveOutSelf: Bool = false) throws {
+        do { try open(name: name, mute: mute, output: output, leaveOutSelf: leaveOutSelf) } catch {
             close()
             throw error
         }
     }
 
-    private func open(name: String, mute: CATapMuteBehavior, output: String?) throws {
+    private func open(name: String, mute: CATapMuteBehavior, output: String?, leaveOutSelf: Bool) throws {
         let ours = HAL.ownProcessObject().map { [$0] } ?? []
+        if leaveOutSelf && ours.isEmpty { throw Failure.unknownSelf }
         let description = CATapDescription(stereoGlobalTapButExcludeProcesses: ours)
         description.name = name
         description.isPrivate = true

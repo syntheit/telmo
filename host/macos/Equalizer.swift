@@ -143,8 +143,10 @@ final class Equalizer {
             self.key = key
             self.device = device
             self.deviceRate = deviceRate
-            do { tapAggregate = try TapAggregate(name: "Telmo EQ", mute: .mutedWhenTapped, output: uid) } catch TapAggregate.Failure.denied {
+            do { tapAggregate = try TapAggregate(name: "Telmo EQ", mute: .mutedWhenTapped, output: uid, leaveOutSelf: true) } catch TapAggregate.Failure.denied {
                 throw SessionFailure(description: "Allow System Audio Recording for Telmo in System Settings.")
+            } catch TapAggregate.Failure.unknownSelf {
+                throw SessionFailure(description: "Core Audio does not list Telmo as an audio process, so the EQ would hear itself")
             } catch {
                 throw SessionFailure(description: "the audio aggregate could not be created")
             }
