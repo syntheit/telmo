@@ -1,0 +1,30 @@
+---
+source: crates/clipboard/src/ui.rs
+expression: render(&f)
+---
+ Clipboard                                                                                          1 of 13
+
+╭─ History ──────────────────────────╮╭─ Text ─────────────────────────────────────────────────────────────╮
+│ / nix▀                             ││                                                                    │
+│                                    ││  sudo darwin-rebuild switch --flake ~/nix#swift --substituters     │
+│ ▌ 󰉢 sudo darwin-rebuild switch … 2m││    'https://cache.nixos.org'                                       │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││  ────────────────────────────────────────────────────────────────  │
+│                                    ││  Copied   2 min ago · Ghostty                                      │
+│                                    ││  Size     89 characters · 7 words · 2 lines                        │
+╰────────────────────────────────────╯╰────────────────────────────────────────────────────────────────────╯
+
+ ↵ copy  ↑↓ move  esc clear search

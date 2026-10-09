@@ -9,11 +9,19 @@ let
   cfg = config.programs.telmo;
   inherit (lib) mkEnableOption mkIf mkMerge mkOption types;
   isDarwin = pkgs.stdenv.hostPlatform.isDarwin;
-  builtIns = [ "net" "bt" "sound" "display" "power" "scale" "system" ];
+  builtIns = [ "net" "bt" "sound" "display" "power" "scale" "system" "clipboard" ];
   customNames = lib.attrNames cfg.popups;
 
   # Hyprland size per custom popup: "large" is 80% of the monitor.
   hyprSize = popup: if popup.size == "large" then "(monitor_w*0.8) (monitor_h*0.8)" else cfg.hyprland.size;
+  # The clipboard popup is 20% bigger than the others: "W H" in pixels.
+  clipboardSize =
+    let
+      parts = lib.splitString " " cfg.hyprland.size;
+      bigger = n: toString (builtins.floor (lib.toInt n * 1.2));
+    in
+    if lib.length parts == 2 then "${bigger (lib.elemAt parts 0)} ${bigger (lib.elemAt parts 1)}" else cfg.hyprland.size;
+  sizeFor = name: if name == "clipboard" then clipboardSize else cfg.hyprland.size;
   popupRules = name: size: map (rule: "${rule}, match:class ^(telmo\\.${name})$") [
     "float 1"
     "center 1"
@@ -92,6 +100,29 @@ in
       };
     };
 
+    clipboard = {
+      enable = mkOption {
+        type = types.bool;
+        default = false;
+        description = ''
+          Keep a clipboard history for the clipboard popup. Opt-in because it
+          runs a watcher that stores everything you copy, passwords included,
+          on this machine only. Linux: a systemd user service running
+          `wl-paste --watch`. macOS: Telmo.app watches the pasteboard.
+        '';
+      };
+      maxItems = mkOption {
+        type = types.int;
+        default = 50;
+        description = "Unpinned items kept. Pins don't count.";
+      };
+      maxDays = mkOption {
+        type = types.int;
+        default = 30;
+        description = "Unpinned items older than this many days are dropped. Pins never expire.";
+      };
+    };
+
     popups = mkOption {
       default = { };
       example = { perf = { command = [ "btop" ]; size = "large"; escape = "close"; }; };
@@ -154,6 +185,28 @@ in
       xdg.configFile."telmo/system.json".text = builtins.toJSON systemConfig;
     })
 
+    (mkIf cfg.clipboard.enable {
+      xdg.configFile."telmo/clipboard.json".text = builtins.toJSON {
+        inherit (cfg.clipboard) maxItems maxDays;
+      };
+    })
+
+    (mkIf (!isDarwin && cfg.clipboard.enable) {
+      systemd.user.services.telmo-clipboard = {
+        Unit = {
+          Description = "telmo clipboard history watcher";
+          After = [ "graphical-session.target" ];
+          PartOf = [ "graphical-session.target" ];
+        };
+        Service = {
+          ExecStart = "${pkgs.wl-clipboard}/bin/wl-paste --watch ${cfg.package}/bin/telmo-clipboard ingest-wayland";
+          Restart = "on-failure";
+          Environment = [ "PATH=${lib.makeBinPath [ pkgs.wl-clipboard ]}:/run/current-system/sw/bin" ];
+        };
+        Install.WantedBy = [ "graphical-session.target" ];
+      };
+    })
+
     (mkIf isDarwin {
       launchd.agents.telmo = {
         enable = true;
@@ -189,7 +242,7 @@ in
     (mkIf (!isDarwin && cfg.hyprland.enable) {
       wayland.windowManager.hyprland.settings = {
         windowrule =
-          lib.concatMap (m: popupRules m cfg.hyprland.size) builtIns
+          lib.concatMap (m: popupRules m (sizeFor m)) builtIns
           ++ lib.concatMap (m: popupRules m (hyprSize cfg.popups.${m})) customNames;
         bind = lib.mapAttrsToList (m: key: "${key}, exec, telmo popup ${m}") cfg.hyprland.binds;
       };
