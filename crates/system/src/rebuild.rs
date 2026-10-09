@@ -420,13 +420,41 @@ fn follow(
     Ok(code.code())
 }
 
-/// The sentence the popup's footer shows at the end.
+/// The sentence the popup's footer (and on Linux the notification) shows at the end.
 pub fn summary(status: &Status, host: &str) -> String {
     match (status.state, status.generation) {
         (State::Ok, Some(generation)) => format!("{host} is on generation {generation}"),
         (State::Ok, None) => format!("{host} is rebuilt"),
         _ => status.error.clone().unwrap_or_else(|| FAILED.into()),
     }
+}
+
+/// Linux has no notch pill, so the end of a rebuild that may have run with the
+/// popup closed is announced as a desktop notification, in the user's session.
+#[cfg(target_os = "linux")]
+fn notify(text: &str, owner: Owner) {
+    // Nix bakes in libnotify's path; root's PATH may not have notify-send.
+    let notify_send = option_env!("TELMO_NOTIFY_SEND").unwrap_or("notify-send");
+    let mut command;
+    if is_root() {
+        command = Command::new("sudo");
+        command
+            .args(["-u", &format!("#{}", owner.uid), "env"])
+            .arg(format!("XDG_RUNTIME_DIR=/run/user/{}", owner.uid))
+            .arg(format!(
+                "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/{}/bus",
+                owner.uid
+            ))
+            .arg(notify_send);
+    } else {
+        command = Command::new(notify_send);
+    }
+    let _ = command
+        .args(["--app-name=telmo", "telmo", text])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -528,6 +556,11 @@ pub fn main(args: &[String]) -> ExitCode {
     }
     let job = Job::new(invocation.argv, invocation.dir, invocation.owner);
     let status = run(&job, &mut |_| {});
+    #[cfg(target_os = "linux")]
+    notify(
+        &summary(&status, &crate::app::host_name()),
+        invocation.owner,
+    );
     if status.state == State::Ok {
         ExitCode::SUCCESS
     } else {

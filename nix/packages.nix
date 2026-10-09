@@ -57,7 +57,10 @@ rec {
     }
   );
   telmo-scale = module "scale" "Weigh things on a Force Touch trackpad";
-  telmo-system = module "system" "System popup: lock, sleep, restart, effects";
+  # Linux announces a finished rebuild with notify-send, run as root for the user.
+  telmo-system = (module "system" "System popup: lock, sleep, restart, effects").overrideAttrs (
+    lib.optionalAttrs stdenv.hostPlatform.isLinux { TELMO_NOTIFY_SEND = "${pkgs.libnotify}/bin/notify-send"; }
+  );
   telmo-clipboard = module "clipboard" "Clipboard history: text, links, colors, images, files";
   telmo = pkgs.symlinkJoin {
     name = "telmo";
