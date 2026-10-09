@@ -35,14 +35,16 @@ func status(_ state: String, pid: Int = 1, built: Int = 0, toBuild: Int = 0, fet
             check(status("running", phase: name).phase == phase, "decodes phase \(name)")
         }
 
-        // Lit bars: floor(fraction * 10), built/to_build first, else fetched/to_fetch.
+        // Lit bars: floor(fraction * 10); downloads count fetches, everything else builds.
         func content(_ s: RebuildStatus) -> IslandContent { IslandContent.make(s) }
         check(content(status("running", built: 12, toBuild: 40, phase: "building")).lit == 3, "12/40 lights 3")
         check(content(status("running", built: 39, toBuild: 40, phase: "building")).lit == 9, "39/40 lights 9")
         check(content(status("running", built: 9, toBuild: 4, phase: "building")).lit == 10, "overshoot clamps to 10")
         check(content(status("running", fetched: 3, toFetch: 6, phase: "downloading")).lit == 5, "fetch fallback")
         check(content(status("running", built: 1, toBuild: 4, fetched: 6, toFetch: 6, phase: "building")).lit == 2, "builds win over fetches")
+        check(content(status("running", built: 0, toBuild: 4, fetched: 3, toFetch: 6, phase: "downloading")).lit == 5, "downloading counts fetches")
         check(content(status("running", phase: "downloading")).lit == 0, "no totals lights nothing")
+        check(content(status("failed", built: 4, toBuild: 4, phase: "activating")).lit == 9, "failed switch keeps 9")
 
         // The breathing head is the first unlit bar, and goes when all are lit.
         check(content(status("running", built: 12, toBuild: 40, phase: "building")).head == 3, "head after the lit bars")

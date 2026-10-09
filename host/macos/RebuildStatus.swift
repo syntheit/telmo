@@ -108,15 +108,18 @@ struct IslandContent: Equatable {
         case .ok:
             return IslandContent(look: .ok, lit: bars, head: nil, sweeping: false)
         case .failed:
-            return IslandContent(look: .failed, lit: max(1, count ?? 0), head: nil, sweeping: false)
+            // A failed switch keeps the activation picture, just red.
+            let lit = status.phase == .activating ? bars - 1 : max(1, count ?? 0)
+            return IslandContent(look: .failed, lit: lit, head: nil, sweeping: false)
         }
     }
 
-    /// built/to_build, else fetched/to_fetch, else nil while the totals are unknown.
+    /// fetched/to_fetch while downloading, otherwise built/to_build; whichever is known as a fallback,
+    /// nil while no totals are announced.
     static func fraction(_ s: RebuildStatus) -> Double? {
-        if s.toBuild > 0 { return min(1, Double(s.built) / Double(s.toBuild)) }
-        if s.toFetch > 0 { return min(1, Double(s.fetched) / Double(s.toFetch)) }
-        return nil
+        func ratio(_ done: Int, _ total: Int) -> Double? { total > 0 ? min(1, Double(done) / Double(total)) : nil }
+        let builds = ratio(s.built, s.toBuild), fetches = ratio(s.fetched, s.toFetch)
+        return s.phase == .downloading ? fetches ?? builds : builds ?? fetches
     }
 }
 

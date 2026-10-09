@@ -204,7 +204,7 @@ pub struct Progress {
 impl Progress {
     pub fn feed(&mut self, line: &str) {
         let line = line.trim();
-        if is_activation(line) {
+        if self.is_activation(line) {
             self.phase = Phase::Activating;
         } else if let Some(n) = announced(line, "derivation", "will be built") {
             self.to_build = n;
@@ -223,18 +223,21 @@ impl Progress {
         }
     }
 
+    /// What the switch prints when the build is done and the new system goes live:
+    /// `nixos-rebuild` says `activating the configuration...` and nix-darwin's activation script,
+    /// like NixOS's, starts with `setting up ...` lines (`/Applications/Nix Apps`, `/etc`, ...).
+    /// Those only count once every announced build has started, so a builder that happens to
+    /// print one can't end the build early.
+    fn is_activation(&self, line: &str) -> bool {
+        line == "activating the configuration..."
+            || (line.starts_with("setting up ") && self.built >= self.to_build)
+    }
+
     fn downloading(&mut self) {
         if self.phase == Phase::Evaluating {
             self.phase = Phase::Downloading;
         }
     }
-}
-
-/// What the switch prints when the build is done and the new system goes live:
-/// `nixos-rebuild` says `activating the configuration...` and nix-darwin's activation script,
-/// like NixOS's, starts with `setting up ...` lines (`/Applications/Nix Apps`, `/etc`, ...).
-fn is_activation(line: &str) -> bool {
-    line == "activating the configuration..." || line.starts_with("setting up ")
 }
 
 /// `these 12 derivations will be built:` -> 12; `this derivation will be built:` -> 1.
@@ -657,6 +660,16 @@ Activating... done
             phase_after("building '/nix/store/a.drv'...\nsetting up /etc..."),
             Phase::Activating
         );
+    }
+
+    #[test]
+    fn setting_up_during_the_build_is_not_activation() {
+        let early = "these 2 derivations will be built:\nbuilding '/nix/store/a.drv'...\nsetting up something...";
+        assert_eq!(phase_after(early), Phase::Building);
+        let done = "these 2 derivations will be built:\nbuilding '/nix/store/a.drv'...\nbuilding '/nix/store/b.drv'...\nsetting up /etc...";
+        assert_eq!(phase_after(done), Phase::Activating);
+        // Nothing to build: activation starts right away.
+        assert_eq!(phase_after("setting up /etc..."), Phase::Activating);
     }
 
     #[test]
