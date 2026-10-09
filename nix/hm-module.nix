@@ -84,8 +84,9 @@ in
         example = [ "/run/current-system/sw/bin/darwin-rebuild" "switch" "--flake" "/Users/me/nix#host" "--substituters" "https://cache.nixos.org" ];
         description = ''
           Command the system popup's `u` key runs as a background rebuild,
-          without elevation: telmo adds `sudo -A` (macOS, confirmed with Touch ID)
-          or `pkexec` (Linux, polkit dialog). Progress shows in the popup's
+          without elevation: telmo runs it through `sudo` in the popup's own
+          terminal (Touch ID on macOS, the password on Linux), then keeps it
+          going in the background. Progress shows in the popup's
           footer and a notification reports the end. Unset: `u` says so.
         '';
       };
