@@ -619,7 +619,10 @@ Activating... done
             Phase::Downloading
         );
         assert_eq!(phase_after("copying 3 paths..."), Phase::Evaluating);
-        assert_eq!(phase_after("building '/nix/store/a.drv'..."), Phase::Building);
+        assert_eq!(
+            phase_after("building '/nix/store/a.drv'..."),
+            Phase::Building
+        );
     }
 
     #[test]
