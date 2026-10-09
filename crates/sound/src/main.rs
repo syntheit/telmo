@@ -28,7 +28,7 @@ async fn main() {
     let (event_tx, event_rx) = unbounded_channel();
     let last = Rc::new(RefCell::new(cached.clone()));
     let mut app = App::new(cached, cmd_tx, last.clone(), event_tx.clone(), args.mock);
-    app.set_picker(image_picker());
+    app.set_picker(telmo_kit::images::picker());
     backend::spawn(args.mock, cmd_rx, event_tx);
 
     let result = telmo_kit::run(app, event_rx).await;
@@ -43,11 +43,6 @@ async fn main() {
 
 /// Asks the terminal which image protocol it speaks and how big a cell is.
 /// Without an answer the covers are drawn in half-blocks.
-fn image_picker() -> ratatui_image::picker::Picker {
-    ratatui_image::picker::Picker::from_query_stdio()
-        .unwrap_or_else(|_| ratatui_image::picker::Picker::halfblocks())
-}
-
 async fn status(mock: bool) {
     let (_cmd_tx, cmd_rx) = unbounded_channel();
     let (event_tx, mut event_rx) = unbounded_channel();

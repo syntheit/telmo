@@ -4,6 +4,7 @@
 pub mod cache;
 pub mod cli;
 pub mod hits;
+pub mod images;
 pub mod input;
 pub mod os;
 pub mod runtime;
