@@ -60,7 +60,7 @@ func status(_ state: String, pid: Int = 1, built: Int = 0, toBuild: Int = 0, fet
         check(content(status("running")).look.rgb == 0x9aa0b8, "evaluating grey")
         check(content(status("running", phase: "downloading")).look.rgb == 0x7ebae4, "downloading light blue")
         check(content(status("running", phase: "building")).look.rgb == 0x5b86d6, "building deep blue")
-        check(content(status("running", phase: "activating")).look.rgb == 0x9ece6a, "activating green")
+        check(content(status("running", phase: "activating")).look.rgb == 0x5b86d6, "activating stays building blue")
         check(content(status("ok")).look.rgb == 0x9ece6a, "success green")
         check(content(status("failed")).look.rgb == 0xf7768e, "failed red")
 

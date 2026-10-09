@@ -14,7 +14,10 @@ use crossterm::event::{
     KeyModifiers, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags,
     PushKeyboardEnhancementFlags,
 };
-use crossterm::{execute, terminal::supports_keyboard_enhancement};
+use crossterm::{
+    execute,
+    terminal::{BeginSynchronizedUpdate, EndSynchronizedUpdate, supports_keyboard_enhancement},
+};
 use futures_util::StreamExt;
 use ratatui::Frame;
 use std::{io, process::Command, time::Duration};
@@ -95,13 +98,16 @@ fn leave(enhanced: bool) {
     ratatui::restore();
 }
 
+/// One frame, shown all at once: a clear-and-redraw inside a synchronized update
+/// never flashes the blank screen in between.
 fn draw<A: App>(terminal: &mut ratatui::DefaultTerminal, app: &mut A) -> io::Result<()> {
+    execute!(io::stdout(), BeginSynchronizedUpdate)?;
     terminal.draw(|f| app.draw(f))?;
     if app.take_clear() {
         terminal.clear()?;
         terminal.draw(|f| app.draw(f))?;
     }
-    Ok(())
+    execute!(io::stdout(), EndSynchronizedUpdate)
 }
 
 pub async fn run<A: App>(mut app: A, mut events: UnboundedReceiver<A::Event>) -> io::Result<()> {

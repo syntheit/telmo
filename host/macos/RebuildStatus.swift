@@ -76,8 +76,9 @@ struct IslandContent: Equatable {
             switch self {
             case .evaluating: 0x9aa0b8
             case .downloading: 0x7ebae4
-            case .building: 0x5b86d6
-            case .activating, .ok: 0x9ece6a
+            // Green is kept for done, so the finish stands out from almost done.
+            case .building, .activating: 0x5b86d6
+            case .ok: 0x9ece6a
             case .failed: 0xf7768e
             }
         }
