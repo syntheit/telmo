@@ -1,5 +1,5 @@
 #!/bin/sh
-# Compiles BluetoothGuard.swift with its tests and runs them.
+# Compiles the host files that have tests (BluetoothGuard, ClipboardItem) with their tests and runs them.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 export DEVELOPER_DIR=/Library/Developer/CommandLineTools
