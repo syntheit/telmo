@@ -5,7 +5,7 @@ import Foundation
 struct RebuildStatus: Decodable, Equatable {
     enum State: String, Decodable { case running, ok, failed }
 
-    let state: State
+    var state: State
     let pid: Int
     let started: Int
     let built: Int
@@ -28,6 +28,20 @@ struct RebuildStatus: Decodable, Equatable {
     }
 
     static func decode(_ data: Data) -> RebuildStatus? { try? JSONDecoder().decode(RebuildStatus.self, from: data) }
+
+    /// A run that says "running" but whose process is gone counts as failed, like telmo-system reads it.
+    func checked(alive: (Int) -> Bool = pidAlive) -> RebuildStatus {
+        guard state == .running, !alive(pid) else { return self }
+        var stopped = self
+        stopped.state = .failed
+        return stopped
+    }
+
+    /// The runner is root, so a live one answers EPERM.
+    static func pidAlive(_ pid: Int) -> Bool {
+        guard pid > 0, let pid = Int32(exactly: pid) else { return false }
+        return kill(pid, 0) == 0 || errno == EPERM
+    }
 
     /// Identifies one rebuild run.
     var key: String { "\(pid)-\(started)" }
@@ -75,7 +89,8 @@ struct IslandTracker {
 
     private var first = true
     private var handled: String?
-    private var okSince: Date?
+    /// The run whose success is showing, and since when.
+    private var ok: (key: String, since: Date)?
 
     /// nil hides the island.
     mutating func update(_ status: RebuildStatus?, popupOpen: Bool, now: Date) -> IslandContent? {
@@ -88,9 +103,8 @@ struct IslandTracker {
         if first || popupOpen { handled = status.key }
         if handled == status.key { return nil }
         if status.state == .ok {
-            let since = okSince ?? now
-            okSince = since
-            if now.timeIntervalSince(since) >= Self.okSeconds {
+            if ok?.key != status.key { ok = (status.key, now) }
+            if let ok, now.timeIntervalSince(ok.since) >= Self.okSeconds {
                 handled = status.key
                 return nil
             }

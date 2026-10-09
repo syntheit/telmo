@@ -67,6 +67,20 @@ func status(_ state: String, pid: Int = 1, built: Int = 0, toBuild: Int = 0, fet
         tracker.acknowledge(failed)
         check(tracker.update(failed, popupOpen: false, now: t0.addingTimeInterval(601)) == nil, "acknowledged failure hidden")
 
+        // A second success gets its own 10 s.
+        tracker = IslandTracker()
+        _ = tracker.update(status("running", pid: 6), popupOpen: false, now: t0)
+        _ = tracker.update(status("ok", pid: 6), popupOpen: false, now: t0)
+        check(tracker.update(status("ok", pid: 6), popupOpen: false, now: t0.addingTimeInterval(10)) == nil, "first ok retracts")
+        _ = tracker.update(status("running", pid: 7), popupOpen: false, now: t0.addingTimeInterval(60))
+        check(tracker.update(status("ok", pid: 7), popupOpen: false, now: t0.addingTimeInterval(70))?.kind == .ok, "second ok shown")
+
+        // A dead runner that still says running is a failure.
+        check(status("running").checked(alive: { _ in false }).state == .failed, "dead runner failed")
+        check(status("running").checked(alive: { _ in true }).state == .running, "live runner running")
+        check(status("ok").checked(alive: { _ in false }).state == .ok, "finished untouched")
+        check(RebuildStatus.pidAlive(Int(getpid())) && !RebuildStatus.pidAlive(0), "pid check")
+
         // Geometry.
         let screen = CGRect(x: 0, y: 0, width: 1512, height: 982)
         let notch = IslandGeometry.notchRect(screen: screen, topInset: 38, leftArea: CGRect(x: 0, y: 944, width: 660, height: 38),

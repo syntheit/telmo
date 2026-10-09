@@ -134,7 +134,8 @@ final class RebuildIsland {
     private var status: RebuildStatus?
     private var timer: Timer?
     private var visible = false
-    private var suppressed = false
+    /// Minimize animations in flight; the pill waits for the last one.
+    private var minimizing = 0
     private var epoch = 0 // invalidates the completion of an animation that was overtaken
     private var duration: TimeInterval { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 0.35 }
 
@@ -169,16 +170,18 @@ final class RebuildIsland {
 
     private func readStatus() {
         let path = RebuildStatus.path()
-        status = FileManager.default.contents(atPath: path).flatMap(RebuildStatus.decode)
+        status = FileManager.default.contents(atPath: path).flatMap(RebuildStatus.decode)?.checked()
     }
 
     /// Reads the file and shows, updates or retracts the pill. Also run before the popup closes, so a finish seen
     /// under the popup counts as seen.
     func tick() {
         readStatus()
-        guard !suppressed else { return }
         let popupOpen = isPopupOpen()
-        if let content = tracker.update(status, popupOpen: popupOpen, now: Date()) {
+        // Track even while minimizing, so a finish the popup showed stays seen.
+        let content = tracker.update(status, popupOpen: popupOpen, now: Date())
+        guard minimizing == 0 else { return }
+        if let content {
             show(content)
         } else if visible {
             hide(animated: !popupOpen)
@@ -266,7 +269,7 @@ final class RebuildIsland {
 
     /// Shrinks a picture of the closing popup into the notch, then lets the pill grow out of it.
     func minimize(image: NSImage, from frame: CGRect, to target: CGRect) {
-        suppressed = true
+        minimizing += 1
         let ghost = SnapshotWindow(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         ghost.isOpaque = false
         ghost.backgroundColor = .clear
@@ -293,8 +296,9 @@ final class RebuildIsland {
             ghost.animator().setFrame(target, display: true)
         }, completionHandler: { [weak self] in
             ghost.orderOut(nil)
-            self?.suppressed = false
-            self?.tick()
+            guard let self else { return }
+            minimizing -= 1
+            tick()
         })
         DispatchQueue.main.asyncAfter(deadline: .now() + duration * 0.7) {
             NSAnimationContext.runAnimationGroup { ctx in
