@@ -4,6 +4,7 @@ import CoreLocation
 final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDelegate {
     private let popup = PopupPanel()
     private let dim = DimWindows()
+    private let island = RebuildIsland()
     private let bluetooth = BluetoothGuard()
     private var hotkeys: Hotkeys?
     private var clipboard: ClipboardWatcher?
@@ -17,6 +18,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
         popup.onExit = { [weak self] in self?.close() }
         popup.onEscape = { [weak self] in self?.hide() }
         dim.onClick = { [weak self] in self?.hide() }
+        island.isPopupOpen = { [weak self] in self?.module == "system" }
+        island.onClick = { [weak self] in self?.show("system") }
 
         let server = IPCServer { [weak self] line in self?.handle(line) ?? "error shutting down" }
         do { try server.start() } catch {
@@ -34,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
         }
 
         bluetooth.start()
+        island.start()
         if ClipboardWatcher.isEnabled {
             clipboard = ClipboardWatcher()
             clipboard?.start()
@@ -86,7 +90,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
 
     /// Called once the child is gone (or after hide asked it to go).
     private func close() {
+        let wasSystem = module == "system"
+        // Lets the island see a finish as seen (popup still counts as open) and learn whether a build is running.
+        let rebuilding = wasSystem && island.isRebuilding()
+        if wasSystem { island.tick() }
         module = nil
+        // Rebuild still running: the popup shrinks into the notch instead of vanishing.
+        if rebuilding, island.canAnimate, let target = island.collapsedFrame(), let image = popup.snapshot() {
+            let from = popup.frame
+            popup.hide()
+            dim.hide()
+            island.minimize(image: image, from: from, to: target)
+            return
+        }
         popup.hide()
         dim.hide()
     }

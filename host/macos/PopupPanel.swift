@@ -167,6 +167,15 @@ final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
         terminal.terminate()
     }
 
+    /// A picture of the popup as it looks now, for the minimize animation.
+    func snapshot() -> NSImage? {
+        guard let view = contentView, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return nil }
+        view.cacheDisplay(in: view.bounds, to: rep)
+        let image = NSImage(size: view.bounds.size)
+        image.addRepresentation(rep)
+        return image
+    }
+
     /// The visible text of the terminal, one line per row.
     func visibleText() -> String {
         let term = terminal.getTerminal()
