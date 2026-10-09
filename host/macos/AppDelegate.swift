@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
     private let dim = DimWindows()
     private let bluetooth = BluetoothGuard()
     private var hotkeys: Hotkeys?
+    private var clipboard: ClipboardWatcher?
     private var ipc: IPCServer?
     private var locationManager: CLLocationManager?
     private var module: String?
@@ -33,6 +34,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
         }
 
         bluetooth.start()
+        if ClipboardWatcher.isEnabled {
+            clipboard = ClipboardWatcher()
+            clipboard?.start()
+        }
         hotkeys = Hotkeys { [weak self] module in self?.toggle(module) }
     }
 
