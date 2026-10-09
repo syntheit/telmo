@@ -1,0 +1,27 @@
+# Clipboard · Empty
+ Clipboard                                                                                            empty
+
+╭─ History ──────────────────────────╮╭─ Clipboard ────────────────────────────────────────────────────────╮
+│                                    ││                                                                    │
+│  Nothing copied yet.               ││  Everything you copy shows up here: text, links,                   │
+│                                    ││  images, colors and files.                                         │
+│                                    ││                                                                    │
+│                                    ││  Keeps the last 50 items for 30 days.                              │
+│                                    ││  Pins stay until you remove them.                                  │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+╰────────────────────────────────────╯╰────────────────────────────────────────────────────────────────────╯
+
+ ?   esc close

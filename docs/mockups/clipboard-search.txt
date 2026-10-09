@@ -1,0 +1,27 @@
+# Clipboard · Search
+ Clipboard                                                                                          2 of 13
+
+╭─ History ──────────────────────────╮╭─ Text ─────────────────────────────────────────────────────────────╮
+│ / nix█                             ││                                                                    │
+│                                    ││  sudo darwin-rebuild switch --flake ~/nix#swift --substituters     │
+│ ▌ 󰈚 sudo darwin-rebuild switch … 2m││    'https://cache.nixos.org'                                       │
+│   󰌷 github.com/syntheit/telmo/… 18m││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││  ────────────────────────────────────────────────────────────────  │
+│                                    ││  Copied   2 min ago · Ghostty                                      │
+│                                    ││  Size     84 characters · 7 words · 2 lines                        │
+╰────────────────────────────────────╯╰────────────────────────────────────────────────────────────────────╯
+
+ ↵ copy   ↑↓ move   esc clear search
