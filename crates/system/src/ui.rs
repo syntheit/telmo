@@ -546,4 +546,41 @@ mod tests {
         let flow = app.event(crate::actions::Event::Note("Would lock the screen.".into()));
         assert_eq!(flow, telmo_kit::Flow::Continue);
     }
+
+    #[test]
+    fn u_asks_for_a_sudo_command() {
+        use std::os::unix::process::ExitStatusExt;
+        let (mut app, _rx) = app(90, 22);
+        app.use_real_rebuild(vec!["/bin/echo".into(), "switch".into()]);
+        press(&mut app, KeyCode::Char('u'));
+        let command = app.take_command().expect("u should ask for a command");
+        let program = command.get_program().to_string_lossy().into_owned();
+        assert!(program.ends_with("sudo"), "{program}");
+        let args: Vec<String> = command
+            .get_args()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        let line = args.join(" ");
+        assert!(line.contains("rebuild-run --as-root --state-dir"), "{line}");
+        assert!(line.ends_with("-- /bin/echo switch"), "{line}");
+        assert!(app.take_command().is_none());
+
+        app.command_finished(Ok(std::process::ExitStatus::from_raw(256)));
+        assert!(!app.rebuild.running());
+        assert!(
+            app.toast
+                .as_ref()
+                .is_some_and(|t| t.message == crate::rebuild::AUTH_FAILED)
+        );
+
+        app.command_finished(Ok(std::process::ExitStatus::from_raw(0)));
+        assert!(app.rebuild.running());
+    }
+
+    #[test]
+    fn mock_u_never_asks_for_sudo() {
+        let (mut app, _rx) = app(90, 22);
+        press(&mut app, KeyCode::Char('u'));
+        assert!(app.take_command().is_none());
+    }
 }

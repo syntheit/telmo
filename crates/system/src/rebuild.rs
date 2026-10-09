@@ -1,13 +1,19 @@
-//! The background rebuild. `telmo-system rebuild-run` is a detached process
-//! that runs the configured command with elevation, follows its output and
-//! keeps `rebuild.json` and `rebuild.log` up to date. The popup only reads them.
+//! The background rebuild.
+//!
+//! `u` runs `sudo telmo-system rebuild-run --as-root ...` in the popup's own
+//! terminal, so Touch ID or the password prompt works. As root that process
+//! only validates its arguments and starts `rebuild-run --child ...` in a new
+//! session, then exits and hands the terminal back. The child runs the
+//! configured command (already root), follows its output and keeps
+//! `rebuild.json` and `rebuild.log` in the popup's state directory up to date,
+//! owned by the user. The popup only reads them.
 
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
     io::{BufRead, BufReader, Write},
-    os::unix::process::CommandExt,
-    path::PathBuf,
+    os::unix::{ffi::OsStrExt, process::CommandExt},
+    path::{Path, PathBuf},
     process::{Command, ExitCode, Stdio},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -18,8 +24,11 @@ const WRITE_EVERY: Duration = Duration::from_millis(500);
 
 pub const NOT_CONFIGURED: &str = "Set programs.telmo.system.rebuild to rebuild from here.";
 pub const ALREADY_RUNNING: &str = "A rebuild is already running.";
-const TOUCH_ID: &str = "Touch ID didn't confirm the rebuild. Press u to try again.";
-const DISMISSED: &str = "The password dialog was dismissed.";
+pub const AUTH_FAILED: &str = if cfg!(target_os = "macos") {
+    "Touch ID or the password didn't go through. Press u to try again."
+} else {
+    "The password didn't go through. Press u to try again."
+};
 const FAILED: &str = "The rebuild failed. Press L to see the log.";
 const STOPPED: &str = "The rebuild stopped unexpectedly.";
 
@@ -81,14 +90,8 @@ pub fn unix_now() -> u64 {
         .map_or(0, |d| d.as_secs())
 }
 
-/// What the waiting-for-authentication line says on this OS.
-pub fn waiting_text() -> &'static str {
-    if cfg!(target_os = "macos") {
-        "waiting for Touch ID…"
-    } else {
-        "waiting for the password…"
-    }
-}
+/// What the progress line says until the command prints something.
+pub const STARTING: &str = "starting…";
 
 pub fn log_path() -> Option<PathBuf> {
     Some(telmo_kit::state::dir()?.join("rebuild.log"))
@@ -119,34 +122,57 @@ pub fn read() -> Option<Status> {
     telmo_kit::state::load::<Status>(STATE).map(check_alive)
 }
 
-/// Starts the detached runner. The runner writes the state file itself.
-pub fn start() -> Result<(), String> {
+fn sudo_program() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "/usr/bin/sudo"
+    } else {
+        // NixOS keeps the setuid sudo in /run/wrappers/bin, which PATH finds.
+        "sudo"
+    }
+}
+
+/// The command `u` runs in the popup's terminal. Fails when a rebuild is
+/// already running or the popup can't say where its files live.
+pub fn sudo_command(configured: &[String], host: &str) -> Result<Command, String> {
     if read().is_some_and(|s| s.state == State::Running) {
         return Err(ALREADY_RUNNING.into());
     }
     let exe = std::env::current_exe()
         .map_err(|_| "Couldn't find the telmo-system program to run the rebuild.".to_string())?;
-    let mut command = Command::new(exe);
+    let dir = telmo_kit::state::dir()
+        .ok_or("Couldn't find the telmo state directory to keep the rebuild log in.")?;
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| format!("Couldn't create {} ({e}).", dir.display()))?;
+    let program = configured
+        .first()
+        .ok_or("The rebuild command is empty. Check programs.telmo.system.rebuild.")?;
+    // Root's PATH is not the user's, so hand over an absolute path.
+    let program = find_program(program).ok_or_else(|| {
+        format!("Couldn't find `{program}`. Check programs.telmo.system.rebuild.")
+    })?;
+    // SAFETY: getuid and getgid cannot fail.
+    let (uid, gid) = unsafe { (libc::getuid(), libc::getgid()) };
+    let mut command = Command::new(sudo_program());
     command
-        .arg("rebuild-run")
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
-    // SAFETY: setsid is async-signal-safe. A new session keeps the rebuild
-    // alive when the popup's terminal closes and sends SIGHUP.
-    unsafe {
-        command.pre_exec(|| {
-            libc::setsid();
-            Ok(())
-        });
+        .arg("-p")
+        .arg(format!("Password to rebuild {host}: "))
+        .arg(exe)
+        .args(["rebuild-run", "--as-root", "--state-dir"])
+        .arg(dir)
+        .args(["--owner", &format!("{uid}:{gid}"), "--", &program])
+        .args(&configured[1..]);
+    Ok(command)
+}
+
+fn find_program(name: &str) -> Option<String> {
+    if name.contains('/') {
+        return Some(name.into());
     }
-    let mut child = command
-        .spawn()
-        .map_err(|e| format!("Couldn't start the rebuild ({e}). Press u to try again."))?;
-    std::thread::spawn(move || {
-        let _ = child.wait();
-    });
-    Ok(())
+    let path = std::env::var_os("PATH")?;
+    std::env::split_paths(&path)
+        .map(|dir| dir.join(name))
+        .find(|candidate| candidate.is_file())
+        .map(|found| found.to_string_lossy().into_owned())
 }
 
 /// Counts of builds and fetches, read from Nix's output.
@@ -197,131 +223,123 @@ fn current_generation() -> Option<u32> {
     parse_generation(target.file_name()?.to_str()?)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Elevation {
-    Sudo,
-    Pkexec,
-    #[cfg(test)]
-    None,
+fn is_root() -> bool {
+    // SAFETY: geteuid cannot fail.
+    unsafe { libc::geteuid() == 0 }
 }
 
-/// The sentence for a command that ended badly.
-fn failure_sentence(elevation: Elevation, code: Option<i32>, output: &str, silent: bool) -> String {
-    let output = output.to_lowercase();
-    let refused = [
-        "no password was provided",
-        "a password is required",
-        "incorrect password",
-    ]
-    .iter()
-    .any(|phrase| output.contains(phrase));
-    match elevation {
-        Elevation::Sudo if refused || silent => TOUCH_ID.into(),
-        Elevation::Pkexec if matches!(code, Some(126 | 127)) => DISMISSED.into(),
-        _ => FAILED.into(),
+/// Which user the files in the state directory belong to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Owner {
+    uid: u32,
+    gid: u32,
+}
+
+impl Owner {
+    fn parse(text: &str) -> Option<Self> {
+        let (uid, gid) = text.split_once(':')?;
+        Some(Self {
+            uid: uid.parse().ok()?,
+            gid: gid.parse().ok()?,
+        })
+    }
+
+    /// Hands a file to the user. Only root can; anyone else already owns theirs.
+    fn give(self, path: &Path) {
+        if !is_root() {
+            return;
+        }
+        let Ok(path) = std::ffi::CString::new(path.as_os_str().as_bytes()) else {
+            return;
+        };
+        // SAFETY: `path` is a valid NUL-terminated string.
+        unsafe { libc::chown(path.as_ptr(), self.uid, self.gid) };
     }
 }
 
 /// One rebuild to run.
 pub struct Job {
     pub argv: Vec<String>,
-    pub env: Vec<(String, String)>,
-    pub elevation: Elevation,
     pub waiting: String,
     /// Smallest gap between two state-file writes while output streams in.
     pub write_every: Duration,
+    pub dir: PathBuf,
+    pub owner: Owner,
 }
 
 impl Job {
-    /// The configured command wrapped in the OS's elevation.
-    pub fn elevated(command: &[String]) -> Result<Self, String> {
-        let program = command
-            .first()
-            .ok_or("The rebuild command is empty. Check programs.telmo.system.rebuild.")?;
-        let (argv, env, elevation) = if cfg!(target_os = "macos") {
-            // Touch ID or nothing: /usr/bin/false makes sudo give up instead of asking.
-            let mut argv = vec!["/usr/bin/sudo".to_string(), "-A".into()];
-            argv.extend(command.iter().cloned());
-            let env = vec![("SUDO_ASKPASS".to_string(), "/usr/bin/false".to_string())];
-            (argv, env, Elevation::Sudo)
-        } else {
-            // pkexec sanitizes PATH, so it needs absolute paths.
-            let pkexec =
-                find_program("pkexec").ok_or("Couldn't find pkexec. Is polkit installed?")?;
-            let program = find_program(program).ok_or_else(|| {
-                format!("Couldn't find `{program}`. Check programs.telmo.system.rebuild.")
-            })?;
-            let mut argv = vec![pkexec, program];
-            argv.extend(command.iter().skip(1).cloned());
-            (argv, Vec::new(), Elevation::Pkexec)
-        };
-        Ok(Self {
+    fn new(argv: Vec<String>, dir: PathBuf, owner: Owner) -> Self {
+        Self {
             argv,
-            env,
-            elevation,
-            waiting: waiting_text().into(),
+            waiting: STARTING.into(),
             write_every: WRITE_EVERY,
-        })
+            dir,
+            owner,
+        }
+    }
+
+    fn log_file(&self) -> Option<File> {
+        let path = self.dir.join("rebuild.log");
+        let file = File::create(&path).ok()?;
+        self.owner.give(&path);
+        Some(file)
     }
 }
 
-fn find_program(name: &str) -> Option<String> {
-    if name.contains('/') {
-        return Some(name.into());
-    }
-    let path = std::env::var_os("PATH")?;
-    std::env::split_paths(&path)
-        .map(|dir| dir.join(name))
-        .find(|candidate| candidate.is_file())
-        .map(|found| found.to_string_lossy().into_owned())
-}
-
-fn save(status: &Status, observe: &mut dyn FnMut(&Status)) {
+fn save(job: &Job, status: &Status, observe: &mut dyn FnMut(&Status)) {
     // Nobody can be told about a failed write here; the log still has the output.
-    let _ = telmo_kit::state::save(STATE, status);
+    let _ = write_status(job, status);
     observe(status);
+}
+
+/// Writes a temp file and renames it, so the popup never reads half a file.
+fn write_status(job: &Job, status: &Status) -> std::io::Result<()> {
+    let path = job.dir.join(format!("{STATE}.json"));
+    let temp = job
+        .dir
+        .join(format!("{STATE}.json.{}.tmp", std::process::id()));
+    let bytes = serde_json::to_vec(status).map_err(std::io::Error::other)?;
+    std::fs::write(&temp, bytes)?;
+    job.owner.give(&temp);
+    std::fs::rename(&temp, &path)
 }
 
 /// Runs the job to its end, keeping the state file and log current.
 /// `observe` sees every status that is written.
 pub fn run(job: &Job, observe: &mut dyn FnMut(&Status)) -> Status {
     let mut status = Status::running(std::process::id(), unix_now(), &job.waiting);
-    save(&status, observe);
-    let mut log = log_path().and_then(|path| {
-        std::fs::create_dir_all(path.parent()?).ok()?;
-        File::create(path).ok()
-    });
-    let (code, output, lines) = match follow(job, &mut status, &mut log, observe) {
-        Ok(result) => result,
+    let _ = std::fs::create_dir_all(&job.dir);
+    job.owner.give(&job.dir);
+    save(job, &status, observe);
+    let mut log = job.log_file();
+    let code = match follow(job, &mut status, &mut log, observe) {
+        Ok(code) => code,
         Err(message) => {
             if let Some(log) = log.as_mut() {
                 let _ = writeln!(log, "{message}");
             }
-            (None, message, 0)
+            None
         }
     };
-    let now = unix_now();
-    status.finished = Some(now);
+    status.finished = Some(unix_now());
     if code == Some(0) {
         status.state = State::Ok;
         status.generation = current_generation();
     } else {
-        let tail = output.lines().rev().take(20).collect::<Vec<_>>().join("\n");
         status.state = State::Failed;
-        status.error = Some(failure_sentence(job.elevation, code, &tail, lines == 0));
+        status.error = Some(FAILED.into());
     }
-    save(&status, observe);
+    save(job, &status, observe);
     status
 }
 
-/// Starts the command and follows its output. Returns the exit code, the
-/// output text and how many lines there were.
+/// Starts the command and follows its output. Returns the exit code.
 fn follow(
     job: &Job,
     status: &mut Status,
     log: &mut Option<File>,
     observe: &mut dyn FnMut(&Status),
-) -> Result<(Option<i32>, String, usize), String> {
+) -> Result<Option<i32>, String> {
     let (reader, writer) =
         std::io::pipe().map_err(|e| format!("Couldn't read the output ({e})."))?;
     let stderr = writer
@@ -330,7 +348,6 @@ fn follow(
     let (program, args) = job.argv.split_first().ok_or("Empty command.")?;
     let mut child = Command::new(program)
         .args(args)
-        .envs(job.env.iter().map(|(k, v)| (k, v)))
         .stdin(Stdio::null())
         .stdout(writer)
         .stderr(stderr)
@@ -338,17 +355,12 @@ fn follow(
         .map_err(|e| format!("Couldn't run {program}: {e}"))?;
 
     let mut progress = Progress::default();
-    let mut output = String::new();
-    let mut lines = 0;
     let mut last_write = Instant::now();
     for line in BufReader::new(reader).lines() {
         let Ok(line) = line else { break };
-        lines += 1;
         if let Some(log) = log.as_mut() {
             let _ = writeln!(log, "{line}");
         }
-        output.push_str(&line);
-        output.push('\n');
         progress.feed(&line);
         if !line.trim().is_empty() {
             status.last_line = line.trim().to_string();
@@ -359,11 +371,11 @@ fn follow(
         status.to_fetch = progress.to_fetch;
         if last_write.elapsed() >= job.write_every {
             last_write = Instant::now();
-            save(status, observe);
+            save(job, status, observe);
         }
     }
     let code = child.wait().map_err(|e| format!("Lost the rebuild: {e}"))?;
-    Ok((code.code(), output, lines))
+    Ok(code.code())
 }
 
 /// The sentence the notification and the popup's footer show at the end.
@@ -375,16 +387,36 @@ pub fn summary(status: &Status, host: &str) -> String {
     }
 }
 
-fn notify(text: &str) {
+/// Shows the notification to the user, even when running as root.
+fn notify(text: &str, owner: Owner) {
+    let root = is_root();
+    let uid = format!("#{}", owner.uid);
     let mut command = if cfg!(target_os = "macos") {
         let escaped = text.replace('\\', "\\\\").replace('"', "\\\"");
-        let mut command = Command::new("osascript");
-        command.arg("-e").arg(format!(
-            "display notification \"{escaped}\" with title \"telmo\""
-        ));
+        let script = format!("display notification \"{escaped}\" with title \"telmo\"");
+        let mut command;
+        if root {
+            command = Command::new("launchctl");
+            command
+                .args(["asuser", &owner.uid.to_string(), "sudo", "-u", &uid])
+                .arg("osascript");
+        } else {
+            command = Command::new("osascript");
+        }
+        command.arg("-e").arg(script);
         command
     } else {
-        let mut command = Command::new("notify-send");
+        let mut command;
+        if root {
+            command = Command::new("sudo");
+            command.args(["-u", &uid, "env"]).arg(format!(
+                "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/{}/bus",
+                owner.uid
+            ));
+            command.arg("notify-send");
+        } else {
+            command = Command::new("notify-send");
+        }
         command.arg("telmo").arg(text);
         command
     };
@@ -395,21 +427,106 @@ fn notify(text: &str) {
         .status();
 }
 
-/// Entry point of `telmo-system rebuild-run`.
-pub fn main(configured: Option<Vec<String>>, host: String) -> ExitCode {
-    let job = configured
-        .ok_or_else(|| NOT_CONFIGURED.to_string())
-        .and_then(|command| Job::elevated(&command));
-    let status = match job {
-        Ok(job) => run(&job, &mut |_| {}),
+#[derive(Debug, PartialEq, Eq)]
+enum Mode {
+    AsRoot,
+    Child,
+}
+
+/// The arguments after `rebuild-run`.
+#[derive(Debug, PartialEq, Eq)]
+struct Invocation {
+    mode: Mode,
+    dir: PathBuf,
+    owner: Owner,
+    argv: Vec<String>,
+}
+
+const USAGE: &str = "Usage: telmo-system rebuild-run (--as-root|--child) --state-dir DIR --owner UID:GID -- COMMAND...";
+
+fn parse(args: &[String]) -> Result<Invocation, String> {
+    let mut mode = None;
+    let mut dir = None;
+    let mut owner = None;
+    let mut args = args.iter();
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--as-root" => mode = Some(Mode::AsRoot),
+            "--child" => mode = Some(Mode::Child),
+            "--state-dir" => dir = args.next().map(PathBuf::from),
+            "--owner" => owner = args.next().and_then(|o| Owner::parse(o)),
+            "--" => break,
+            _ => return Err(USAGE.into()),
+        }
+    }
+    let argv: Vec<String> = args.cloned().collect();
+    match (mode, dir, owner) {
+        (Some(mode), Some(dir), Some(owner)) if dir.is_absolute() && !argv.is_empty() => {
+            Ok(Invocation {
+                mode,
+                dir,
+                owner,
+                argv,
+            })
+        }
+        _ => Err(USAGE.into()),
+    }
+}
+
+/// Starts the `--child` copy of this program in its own session.
+fn spawn_child(invocation: &Invocation) -> Result<(), String> {
+    let exe = std::env::current_exe().map_err(|e| format!("Couldn't find myself ({e})."))?;
+    let mut command = Command::new(exe);
+    command
+        .args(["rebuild-run", "--child", "--state-dir"])
+        .arg(&invocation.dir)
+        .args([
+            "--owner",
+            &format!("{}:{}", invocation.owner.uid, invocation.owner.gid),
+            "--",
+        ])
+        .args(&invocation.argv)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    // SAFETY: setsid is async-signal-safe. A new session keeps the rebuild
+    // alive when the popup's terminal closes and sends SIGHUP.
+    unsafe {
+        command.pre_exec(|| {
+            libc::setsid();
+            Ok(())
+        });
+    }
+    let mut child = command
+        .spawn()
+        .map_err(|e| format!("Couldn't start the rebuild ({e})."))?;
+    std::thread::spawn(move || {
+        let _ = child.wait();
+    });
+    Ok(())
+}
+
+/// Entry point of `telmo-system rebuild-run`; `args` follow the subcommand.
+pub fn main(args: &[String], host: &str) -> ExitCode {
+    let invocation = match parse(args) {
+        Ok(invocation) => invocation,
         Err(sentence) => {
-            let now = unix_now();
-            let status = Status::running(std::process::id(), now, "").failed(&sentence, now);
-            save(&status, &mut |_| {});
-            status
+            eprintln!("telmo-system: {sentence}");
+            return ExitCode::FAILURE;
         }
     };
-    notify(&summary(&status, &host));
+    if invocation.mode == Mode::AsRoot {
+        return match spawn_child(&invocation) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(sentence) => {
+                eprintln!("telmo-system: {sentence}");
+                ExitCode::FAILURE
+            }
+        };
+    }
+    let job = Job::new(invocation.argv, invocation.dir, invocation.owner);
+    let status = run(&job, &mut |_| {});
+    notify(&summary(&status, host), invocation.owner);
     if status.state == State::Ok {
         ExitCode::SUCCESS
     } else {
@@ -486,20 +603,6 @@ Activating... done
     }
 
     #[test]
-    fn classifies_failures() {
-        use Elevation::*;
-        let sudo = |output, silent| failure_sentence(Sudo, Some(1), output, silent);
-        assert_eq!(sudo("sudo: no password was provided", false), TOUCH_ID);
-        assert_eq!(sudo("sudo: 1 incorrect password attempt", false), TOUCH_ID);
-        assert_eq!(sudo("", true), TOUCH_ID);
-        assert_eq!(sudo("error: build of foo failed", false), FAILED);
-        assert_eq!(failure_sentence(Pkexec, Some(126), "", true), DISMISSED);
-        assert_eq!(failure_sentence(Pkexec, Some(127), "", false), DISMISSED);
-        assert_eq!(failure_sentence(Pkexec, Some(1), "oops", false), FAILED);
-        assert_eq!(failure_sentence(None, Some(1), "", true), FAILED);
-    }
-
-    #[test]
     fn stale_running_state_counts_as_failed() {
         let dead = Status::running(i32::MAX as u32, 100, "x");
         let checked = check_alive(dead);
@@ -517,24 +620,95 @@ Activating... done
         status.generation = Some(279);
         assert_eq!(summary(&status, "swift"), "swift is on generation 279");
         status.state = State::Failed;
-        status.error = Some(DISMISSED.into());
-        assert_eq!(summary(&status, "swift"), DISMISSED);
+        status.error = Some(AUTH_FAILED.into());
+        assert_eq!(summary(&status, "swift"), AUTH_FAILED);
     }
 
-    /// Runs fake commands against a temp state directory. One test, because
-    /// the state directory comes from a process-wide environment variable.
+    fn strings(args: &[&str]) -> Vec<String> {
+        args.iter().map(|a| a.to_string()).collect()
+    }
+
+    #[test]
+    fn parses_arguments() {
+        let parsed = parse(&strings(&[
+            "--as-root",
+            "--state-dir",
+            "/home/d/.local/state/telmo",
+            "--owner",
+            "501:20",
+            "--",
+            "/bin/darwin-rebuild",
+            "switch",
+            "--flake",
+            ".",
+        ]))
+        .unwrap();
+        assert_eq!(parsed.mode, Mode::AsRoot);
+        assert_eq!(parsed.dir, PathBuf::from("/home/d/.local/state/telmo"));
+        assert_eq!(parsed.owner, Owner { uid: 501, gid: 20 });
+        assert_eq!(parsed.argv[0], "/bin/darwin-rebuild");
+        assert_eq!(parsed.argv.len(), 4);
+        let child = parse(&strings(&[
+            "--child",
+            "--state-dir",
+            "/s",
+            "--owner",
+            "1:2",
+            "--",
+            "x",
+        ]))
+        .unwrap();
+        assert_eq!(child.mode, Mode::Child);
+    }
+
+    #[test]
+    fn rejects_bad_arguments() {
+        let bad = |args: &[&str]| parse(&strings(args)).is_err();
+        assert!(bad(&[]));
+        assert!(bad(&[
+            "--child",
+            "--state-dir",
+            "/s",
+            "--owner",
+            "1:2",
+            "--"
+        ]));
+        assert!(bad(&[
+            "--child",
+            "--state-dir",
+            "/s",
+            "--owner",
+            "me",
+            "--",
+            "x"
+        ]));
+        assert!(bad(&[
+            "--child",
+            "--state-dir",
+            "rel",
+            "--owner",
+            "1:2",
+            "--",
+            "x"
+        ]));
+        assert!(bad(&["--state-dir", "/s", "--owner", "1:2", "--", "x"]));
+        assert!(bad(&["--child", "--owner", "1:2", "--", "x"]));
+        assert!(bad(&["--nope", "--", "x"]));
+    }
+
+    /// Runs fake commands against a temp state directory (no root, so no chown).
     #[test]
     fn runner_writes_progress_and_result() {
         let dir = std::env::temp_dir().join(format!("telmo-rebuild-test-{}", std::process::id()));
-        // SAFETY: this is the only test that touches the environment.
-        unsafe { std::env::set_var("XDG_STATE_HOME", &dir) };
-
         let job = |script: &str| Job {
             argv: vec!["/bin/sh".into(), "-c".into(), script.into()],
-            env: Vec::new(),
-            elevation: Elevation::None,
-            waiting: "waiting for Touch ID…".into(),
+            waiting: "starting…".into(),
             write_every: Duration::ZERO,
+            dir: dir.clone(),
+            owner: Owner { uid: 0, gid: 0 },
+        };
+        let saved = || -> Option<Status> {
+            serde_json::from_slice(&std::fs::read(dir.join("rebuild.json")).ok()?).ok()
         };
 
         let mut seen = Vec::new();
@@ -547,21 +721,32 @@ Activating... done
         assert_eq!(ok.state, State::Ok);
         assert_eq!((ok.built, ok.to_build), (2, 2));
         assert_eq!(seen[0].state, State::Running);
-        assert_eq!(seen[0].last_line, "waiting for Touch ID…");
+        assert_eq!(seen[0].last_line, "starting…");
         assert!(seen.iter().any(|s| s.built == 1 && s.to_build == 2));
         assert_eq!(seen.last().map(|s| s.state), Some(State::Ok));
-        assert_eq!(read().map(|s| s.state), Some(State::Ok));
-        let log = std::fs::read_to_string(dir.join("telmo/rebuild.log")).unwrap_or_default();
+        assert_eq!(saved().map(|s| s.state), Some(State::Ok));
+        let log = std::fs::read_to_string(dir.join("rebuild.log")).unwrap_or_default();
         assert!(log.contains("building '/nix/store/b.drv'"));
 
         let failed = run(&job("echo 'error: boom'; exit 1"), &mut |_| {});
         assert_eq!(failed.state, State::Failed);
         assert_eq!(failed.error.as_deref(), Some(FAILED));
-        let log = std::fs::read_to_string(dir.join("telmo/rebuild.log")).unwrap_or_default();
+        let log = std::fs::read_to_string(dir.join("rebuild.log")).unwrap_or_default();
         assert!(
             !log.contains("building"),
             "the log is truncated at the start"
         );
+
+        let missing = run(
+            &Job {
+                argv: vec!["/nonexistent/telmo-test".into()],
+                ..job("")
+            },
+            &mut |_| {},
+        );
+        assert_eq!(missing.state, State::Failed);
+        let log = std::fs::read_to_string(dir.join("rebuild.log")).unwrap_or_default();
+        assert!(log.contains("Couldn't run /nonexistent/telmo-test"));
 
         let _ = std::fs::remove_dir_all(&dir);
     }

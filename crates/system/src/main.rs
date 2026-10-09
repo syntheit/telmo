@@ -14,24 +14,25 @@ use tokio::sync::mpsc::unbounded_channel;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> ExitCode {
-    if std::env::args().nth(1).as_deref() == Some("rebuild-run") {
-        return rebuild::main(prefs::load().rebuild, app::host_name());
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("rebuild-run") {
+        return rebuild::main(&args[1..], &app::host_name());
     }
-    if std::env::args().nth(1).as_deref() == Some("apps") {
+    if args.first().map(String::as_str) == Some("apps") {
         return print_apps();
     }
-    let args = telmo_kit::cli::args();
+    let cli = telmo_kit::cli::args();
     let resolved = prefs::load();
-    if args.status {
+    if cli.status {
         return status(&resolved);
     }
     let (cmd_tx, cmd_rx) = unbounded_channel();
     let (event_tx, event_rx) = unbounded_channel();
-    let apps = apps::spawn(args.mock, event_tx.clone());
-    actions::spawn(args.mock, cmd_rx, event_tx);
+    let apps = apps::spawn(cli.mock, event_tx.clone());
+    actions::spawn(cli.mock, cmd_rx, event_tx);
 
     let mut app = app::App::new(cmd_tx, resolved, app::host_name()).with_apps(apps);
-    if args.mock {
+    if cli.mock {
         app.use_mock_rebuild();
     }
     match telmo_kit::run(app, event_rx).await {

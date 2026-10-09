@@ -79,6 +79,8 @@ pub struct App {
     /// `--mock`: `u` plays a fake rebuild that started at this app time.
     mock: bool,
     mock_start: Option<f32>,
+    /// The sudo command `u` wants the terminal for.
+    command: Option<std::process::Command>,
     /// Tests draw only the logo, so snapshots don't depend on effect randomness.
     plain: bool,
 }
@@ -150,6 +152,7 @@ impl App {
             finished: false,
             mock,
             mock_start: None,
+            command: None,
             effect: Box::new(Plain),
             transition: Transition::new(&logo),
             canvas: Canvas::new(size.0, size.1.saturating_sub(1)),
@@ -181,6 +184,12 @@ impl App {
     /// `--mock`: `u` plays a fake rebuild instead of running the real one.
     pub fn use_mock_rebuild(&mut self) {
         self.mock = true;
+    }
+
+    #[cfg(test)]
+    pub fn use_real_rebuild(&mut self, command: Vec<String>) {
+        self.mock = false;
+        self.rebuild_command = Some(command);
     }
 
     #[cfg(test)]
@@ -258,7 +267,8 @@ impl App {
         }
     }
 
-    /// `u`: starts a rebuild that keeps going after the popup closes.
+    /// `u`: asks for the terminal to authenticate; the rebuild then keeps going
+    /// after the popup closes.
     fn start_rebuild(&mut self) {
         let result = if self.rebuild.running() {
             Err(rebuild::ALREADY_RUNNING.to_string())
@@ -269,10 +279,9 @@ impl App {
         } else if self.rebuild_command.is_none() {
             Err(rebuild::NOT_CONFIGURED.to_string())
         } else {
-            rebuild::start().inspect(|()| {
-                self.rebuild
-                    .launch(self.now, rebuild::unix_now(), rebuild::waiting_text());
-            })
+            let configured = self.rebuild_command.as_deref().unwrap_or_default();
+            rebuild::sudo_command(configured, &self.host)
+                .map(|command| self.command = Some(command))
         };
         if let Err(message) = result {
             self.toast = Some(Toast::error(message));
@@ -506,6 +515,26 @@ impl telmo_kit::App for App {
 
     fn animating(&self) -> bool {
         true
+    }
+
+    fn take_command(&mut self) -> Option<std::process::Command> {
+        self.command.take()
+    }
+
+    fn command_finished(&mut self, result: std::io::Result<std::process::ExitStatus>) -> Flow {
+        match result {
+            Ok(status) if status.success() => {
+                self.rebuild
+                    .launch(self.now, rebuild::unix_now(), rebuild::STARTING);
+            }
+            Ok(_) => self.toast = Some(Toast::error(rebuild::AUTH_FAILED)),
+            Err(e) => {
+                self.toast = Some(Toast::error(format!(
+                    "Couldn't run sudo ({e}). Press u to try again."
+                )));
+            }
+        }
+        Flow::Continue
     }
 
     fn frame_interval(&self) -> Duration {
