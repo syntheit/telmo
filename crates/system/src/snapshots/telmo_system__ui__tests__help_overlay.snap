@@ -10,17 +10,17 @@ expression: "render(&app, 90, 22)"
                  │  ← →       previous and next effect                  │
                  │  space     switch between the Apple and Nix logo     │
                  │  l        lock the screen                           │
-                 │  s      󰒲  sleep                                     │
+                 │  s      󰤄  sleep                                     │
                  │  r      󰜉  restart (asks first)                      │
                  │  p      ⏻  shut down (asks first)                    │
                  │  o      󰍃  log out (asks first)                      │
-                 │  u         rebuild in the background                 │
+                 │  u      󰣪  rebuild in the background                 │
                  │  L         open the rebuild log                      │
-                 │  k      󰅖  force quit an app                         │
+                 │  k      󰅜  force quit an app                         │
                  │  esc q     close, then quit                          │
                  │                                                      │
                  ╰──────────────────────────────────────────────────────╯
 
 
 
- l    s 󰒲   r 󰜉   p ⏻   o 󰍃   u rebuild   k 󰅖 force quit   ?                   ‹ rain ›
+ l    s 󰤄   r 󰜉   p ⏻   o 󰍃   u 󰣪   k 󰅜   ?                                    ‹ rain ›

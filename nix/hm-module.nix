@@ -86,8 +86,8 @@ in
           Command the system popup's `u` key runs as a background rebuild,
           without elevation: telmo runs it through `sudo` in the popup's own
           terminal (Touch ID on macOS, the password on Linux), then keeps it
-          going in the background. Progress shows in the popup's
-          footer and a notification reports the end. Unset: `u` says so.
+          going in the background. Progress and the result show in the
+          popup's footer. Unset: `u` says so.
         '';
       };
     };

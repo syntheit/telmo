@@ -12,13 +12,15 @@ use ratatui::{
 };
 use telmo_kit::{theme, widgets};
 
-/// Icons (JetBrainsMono Nerd Font) where the meaning is obvious, words where it isn't.
+/// JetBrainsMono Nerd Font icons: lock, moon with zz, restart arrow, power,
+/// log out, hammer, stop sign.
 const LOCK: &str = "\u{f023}";
-const SLEEP: &str = "\u{f04b2}";
+const SLEEP: &str = "\u{f0904}";
 const RESTART: &str = "\u{f0709}";
 const POWER: &str = "\u{23fb}";
 const LOG_OUT: &str = "\u{f0343}";
-const QUIT: &str = "\u{f0156}";
+const REBUILD: &str = "\u{f08ea}";
+const QUIT: &str = "\u{f015c}";
 
 const KEYS: [(&str, &str); 8] = [
     ("l", LOCK),
@@ -26,8 +28,8 @@ const KEYS: [(&str, &str); 8] = [
     ("r", RESTART),
     ("p", POWER),
     ("o", LOG_OUT),
-    ("u", "rebuild"),
-    ("k", "\u{f0156} force quit"),
+    ("u", REBUILD),
+    ("k", QUIT),
     ("?", ""),
 ];
 /// Columns between key pairs.
@@ -358,7 +360,7 @@ fn draw_help(app: &App, frame: &mut Frame) {
         ("r", RESTART, "restart (asks first)"),
         ("p", POWER, "shut down (asks first)"),
         ("o", LOG_OUT, "log out (asks first)"),
-        ("u", "", "rebuild in the background"),
+        ("u", REBUILD, "rebuild in the background"),
         ("L", "", "open the rebuild log"),
         ("k", QUIT, "force quit an app"),
         ("esc q", "", "close, then quit"),

@@ -378,53 +378,13 @@ fn follow(
     Ok(code.code())
 }
 
-/// The sentence the notification and the popup's footer show at the end.
+/// The sentence the popup's footer shows at the end.
 pub fn summary(status: &Status, host: &str) -> String {
     match (status.state, status.generation) {
         (State::Ok, Some(generation)) => format!("{host} is on generation {generation}"),
         (State::Ok, None) => format!("{host} is rebuilt"),
         _ => status.error.clone().unwrap_or_else(|| FAILED.into()),
     }
-}
-
-/// Shows the notification to the user, even when running as root.
-fn notify(text: &str, owner: Owner) {
-    let root = is_root();
-    let uid = format!("#{}", owner.uid);
-    let mut command = if cfg!(target_os = "macos") {
-        let escaped = text.replace('\\', "\\\\").replace('"', "\\\"");
-        let script = format!("display notification \"{escaped}\" with title \"telmo\"");
-        let mut command;
-        if root {
-            command = Command::new("launchctl");
-            command
-                .args(["asuser", &owner.uid.to_string(), "sudo", "-u", &uid])
-                .arg("osascript");
-        } else {
-            command = Command::new("osascript");
-        }
-        command.arg("-e").arg(script);
-        command
-    } else {
-        let mut command;
-        if root {
-            command = Command::new("sudo");
-            command.args(["-u", &uid, "env"]).arg(format!(
-                "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/{}/bus",
-                owner.uid
-            ));
-            command.arg("notify-send");
-        } else {
-            command = Command::new("notify-send");
-        }
-        command.arg("telmo").arg(text);
-        command
-    };
-    let _ = command
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status();
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -507,7 +467,7 @@ fn spawn_child(invocation: &Invocation) -> Result<(), String> {
 }
 
 /// Entry point of `telmo-system rebuild-run`; `args` follow the subcommand.
-pub fn main(args: &[String], host: &str) -> ExitCode {
+pub fn main(args: &[String]) -> ExitCode {
     let invocation = match parse(args) {
         Ok(invocation) => invocation,
         Err(sentence) => {
@@ -526,7 +486,6 @@ pub fn main(args: &[String], host: &str) -> ExitCode {
     }
     let job = Job::new(invocation.argv, invocation.dir, invocation.owner);
     let status = run(&job, &mut |_| {});
-    notify(&summary(&status, host), invocation.owner);
     if status.state == State::Ok {
         ExitCode::SUCCESS
     } else {

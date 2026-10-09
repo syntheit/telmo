@@ -16,7 +16,7 @@ use tokio::sync::mpsc::unbounded_channel;
 async fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.first().map(String::as_str) == Some("rebuild-run") {
-        return rebuild::main(&args[1..], &app::host_name());
+        return rebuild::main(&args[1..]);
     }
     if args.first().map(String::as_str) == Some("apps") {
         return print_apps();
