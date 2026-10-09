@@ -3178,6 +3178,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "telmo-clipboard"
+version = "0.1.0"
+dependencies = [
+ "crossterm",
+ "image",
+ "insta",
+ "libc",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "ratatui",
+ "ratatui-image",
+ "serde",
+ "serde_json",
+ "telmo-kit",
+ "tokio",
+ "unicode-width",
+]
+
+[[package]]
 name = "telmo-display"
 version = "0.1.0"
 dependencies = [

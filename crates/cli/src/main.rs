@@ -45,7 +45,16 @@ pub fn custom_popups() -> Result<Vec<(String, Vec<String>)>, String> {
         .collect()
 }
 
-const MODULES: [&str; 7] = ["net", "bt", "sound", "display", "power", "scale", "system"];
+const MODULES: [&str; 8] = [
+    "net",
+    "bt",
+    "sound",
+    "display",
+    "power",
+    "scale",
+    "system",
+    "clipboard",
+];
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().skip(1).collect();

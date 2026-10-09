@@ -1,0 +1,30 @@
+---
+source: crates/clipboard/src/ui.rs
+expression: render(&f)
+---
+ Clipboard                                                                          13 items · last 30 days
+
+╭─ History ──────────────────────────╮╭─ Text ─────────────────────────────────────────────────────────────╮
+│  Pinned                            ││                                                                    │
+│   󰉢 ssh daniel@mantle -t tmux at… 󰐃││  sudo darwin-rebuild switch --flake ~/nix#swift --substituters     │
+│   󰉢 +54 9 11 5555 0142            󰐃││    'https://cache.nixos.org'                                       │
+│  Recent                            ││                                                                    │
+│ ▌ 󰉢 sudo darwin-rebuild switch … 2m││                                                                    │
+│   󰋩 Screenshot 1440×900          5m││                                                                    │
+│   󰌷 github.com/syntheit/t╭─ Delete ───────────────────────────────────────────╮                          │
+│   󰏘 #7aa2f7              │                                                    │                          │
+│   󰉢 Meeting moved to 3:30│   Delete this from history?                        │                          │
+│   󰈔 invoice-2026-10.pdf  │   It stays on the clipboard if it's there now.     │                          │
+│   󰅩 fn main() { println!(│                                                    │                          │
+│   󰉢 hunter2-correct-hors…│   ↵ delete   esc cancel                            │                          │
+│   󰋩 IMG_4021.HEIC 4032×3…╰────────────────────────────────────────────────────╯                          │
+│   󰌷 news.ycombinator.com/item?i… 2d││                                                                    │
+│   󰉢 daniel@matv.io               3d││                                                                    │
+│                                    ││                                                                    │
+│                                    ││                                                                    │
+│                                    ││  ────────────────────────────────────────────────────────────────  │
+│                                    ││  Copied   2 min ago · Ghostty                                      │
+│                                    ││  Size     89 characters · 7 words · 2 lines                        │
+╰────────────────────────────────────╯╰────────────────────────────────────────────────────────────────────╯
+
+ ↵ copy  p pin  x delete  / search  ?

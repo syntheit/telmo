@@ -58,9 +58,10 @@ rec {
   );
   telmo-scale = module "scale" "Weigh things on a Force Touch trackpad";
   telmo-system = module "system" "System popup: lock, sleep, restart, effects";
+  telmo-clipboard = module "clipboard" "Clipboard history: text, links, colors, images, files";
   telmo = pkgs.symlinkJoin {
     name = "telmo";
-    paths = [ telmo-cli telmo-net telmo-bt telmo-sound telmo-display telmo-power telmo-scale telmo-system ] ++ lib.optional stdenv.hostPlatform.isDarwin telmo-host;
+    paths = [ telmo-cli telmo-net telmo-bt telmo-sound telmo-display telmo-power telmo-scale telmo-system telmo-clipboard ] ++ lib.optional stdenv.hostPlatform.isDarwin telmo-host;
     meta.mainProgram = "telmo";
   };
   default = telmo;
