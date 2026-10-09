@@ -1,8 +1,8 @@
 import AppKit
 
-private let accent = NSColor(srgbRed: 0x7a / 255, green: 0xa2 / 255, blue: 0xf7 / 255, alpha: 1) // Tokyo Night blue
-private let green = NSColor(srgbRed: 0x9e / 255, green: 0xce / 255, blue: 0x6a / 255, alpha: 1)
-private let red = NSColor(srgbRed: 0xf7 / 255, green: 0x76 / 255, blue: 0x8e / 255, alpha: 1)
+private func color(_ rgb: UInt32) -> CGColor {
+    CGColor(srgbRed: CGFloat(rgb >> 16 & 0xff) / 255, green: CGFloat(rgb >> 8 & 0xff) / 255, blue: CGFloat(rgb & 0xff) / 255, alpha: 1)
+}
 
 /// Borderless window that may sit over the menu bar and the notch, and reports clicks.
 private final class IslandWindow: NSPanel {
@@ -13,10 +13,62 @@ private final class IslandWindow: NSPanel {
     override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
 }
 
-/// The pill: an icon and a short text on black.
+/// The Nix snowflake: six lambdas, alternately deep and light blue.
+private enum Snowflake {
+    static let size: CGFloat = 20
+    private static let deep: UInt32 = 0x5277c3
+    private static let light: UInt32 = 0x7ebae4
+
+    /// One lambda of the official `nix-snowflake` artwork, in its SVG coordinates (y down).
+    private static let start = CGPoint(x: 309.54892, y: -710.38827)
+    private static let steps: [(CGFloat, CGFloat)] = [
+        (122.19683, 211.67512), (-56.15706, 0.5268), (-32.6236, -56.8692), (-32.85645, 56.5653),
+        (-27.90237, -0.011), (-14.29086, -24.6896), (46.81047, -80.4901), (-33.22946, -57.8257),
+    ]
+    /// The point the six lambdas turn around, and the width of the artwork.
+    private static let center = CGPoint(x: 407.3, y: -715.8)
+    private static let artwork: CGFloat = 501.5625
+
+    /// The layers, centred on the origin of their parent. The first lambda is deep, then they alternate.
+    static func layers() -> [CAShapeLayer] {
+        let scale = size / artwork
+        // To points around the centre, with y up like AppKit.
+        func place(_ p: CGPoint) -> CGPoint { CGPoint(x: (p.x - center.x) * scale, y: -(p.y - center.y) * scale) }
+        let path = CGMutablePath()
+        var point = start
+        path.move(to: place(point))
+        for (dx, dy) in steps {
+            point = CGPoint(x: point.x + dx, y: point.y + dy)
+            path.addLine(to: place(point))
+        }
+        path.closeSubpath()
+        return (0..<6).map { i in
+            let layer = CAShapeLayer()
+            var turn = CGAffineTransform(rotationAngle: CGFloat(i) * .pi / 3)
+            layer.path = path.copy(using: &turn)
+            layer.fillColor = color(i % 2 == 0 ? deep : light)
+            layer.fillRule = .evenOdd
+            return layer
+        }
+    }
+}
+
+/// The pill: the Nix snowflake in the left wing, ten bars of progress in the right.
 private final class IslandView: NSView {
-    private let icon = NSImageView()
-    private let label = NSTextField(labelWithString: "")
+    private static let dim: Float = 0.16
+    private let logo = CALayer()
+    private let bars: [CALayer] = (0..<IslandContent.bars).map { _ in
+        let bar = CALayer()
+        bar.bounds = CGRect(x: 0, y: 0, width: IslandView.barWidth, height: IslandView.barHeight)
+        bar.cornerRadius = IslandView.barWidth / 2
+        bar.opacity = IslandView.dim
+        return bar
+    }
+    private static let barWidth: CGFloat = 2.4
+    private static let barHeight: CGFloat = 12
+    private static let pitch: CGFloat = 5
+    /// What the bars show now; nil until drawn, and again after the pill was hidden (animations don't survive that).
+    private var shown: (content: IslandContent, still: Bool)?
     var notched = true { didSet { updateCorners() } }
 
     override init(frame: NSRect) {
@@ -25,13 +77,9 @@ private final class IslandView: NSView {
         layer?.backgroundColor = NSColor.black.cgColor
         layer?.masksToBounds = true
         layer?.cornerCurve = .continuous
-        icon.imageScaling = .scaleProportionallyDown
-        label.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
-        label.textColor = NSColor(white: 0.92, alpha: 1)
-        label.alignment = .center
-        label.lineBreakMode = .byClipping
-        addSubview(icon)
-        addSubview(label)
+        Snowflake.layers().forEach(logo.addSublayer)
+        layer?.addSublayer(logo)
+        bars.forEach { layer?.addSublayer($0) }
         updateCorners()
     }
 
@@ -43,17 +91,55 @@ private final class IslandView: NSView {
         needsLayout = true
     }
 
+    /// Forget what is drawn, so the next `apply` starts the animations again.
+    func invalidate() { shown = nil }
+
     func apply(_ content: IslandContent) {
-        let (symbol, color): (String, NSColor) = switch content.kind {
-        case .running: ("hammer.fill", accent)
-        case .ok: ("checkmark.circle.fill", green)
-        case .failed: ("xmark.octagon.fill", red)
+        let still = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        if let shown, shown.content == content, shown.still == still { return }
+        // The first drawing snaps; later changes cross-fade (0.25 s, Core Animation's default).
+        let fade = shown != nil
+        shown = (content, still)
+        CATransaction.begin()
+        CATransaction.setDisableActions(!fade)
+        let tint = color(content.look.rgb)
+        for (i, bar) in bars.enumerated() {
+            bar.removeAllAnimations()
+            bar.backgroundColor = tint
+            bar.opacity = i < content.lit ? 1 : Self.dim
+            if content.sweeping {
+                if still { bar.opacity = 0.4 } else { bar.add(sweep(bar: i), forKey: "sweep") }
+            } else if i == content.head {
+                if still { bar.opacity = 0.5 } else { bar.add(breath(), forKey: "breath") }
+            }
         }
-        let config = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
-        icon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?.withSymbolConfiguration(config)
-        icon.contentTintColor = color
-        label.stringValue = content.text
-        needsLayout = true
+        CATransaction.commit()
+    }
+
+    /// The head pulses 0.22 to 0.80 along a sine, 1.8 s a round.
+    private func breath() -> CABasicAnimation {
+        let a = CABasicAnimation(keyPath: "opacity")
+        a.fromValue = 0.22
+        a.toValue = 0.80
+        a.duration = 0.9
+        a.autoreverses = true
+        a.repeatCount = .infinity
+        a.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        return a
+    }
+
+    /// A soft highlight runs over the bars and back, 3.2 s a round.
+    private func sweep(bar: Int) -> CAKeyframeAnimation {
+        let steps = 64
+        let a = CAKeyframeAnimation(keyPath: "opacity")
+        a.values = (0...steps).map { step -> Double in
+            let phase = 2 * Double.pi * Double(step) / Double(steps)
+            let pos = Double(IslandContent.bars - 1) * (1 - cos(phase)) / 2
+            return 0.16 + 0.72 * max(0, 1 - abs(Double(bar) - pos) / 1.6)
+        }
+        a.duration = 3.2
+        a.repeatCount = .infinity
+        return a
     }
 
     override func layout() {
@@ -61,17 +147,17 @@ private final class IslandView: NSView {
         let w = bounds.width, h = bounds.height
         let radius = notched ? 14 : h / 2
         layer?.cornerRadius = radius
+        // One item centred in each wing: beside the notch, or in either half of the capsule.
         let wing = notched ? IslandGeometry.wing : w / 2
-        // Notched: one item centred in each wing beside the notch. Capsule: icon left, text right.
-        let iconSize: CGFloat = 18
-        let centerY = h / 2
-        if notched {
-            icon.frame = NSRect(x: (wing - iconSize) / 2, y: centerY - iconSize / 2, width: iconSize, height: iconSize)
-            label.frame = NSRect(x: w - wing, y: centerY - 8, width: wing, height: 16)
-        } else {
-            icon.frame = NSRect(x: 16, y: centerY - iconSize / 2, width: iconSize, height: iconSize)
-            label.frame = NSRect(x: 40, y: centerY - 8, width: w - 40 - 14, height: 16)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        logo.position = CGPoint(x: wing / 2, y: h / 2)
+        let span = CGFloat(bars.count - 1) * Self.pitch
+        let first = w - wing / 2 - span / 2
+        for (i, bar) in bars.enumerated() {
+            bar.position = CGPoint(x: first + CGFloat(i) * Self.pitch, y: h / 2)
         }
+        CATransaction.commit()
     }
 }
 
@@ -182,6 +268,7 @@ final class RebuildIsland {
         guard let screen = targetScreen() else { return }
         let (pill, collapsed) = frames(screen)
         view.notched = notchRect(screen) != nil
+        if !visible { view.invalidate() }
         view.apply(content)
         if visible {
             if window.frame != pill { window.setFrame(pill, display: true) }
