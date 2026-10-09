@@ -47,6 +47,9 @@ pub struct App {
     pub images: HashMap<String, Option<DynamicImage>>,
     /// Pictures prepared for the terminal at the size they were drawn.
     pub protocols: RefCell<HashMap<(String, u16, u16), Protocol>>,
+    /// The picture drawn by the frame being drawn, and by the frame before.
+    pub drawn_image: RefCell<Option<(String, u16, u16)>>,
+    last_image: Option<(String, u16, u16)>,
     pub picker: Picker,
     /// The item being put back on the clipboard.
     pub pending: Option<String>,
@@ -72,6 +75,8 @@ impl App {
             texts: HashMap::new(),
             images: HashMap::new(),
             protocols: RefCell::new(HashMap::new()),
+            drawn_image: RefCell::new(None),
+            last_image: None,
             picker: Picker::halfblocks(),
             pending: None,
             tick: 0,
@@ -387,6 +392,14 @@ impl telmo_kit::App for App {
         crate::ui::draw(self, frame);
     }
 
+    /// Telmo.app's terminal keeps an old picture under the new one until the screen is cleared.
+    fn take_clear(&mut self) -> bool {
+        let now = self.drawn_image.borrow().clone();
+        let stale = self.last_image.is_some() && self.last_image != now;
+        self.last_image = now;
+        stale
+    }
+
     fn key(&mut self, key: KeyEvent) -> Flow {
         if key.modifiers.contains(KeyModifiers::CONTROL) && self.search.is_none() {
             return Flow::Continue;
@@ -483,6 +496,22 @@ mod tests {
 
     fn sent(rx: &Receiver<Cmd>) -> Vec<Cmd> {
         rx.try_iter().collect()
+    }
+
+    #[test]
+    fn a_replaced_or_removed_picture_clears_the_screen_once() {
+        use telmo_kit::App as _;
+        let (mut app, _rx) = app();
+        let drew = |app: &mut App, image: Option<&str>| {
+            app.drawn_image
+                .replace(image.map(|id| (id.to_string(), 10, 5)));
+            app.take_clear()
+        };
+        assert!(!drew(&mut app, Some("a")), "first picture");
+        assert!(!drew(&mut app, Some("a")), "same picture");
+        assert!(drew(&mut app, Some("b")), "another picture");
+        assert!(drew(&mut app, None), "picture gone");
+        assert!(!drew(&mut app, None), "still none");
     }
 
     #[test]

@@ -127,7 +127,8 @@ enum IslandGeometry {
     /// Full width and height of the pill. `notch` is the notch rect, nil on screens without one.
     static func pillFrame(screen: CGRect, notch: CGRect?) -> CGRect {
         if let notch {
-            let h = max(height, notch.height)
+            // Exactly as tall as the notch, so nothing hangs below it over the menu bar.
+            let h = notch.height
             let width = notch.width + 2 * wing
             return CGRect(x: notch.midX - width / 2, y: screen.maxY - h, width: width, height: h)
         }

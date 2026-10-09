@@ -3,7 +3,6 @@ import AppKit
 private let accent = NSColor(srgbRed: 0x7a / 255, green: 0xa2 / 255, blue: 0xf7 / 255, alpha: 1) // Tokyo Night blue
 private let green = NSColor(srgbRed: 0x9e / 255, green: 0xce / 255, blue: 0x6a / 255, alpha: 1)
 private let red = NSColor(srgbRed: 0xf7 / 255, green: 0x76 / 255, blue: 0x8e / 255, alpha: 1)
-private let barHeight: CGFloat = 2
 
 /// Borderless window that may sit over the menu bar and the notch, and reports clicks.
 private final class IslandWindow: NSPanel {
@@ -14,15 +13,10 @@ private final class IslandWindow: NSPanel {
     override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
 }
 
-/// The pill: icon, text and a progress bar on black.
+/// The pill: an icon and a short text on black.
 private final class IslandView: NSView {
     private let icon = NSImageView()
     private let label = NSTextField(labelWithString: "")
-    private let track = CALayer()
-    private let fill = CALayer()
-    private let shimmer = CAGradientLayer()
-    private var shimmerWidth: CGFloat = -1
-    private var content: IslandContent?
     var notched = true { didSet { updateCorners() } }
 
     override init(frame: NSRect) {
@@ -38,14 +32,6 @@ private final class IslandView: NSView {
         label.lineBreakMode = .byClipping
         addSubview(icon)
         addSubview(label)
-        track.backgroundColor = NSColor(white: 1, alpha: 0.14).cgColor
-        fill.masksToBounds = true
-        shimmer.colors = [NSColor.clear.cgColor, NSColor(white: 1, alpha: 0.35).cgColor, NSColor.clear.cgColor]
-        shimmer.startPoint = CGPoint(x: 0, y: 0.5)
-        shimmer.endPoint = CGPoint(x: 1, y: 0.5)
-        fill.addSublayer(shimmer)
-        layer?.addSublayer(track)
-        layer?.addSublayer(fill)
         updateCorners()
     }
 
@@ -58,7 +44,6 @@ private final class IslandView: NSView {
     }
 
     func apply(_ content: IslandContent) {
-        self.content = content
         let (symbol, color): (String, NSColor) = switch content.kind {
         case .running: ("hammer.fill", accent)
         case .ok: ("checkmark.circle.fill", green)
@@ -68,9 +53,6 @@ private final class IslandView: NSView {
         icon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?.withSymbolConfiguration(config)
         icon.contentTintColor = color
         label.stringValue = content.text
-        fill.backgroundColor = color.withAlphaComponent(content.fraction == nil ? 0.35 : 1).cgColor
-        track.isHidden = content.kind == .failed
-        fill.isHidden = content.kind == .failed
         needsLayout = true
     }
 
@@ -82,7 +64,7 @@ private final class IslandView: NSView {
         let wing = notched ? IslandGeometry.wing : w / 2
         // Notched: one item centred in each wing beside the notch. Capsule: icon left, text right.
         let iconSize: CGFloat = 18
-        let centerY = notched ? h / 2 : h / 2 + barHeight / 2
+        let centerY = h / 2
         if notched {
             icon.frame = NSRect(x: (wing - iconSize) / 2, y: centerY - iconSize / 2, width: iconSize, height: iconSize)
             label.frame = NSRect(x: w - wing, y: centerY - 8, width: wing, height: 16)
@@ -90,30 +72,6 @@ private final class IslandView: NSView {
             icon.frame = NSRect(x: 16, y: centerY - iconSize / 2, width: iconSize, height: iconSize)
             label.frame = NSRect(x: 40, y: centerY - 8, width: w - 40 - 14, height: 16)
         }
-        let inset = radius
-        let trackWidth = max(0, w - 2 * inset)
-        track.frame = CGRect(x: inset, y: 0, width: trackWidth, height: barHeight)
-        let fraction = content?.fraction ?? 1
-        fill.frame = CGRect(x: inset, y: 0, width: trackWidth * fraction, height: barHeight)
-        shimmer.frame = CGRect(x: -40, y: 0, width: 40, height: barHeight)
-        updateShimmer(width: fill.frame.width)
-    }
-
-    private func updateShimmer(width: CGFloat) {
-        guard content?.kind == .running, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion, width > 0 else {
-            shimmer.removeAnimation(forKey: "shimmer")
-            shimmerWidth = -1
-            return
-        }
-        if abs(width - shimmerWidth) < 1 { return }
-        shimmerWidth = width
-        let sweep = CABasicAnimation(keyPath: "position.x")
-        sweep.fromValue = -20
-        sweep.toValue = width + 20
-        sweep.duration = 2.4
-        sweep.repeatCount = .infinity
-        sweep.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        shimmer.add(sweep, forKey: "shimmer")
     }
 }
 

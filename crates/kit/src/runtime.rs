@@ -54,6 +54,13 @@ pub trait App {
         false
     }
 
+    /// Asked after every draw: true makes the runtime clear the whole screen and draw
+    /// again. Some terminals (SwiftTerm in Telmo.app) only drop a picture on a full
+    /// clear, so a popup that replaces or removes a picture says so here.
+    fn take_clear(&mut self) -> bool {
+        false
+    }
+
     /// A command to run in the popup's own terminal; asked after every event.
     fn take_command(&mut self) -> Option<Command> {
         None
@@ -88,12 +95,21 @@ fn leave(enhanced: bool) {
     ratatui::restore();
 }
 
+fn draw<A: App>(terminal: &mut ratatui::DefaultTerminal, app: &mut A) -> io::Result<()> {
+    terminal.draw(|f| app.draw(f))?;
+    if app.take_clear() {
+        terminal.clear()?;
+        terminal.draw(|f| app.draw(f))?;
+    }
+    Ok(())
+}
+
 pub async fn run<A: App>(mut app: A, mut events: UnboundedReceiver<A::Event>) -> io::Result<()> {
     let (mut terminal, mut enhanced) = enter()?;
     let mut keys = EventStream::new();
     let mut tick = tokio::time::interval(app.frame_interval());
     let result = async {
-        terminal.draw(|f| app.draw(f))?;
+        draw(&mut terminal, &mut app)?;
         loop {
             let mut flow = tokio::select! {
                 key = keys.next() => match key {
@@ -125,7 +141,7 @@ pub async fn run<A: App>(mut app: A, mut events: UnboundedReceiver<A::Event>) ->
             if flow == Flow::Quit {
                 return Ok(());
             }
-            terminal.draw(|f| app.draw(f))?;
+            draw(&mut terminal, &mut app)?;
         }
     }
     .await;

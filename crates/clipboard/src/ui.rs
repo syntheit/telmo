@@ -33,6 +33,7 @@ const SWATCH: Size = Size::new(24, 5);
 
 pub fn draw(app: &App, frame: &mut Frame) {
     app.hits.clear();
+    app.drawn_image.replace(None);
     let screen = widgets::screen(frame.area());
     widgets::header(frame, screen.header, "Clipboard", header_status(app));
     let [side, panel] =
@@ -637,6 +638,7 @@ fn draw_image(app: &App, frame: &mut Frame, area: Rect, entry: &Entry) {
             ..area
         };
         frame.render_widget(Image::new(protocol), rect);
+        app.drawn_image.replace(Some(key));
     }
 }
 
