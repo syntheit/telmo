@@ -4,7 +4,7 @@
 ╭─ History ──────────────────────────╮╭─ Text ─────────────────────────────────────────────────────────────╮
 │ / nix█                             ││                                                                    │
 │                                    ││  sudo darwin-rebuild switch --flake ~/nix#swift --substituters     │
-│ ▌ 󰈚 sudo darwin-rebuild switch … 2m││    'https://cache.nixos.org'                                       │
+│ ▌ 󰉢 sudo darwin-rebuild switch … 2m││    'https://cache.nixos.org'                                       │
 │   󰌷 github.com/syntheit/telmo/… 18m││                                                                    │
 │                                    ││                                                                    │
 │                                    ││                                                                    │

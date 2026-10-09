@@ -3,20 +3,20 @@
 
 ╭─ History ──────────────────────────╮╭─ Text ─────────────────────────────────────────────────────────────╮
 │  Pinned                            ││                                                                    │
-│   󰈚 ssh daniel@mantle -t tmux at… 󰐃││  sudo darwin-rebuild switch --flake ~/nix#swift --substituters     │
-│   󰈚 +54 9 11 5555 0142           󰐃 ││    'https://cache.nixos.org'                                       │
+│   󰉢 ssh daniel@mantle -t tmux at… 󰐃││  sudo darwin-rebuild switch --flake ~/nix#swift --substituters     │
+│   󰉢 +54 9 11 5555 0142           󰐃 ││    'https://cache.nixos.org'                                       │
 │  Recent                            ││                                                                    │
-│ ▌ 󰈚 sudo darwin-rebuild switch … 2m││                                                                    │
+│ ▌ 󰉢 sudo darwin-rebuild switch … 2m││                                                                    │
 │   󰋩 Screenshot 1440×900  ╭─ Delete ───────────────────────────────────────────╮                          │
 │   󰌷 github.com/syntheit/t│                                                    │                          │
 │   󰏘 #7aa2f7              │   Delete this from history?                        │                          │
-│   󰈚 Meeting moved to 3:30│   It stays on the clipboard if it's there now.     │                          │
+│   󰉢 Meeting moved to 3:30│   It stays on the clipboard if it's there now.     │                          │
 │   󰈔 invoice-2026-10.pdf  │                                                    │                          │
 │   󰅩 fn main() { println!(│   ↵ delete   esc cancel                            │                          │
-│   󰈚 hunter2-correct-hors…│                                                    │                          │
+│   󰉢 hunter2-correct-hors…│                                                    │                          │
 │   󰋩 IMG_4021.HEIC 4032×3…╰────────────────────────────────────────────────────╯                          │
 │   󰌷 news.ycombinator.com/item?i… 2d││                                                                    │
-│   󰈚 daniel@matv.io              3d ││                                                                    │
+│   󰉢 daniel@matv.io              3d ││                                                                    │
 │                                    ││                                                                    │
 │                                    ││                                                                    │
 │                                    ││  ────────────────────────────────────────────────────────────────  │
@@ -24,4 +24,4 @@
 │                                    ││  Size     84 characters · 7 words · 2 lines                        │
 ╰────────────────────────────────────╯╰────────────────────────────────────────────────────────────────────╯
 
- ↵ copy   p pin   d delete   / search   ?
+ ↵ copy   p pin   x delete   / search   ?
