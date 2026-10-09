@@ -62,10 +62,9 @@ async fn eq_seed() {
     let Some(snapshot) = first_snapshot(false).await else {
         fail("the audio system did not answer within 5 seconds. Is it running?");
     };
-    let mut config = eq::Config::load();
-    if config.seed(&snapshot.outputs)
-        && let Err(e) = config.save()
-    {
+    if let Err(e) = eq::Config::update(|config| {
+        config.seed(&snapshot.outputs);
+    }) {
         fail(&format!("could not save the EQ settings: {e}"));
     }
 }

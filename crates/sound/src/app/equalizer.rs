@@ -30,20 +30,18 @@ impl App {
     }
 
     /// Changes the settings on disk and tells Telmo.app. The file is read
-    /// again first, so a change Telmo.app made meanwhile (a seeded default)
+    /// again under a lock, so a change made meanwhile (a seeded default)
     /// is kept. The mock never touches the disk.
     fn change_eq(&mut self, change: impl FnOnce(&mut Config)) {
         if !self.persist_eq {
             return change(&mut self.eq);
         }
-        let mut config = Config::load();
-        change(&mut config);
-        if let Err(e) = config.save() {
-            self.error(format!(
+        match Config::update(change) {
+            Ok(config) => self.eq = config,
+            Err(e) => self.error(format!(
                 "Couldn't save the EQ settings: {e}. Check the disk and try again."
-            ));
+            )),
         }
-        self.eq = config;
         eq::reload();
     }
 

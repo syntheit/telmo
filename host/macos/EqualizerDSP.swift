@@ -237,10 +237,12 @@ final class EQProcessor {
         configured = true
     }
 
-    /// Reads `channels` planes from `inputs`, writes them to `outputs`. Both may be the same memory.
-    func process(frames: Int, channels: Int) {
+    /// Reads `inChannels` planes from `inputs` and writes `outputs`. Both may be the same memory. Stereo goes to the first two
+    /// output channels (the rest are left alone), to the average of both on a mono output; mono goes to the first two.
+    func process(frames: Int, inChannels: Int, outChannels: Int) {
         adoptPending()
-        let channels = min(channels, Self.maxChannels)
+        let channels = min(inChannels, Self.maxChannels)
+        guard channels > 0, outChannels > 0 else { return }
         for n in 0..<frames {
             var peak = 0.0
             let mix = fadeLeft > 0 ? 1 - Double(fadeLeft) / Double(fadeFrames) : 1
@@ -256,11 +258,21 @@ final class EQProcessor {
             }
             if fadeLeft > 0 { fadeLeft -= 1 }
             let gain = Self.limiterGain(peak: peak)
-            for c in 0..<channels {
-                let plane = outputs[c]
-                plane.data?[n * plane.stride] = Float(scratch[c] * gain)
+            if outChannels == 1 {
+                var sum = 0.0
+                for c in 0..<channels { sum += scratch[c] }
+                write(sum / Double(channels) * gain, channel: 0, frame: n)
+            } else {
+                for c in 0..<min(channels, outChannels) { write(scratch[c] * gain, channel: c, frame: n) }
+                if channels == 1 { write(scratch[0] * gain, channel: 1, frame: n) }
             }
         }
+    }
+
+    @inline(__always)
+    private func write(_ value: Double, channel: Int, frame: Int) {
+        let plane = outputs[channel]
+        plane.data?[frame * plane.stride] = Float(value)
     }
 
     /// 1 below the knee; above it the peak is eased toward the ceiling, so nothing a chain produces reaches full scale.

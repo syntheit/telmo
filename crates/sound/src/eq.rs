@@ -284,8 +284,9 @@ impl Config {
         telmo_kit::state::load(STATE).unwrap_or_default()
     }
 
-    pub fn save(&self) -> io::Result<()> {
-        telmo_kit::state::save(STATE, self)
+    /// Changes the file on disk under a lock and returns the result.
+    pub fn update(change: impl FnOnce(&mut Config)) -> io::Result<Config> {
+        telmo_kit::state::update(STATE, change)
     }
 
     /// The preset and bass nudge of an output; its kind's default when it has

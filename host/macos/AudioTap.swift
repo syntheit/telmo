@@ -69,19 +69,23 @@ final class TapAggregate {
     /// The sample rate of the tapped audio.
     private(set) var tapRate = 48_000.0
 
-    /// `output` is the UID of the device to tap; nil takes the current default output. With `leaveOutSelf` the tap refuses to
-    /// exist unless it can exclude this process, which an EQ needs: it would otherwise hear its own output and feed back.
-    init(name: String, mute: CATapMuteBehavior, output: String? = nil, leaveOutSelf: Bool = false) throws {
-        do { try open(name: name, mute: mute, output: output, leaveOutSelf: leaveOutSelf) } catch {
+    /// `output` is the UID of the device to tap; nil takes the current default output. With `scoped` the tap hears only what
+    /// is played to that device (otherwise everything, on every device). With `leaveOutSelf` the tap refuses to exist unless
+    /// it can exclude this process, which an EQ needs: it would otherwise hear its own output and feed back.
+    init(name: String, mute: CATapMuteBehavior, output: String? = nil, scoped: Bool = false, leaveOutSelf: Bool = false) throws {
+        do { try open(name: name, mute: mute, output: output, scoped: scoped, leaveOutSelf: leaveOutSelf) } catch {
             close()
             throw error
         }
     }
 
-    private func open(name: String, mute: CATapMuteBehavior, output: String?, leaveOutSelf: Bool) throws {
+    private func open(name: String, mute: CATapMuteBehavior, output: String?, scoped: Bool, leaveOutSelf: Bool) throws {
         let ours = HAL.ownProcessObject().map { [$0] } ?? []
         if leaveOutSelf && ours.isEmpty { throw Failure.unknownSelf }
-        let description = CATapDescription(stereoGlobalTapButExcludeProcesses: ours)
+        guard let output = output ?? HAL.defaultOutputUID() else { throw Failure.noOutput }
+        let description = scoped
+            ? CATapDescription(excludingProcesses: ours, deviceUID: output, stream: 0)
+            : CATapDescription(stereoGlobalTapButExcludeProcesses: ours)
         description.name = name
         description.isPrivate = true
         description.muteBehavior = mute
@@ -92,7 +96,6 @@ final class TapAggregate {
             tapRate = format.mSampleRate
         }
 
-        guard let output = output ?? HAL.defaultOutputUID() else { throw Failure.noOutput }
         let aggregateDescription: [String: Any] = [
             kAudioAggregateDeviceUIDKey: "io.telmo.\(name.lowercased().replacingOccurrences(of: " ", with: "-")).\(getpid())",
             kAudioAggregateDeviceNameKey: name,

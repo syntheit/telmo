@@ -3225,6 +3225,7 @@ dependencies = [
  "base64 0.22.1",
  "crossterm",
  "futures-util",
+ "libc",
  "ratatui",
  "ratatui-image",
  "serde",

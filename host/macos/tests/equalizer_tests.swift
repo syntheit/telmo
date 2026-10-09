@@ -26,20 +26,24 @@ func response(_ q: Biquad, at hz: Double, rate: Double = 48_000) -> Double {
 }
 
 /// Runs planar channels through a processor in one go.
-func run(_ processor: EQProcessor, _ channels: [[Float]]) -> [[Float]] {
+func run(_ processor: EQProcessor, _ channels: [[Float]], outChannels: Int? = nil) -> [[Float]] {
     let frames = channels[0].count
     let ins = channels.map { channel -> UnsafeMutablePointer<Float> in
         let p = UnsafeMutablePointer<Float>.allocate(capacity: frames)
         p.initialize(from: channel, count: frames)
         return p
     }
-    let outs = channels.map { _ in UnsafeMutablePointer<Float>.allocate(capacity: frames) }
-    defer { (ins + outs).forEach { $0.deallocate() } }
-    for c in channels.indices {
-        processor.inputs[c] = EQPlane(data: ins[c], stride: 1)
-        processor.outputs[c] = EQPlane(data: outs[c], stride: 1)
+    let outCount = outChannels ?? channels.count
+    // Untouched output samples keep this value.
+    let outs = (0..<outCount).map { _ -> UnsafeMutablePointer<Float> in
+        let p = UnsafeMutablePointer<Float>.allocate(capacity: frames)
+        p.initialize(repeating: 7, count: frames)
+        return p
     }
-    processor.process(frames: frames, channels: channels.count)
+    defer { (ins + outs).forEach { $0.deallocate() } }
+    for c in channels.indices { processor.inputs[c] = EQPlane(data: ins[c], stride: 1) }
+    for c in outs.indices { processor.outputs[c] = EQPlane(data: outs[c], stride: 1) }
+    processor.process(frames: frames, inChannels: channels.count, outChannels: outCount)
     return outs.map { Array(UnsafeBufferPointer(start: $0, count: frames)) }
 }
 
@@ -168,10 +172,21 @@ func rms(_ samples: ArraySlice<Float>) -> Double {
                     mixed.inputs[c] = EQPlane(data: input.baseAddress! + c, stride: 2)
                     mixed.outputs[c] = EQPlane(data: output.baseAddress! + c, stride: 2)
                 }
-                mixed.process(frames: tone.count, channels: 2)
+                mixed.process(frames: tone.count, inChannels: 2, outChannels: 2)
             }
         }
         check((0..<tone.count).allSatisfy { result[$0 * 2] == planar[0][$0] && result[$0 * 2 + 1] == 0 }, "interleaved equals planar")
+
+        // Other layouts: a mono output gets the average of both channels, a wider one gets stereo in front, a mono source both sides.
+        let layout = EQProcessor(rate: 48_000)
+        layout.update(EQSettings(preamp: 0, biquads: []))
+        let left = [Float](repeating: 0.4, count: 8), right = [Float](repeating: 0.2, count: 8)
+        check(run(layout, [left, right], outChannels: 1)[0].allSatisfy { close(Double($0), 0.3, 1e-6) }, "stereo to mono averages")
+        let wide = run(layout, [left, right], outChannels: 4)
+        check(wide[0].allSatisfy { close(Double($0), 0.4, 1e-6) } && wide[1].allSatisfy { close(Double($0), 0.2, 1e-6) }, "stereo to four channels keeps L and R in front")
+        check(wide[2].allSatisfy { $0 == 7 } && wide[3].allSatisfy { $0 == 7 }, "the other channels are left alone")
+        let both = run(layout, [left], outChannels: 2)
+        check(both[0] == both[1] && close(Double(both[0][0]), 0.4, 1e-6), "mono source plays on both sides")
 
         // The limiter: quiet signals pass untouched, nothing ever reaches full scale.
         check(EQProcessor.limiterGain(peak: 0.5) == 1 && EQProcessor.limiterGain(peak: EQProcessor.knee) == 1, "limiter is transparent below the knee")

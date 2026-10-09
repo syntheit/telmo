@@ -4,8 +4,8 @@ import CoreAudio
 /// The system-wide EQ for the current default output. The sound popup owns the choices (`eq.json`, see EqualizerDSP.swift);
 /// this only runs the audio.
 ///
-/// While an output has filters, a global process tap (everything but this app) with `.mutedWhenTapped` silences the apps'
-/// own output, and a private aggregate device of that tap plus the real output runs one IOProc: it reads the tapped audio,
+/// While an output has filters, a process tap of what the other apps play to that output, with `.mutedWhenTapped`, silences
+/// their own output to it (apps playing to other devices are not touched), and a private aggregate device of that tap plus the real output runs one IOProc: it reads the tapped audio,
 /// runs it through `EQProcessor` and writes the result to the output. The default output device is never changed, so the volume
 /// keys, the menu bar picker and Bluetooth stay as they are, and the device's volume still applies after the EQ.
 ///
@@ -22,8 +22,12 @@ final class Equalizer {
     private var session: Session?
     private var watched = AudioObjectID(kAudioObjectUnknown)
     private var debounce: DispatchWorkItem?
-    /// Keys we have asked `telmo-sound eq-seed` to fill in, once each, so a key that never gets an entry can't loop.
+    /// Keys `telmo-sound eq-seed` is running for, and how often we have asked per key. A key that never gets an entry
+    /// is tried a few times, with growing pauses, and then left alone.
     private var seeding = Set<String>()
+    private var seedTries = [String: Int]()
+    private static let maxSeedTries = 3
+    private var stopped = false
     private var wakeObserver: NSObjectProtocol?
 
     private lazy var changed: AudioObjectPropertyListenerBlock = { [weak self] _, _ in self?.sync(after: 0.3) }
@@ -50,8 +54,27 @@ final class Equalizer {
     /// `eq reload`: the popup changed eq.json.
     func reload() { queue.async { [self] in sync() } }
 
-    /// For quitting: lets go of the audio before the app is gone.
-    func stop() { queue.sync { endSession() } }
+    /// For quitting: lets go of the audio before the app is gone, and makes sure nothing starts it again.
+    func stop() {
+        if let wakeObserver { NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver) }
+        wakeObserver = nil
+        queue.sync {
+            stopped = true
+            debounce?.cancel()
+            for address in Self.systemAddresses {
+                var address = address
+                AudioObjectRemovePropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &address, queue, changed)
+            }
+            if watched != kAudioObjectUnknown {
+                for address in Self.deviceAddresses {
+                    var address = address
+                    AudioObjectRemovePropertyListenerBlock(watched, &address, queue, changed)
+                }
+            }
+            watched = AudioObjectID(kAudioObjectUnknown)
+            endSession()
+        }
+    }
 
     private func sync(after delay: Double) {
         queue.async { [self] in
@@ -69,6 +92,7 @@ final class Equalizer {
 
     /// Makes the audio match eq.json for the current default output: starts, updates or ends the session.
     private func sync() {
+        guard !stopped else { return }
         guard let device = HAL.defaultOutputDevice(), let uid = HAL.uid(of: device) else { return endSession() }
         watch(device)
         let key = EQKey.make(uid: uid, builtIn: HAL.isBuiltIn(device), dataSource: HAL.dataSource(device))
@@ -111,16 +135,30 @@ final class Equalizer {
     }
 
     /// An output the popup hasn't seen has no entry yet. The popup's own binary knows the presets, so it writes the default
-    /// ones, and we look again when it is done.
+    /// ones, and we look again when it is done. A failed run is tried again after a pause, up to `maxSeedTries` times.
     private func seed(_ key: String) {
-        guard seeding.insert(key).inserted, let program = ModuleLookup.find("sound") else { return }
+        let tries = seedTries[key, default: 0]
+        guard tries < Self.maxSeedTries, seeding.insert(key).inserted else { return }
+        seedTries[key] = tries + 1
+        let finished = { [weak self] (succeeded: Bool) in
+            guard let self else { return }
+            queue.async {
+                self.seeding.remove(key)
+                if succeeded { return self.sync() }
+                self.queue.asyncAfter(deadline: .now() + 5 * Double(tries + 1)) { self.sync() }
+            }
+        }
+        guard let program = ModuleLookup.find("sound") else { return finished(false) }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: program)
         process.arguments = ["eq-seed"]
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
-        process.terminationHandler = { [weak self] _ in self?.reload() }
-        do { try process.run() } catch { NSLog("telmo: cannot run \(program) eq-seed: \(error)") }
+        process.terminationHandler = { finished($0.terminationStatus == 0) }
+        do { try process.run() } catch {
+            NSLog("telmo: cannot run \(program) eq-seed: \(error)")
+            finished(false)
+        }
     }
 
     private struct SessionFailure: Error, CustomStringConvertible {
@@ -143,7 +181,7 @@ final class Equalizer {
             self.key = key
             self.device = device
             self.deviceRate = deviceRate
-            do { tapAggregate = try TapAggregate(name: "Telmo EQ", mute: .mutedWhenTapped, output: uid, leaveOutSelf: true) } catch TapAggregate.Failure.denied {
+            do { tapAggregate = try TapAggregate(name: "Telmo EQ", mute: .mutedWhenTapped, output: uid, scoped: true, leaveOutSelf: true) } catch TapAggregate.Failure.denied {
                 throw SessionFailure(description: "Allow System Audio Recording for Telmo in System Settings.")
             } catch TapAggregate.Failure.unknownSelf {
                 throw SessionFailure(description: "Core Audio does not list Telmo as an audio process, so the EQ would hear itself")
@@ -217,8 +255,9 @@ final class Equalizer {
             }
             let (outChannels, outFrames) = Self.planes(of: outBuffers, into: processor.outputs)
             let (inChannels, inFrames) = Self.planes(of: inBuffers, into: processor.inputs)
-            let channels = min(inChannels, outChannels)
-            if channels > 0 { processor.process(frames: min(inFrames, outFrames), channels: channels) }
+            if inChannels > 0, outChannels > 0 {
+                processor.process(frames: min(inFrames, outFrames), inChannels: inChannels, outChannels: outChannels)
+            }
         }
 
         private static func planes(of buffers: UnsafeMutableAudioBufferListPointer, into planes: UnsafeMutablePointer<EQPlane>) -> (channels: Int, frames: Int) {
