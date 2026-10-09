@@ -3,6 +3,7 @@ import AppKit
 private let normalCols = 90
 private let normalRows = 22
 private let largeFraction: CGFloat = 0.8
+private let mediumScale = 1.2
 private let padding: CGFloat = 14
 
 final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
@@ -83,7 +84,7 @@ final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
     func run(_ launch: Launch) {
         terminateChild()
         removeEscapeMonitor()
-        chooseGrid(large: launch.large)
+        chooseGrid(launch.size)
         replaceTerminal()
         setContentSize(NSSize(width: terminal.frame.width + 2 * padding, height: terminal.frame.height + 2 * padding))
         if launch.escapeCloses { installEscapeMonitor() }
@@ -110,15 +111,22 @@ final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
         escapeMonitor = nil
     }
 
-    /// 90×22 cells, or 80% of the mouse's screen rounded down to whole cells.
-    private func chooseGrid(large: Bool) {
-        guard large, let area = targetScreen()?.visibleFrame else {
+    /// 90×22 cells, 1.2× that for medium, or 80% of the mouse's screen rounded down to whole cells for large.
+    private func chooseGrid(_ size: Launch.Size) {
+        switch size {
+        case .normal:
             (cols, rows) = (normalCols, normalRows)
-            return
+        case .medium:
+            (cols, rows) = (Int(Double(normalCols) * mediumScale), Int(Double(normalRows) * mediumScale))
+        case .large:
+            guard let area = targetScreen()?.visibleFrame else {
+                (cols, rows) = (normalCols, normalRows)
+                return
+            }
+            let cell = cellSize()
+            cols = max(normalCols, Int((area.width * largeFraction - 2 * padding) / cell.width))
+            rows = max(normalRows, Int((area.height * largeFraction - 2 * padding) / cell.height))
         }
-        let cell = cellSize()
-        cols = max(normalCols, Int((area.width * largeFraction - 2 * padding) / cell.width))
-        rows = max(normalRows, Int((area.height * largeFraction - 2 * padding) / cell.height))
     }
 
     /// Cell size in points, from how the fitted frame grows with one more column and row.

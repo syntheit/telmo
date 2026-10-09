@@ -2,9 +2,11 @@ import Foundation
 
 /// What to run in the popup and how to present it.
 struct Launch {
+    enum Size: String { case normal, medium, large }
+
     let executable: String
     let args: [String]
-    let large: Bool
+    let size: Size
     let escapeCloses: Bool
 }
 
@@ -23,7 +25,7 @@ enum Popups {
     /// Built-in modules (`telmo-<name>`) first, then popups.json. The reason a lookup failed is the error.
     static func resolve(_ name: String) -> Result<Launch, PopupError> {
         if let exe = ModuleLookup.find(name) {
-            return .success(Launch(executable: exe, args: [], large: false, escapeCloses: false))
+            return .success(Launch(executable: exe, args: [], size: ModuleSizes.size(of: name), escapeCloses: false))
         }
         guard let entry = configured()[name] else { return .failure(PopupError("module not found: telmo-\(name)")) }
         guard let command = entry["command"] as? [String], let program = command.first else {
@@ -33,9 +35,14 @@ enum Popups {
             return .failure(PopupError("command not found for popup '\(name)': \(program)"))
         }
         return .success(Launch(executable: exe, args: Array(command.dropFirst()),
-                               large: entry["size"] as? String == "large",
+                               size: (entry["size"] as? String).flatMap(Launch.Size.init) ?? .normal,
                                escapeCloses: entry["escape"] as? String == "close"))
     }
+}
+
+/// Built-in modules that open bigger than normal.
+enum ModuleSizes {
+    static func size(of name: String) -> Launch.Size { name == "clipboard" ? .medium : .normal }
 }
 
 struct PopupError: Error {
