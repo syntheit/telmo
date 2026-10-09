@@ -40,6 +40,18 @@ pub enum State {
     Failed,
 }
 
+/// Which part of the rebuild the output says is under way.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Phase {
+    /// Nothing announced yet.
+    #[default]
+    Evaluating,
+    Downloading,
+    Building,
+    Activating,
+}
+
 /// The contents of `rebuild.json`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Status {
@@ -52,6 +64,9 @@ pub struct Status {
     pub to_build: u32,
     pub fetched: u32,
     pub to_fetch: u32,
+    /// Absent in files from older versions, which count as evaluating.
+    #[serde(default)]
+    pub phase: Phase,
     pub last_line: String,
     pub error: Option<String>,
     pub generation: Option<u32>,
@@ -68,6 +83,7 @@ impl Status {
             to_build: 0,
             fetched: 0,
             to_fetch: 0,
+            phase: Phase::Evaluating,
             last_line: last_line.into(),
             error: None,
             generation: None,
@@ -175,28 +191,50 @@ fn find_program(name: &str) -> Option<String> {
         .map(|found| found.to_string_lossy().into_owned())
 }
 
-/// Counts of builds and fetches, read from Nix's output.
+/// Counts of builds and fetches and the current phase, read from Nix's output.
 #[derive(Debug, Default, PartialEq)]
 pub struct Progress {
     pub built: u32,
     pub to_build: u32,
     pub fetched: u32,
     pub to_fetch: u32,
+    pub phase: Phase,
 }
 
 impl Progress {
     pub fn feed(&mut self, line: &str) {
         let line = line.trim();
-        if let Some(n) = announced(line, "derivation", "will be built") {
+        if is_activation(line) {
+            self.phase = Phase::Activating;
+        } else if let Some(n) = announced(line, "derivation", "will be built") {
             self.to_build = n;
         } else if let Some(n) = announced(line, "path", "will be fetched") {
             self.to_fetch = n;
+            self.downloading();
         } else if line.starts_with("building '") {
             self.built += 1;
+            // Nix interleaves builds and fetches; once building, never back.
+            if self.phase != Phase::Activating {
+                self.phase = Phase::Building;
+            }
         } else if line.starts_with("copying path '") {
             self.fetched += 1;
+            self.downloading();
         }
     }
+
+    fn downloading(&mut self) {
+        if self.phase == Phase::Evaluating {
+            self.phase = Phase::Downloading;
+        }
+    }
+}
+
+/// What the switch prints when the build is done and the new system goes live:
+/// `nixos-rebuild` says `activating the configuration...` and nix-darwin's activation script,
+/// like NixOS's, starts with `setting up ...` lines (`/Applications/Nix Apps`, `/etc`, ...).
+fn is_activation(line: &str) -> bool {
+    line == "activating the configuration..." || line.starts_with("setting up ")
 }
 
 /// `these 12 derivations will be built:` -> 12; `this derivation will be built:` -> 1.
@@ -369,6 +407,7 @@ fn follow(
         status.to_build = progress.to_build;
         status.fetched = progress.fetched;
         status.to_fetch = progress.to_fetch;
+        status.phase = progress.phase;
         if last_write.elapsed() >= job.write_every {
             last_write = Instant::now();
             save(job, status, observe);
@@ -534,7 +573,8 @@ Activating... done
                 built: 3,
                 to_build: 3,
                 fetched: 2,
-                to_fetch: 2
+                to_fetch: 2,
+                phase: Phase::Activating
             }
         );
     }
@@ -553,6 +593,82 @@ Activating... done
             "building the system configuration...\ncopying 3 paths...\nthese are not the droids",
         );
         assert_eq!(progress, Progress::default());
+    }
+
+    fn phase_after(text: &str) -> Phase {
+        feed_all(text).phase
+    }
+
+    #[test]
+    fn phase_follows_the_output() {
+        assert_eq!(phase_after(""), Phase::Evaluating);
+        assert_eq!(
+            phase_after("building the system configuration...\nevaluation warning: x"),
+            Phase::Evaluating
+        );
+        assert_eq!(
+            phase_after("these 3 derivations will be built:\n  /nix/store/a.drv"),
+            Phase::Evaluating
+        );
+        assert_eq!(
+            phase_after("these 2 paths will be fetched (1 MiB download, 2 MiB unpacked):"),
+            Phase::Downloading
+        );
+        assert_eq!(
+            phase_after("copying path '/nix/store/a-baz' from 'https://cache.nixos.org'..."),
+            Phase::Downloading
+        );
+        assert_eq!(phase_after("copying 3 paths..."), Phase::Evaluating);
+        assert_eq!(
+            phase_after("building '/nix/store/a.drv'..."),
+            Phase::Building
+        );
+    }
+
+    #[test]
+    fn building_wins_over_downloading() {
+        assert_eq!(
+            phase_after(
+                "building '/nix/store/a.drv'...\ncopying path '/nix/store/b-baz' from 'https://cache.nixos.org'...\nthese 2 paths will be fetched (1 MiB download, 2 MiB unpacked):"
+            ),
+            Phase::Building
+        );
+        assert_eq!(
+            phase_after(
+                "copying path '/nix/store/b-baz' from 'ssh-ng://daniel@mini-builder'...\nbuilding '/nix/store/a.drv'..."
+            ),
+            Phase::Building
+        );
+    }
+
+    #[test]
+    fn activation_overrides_everything() {
+        // Real darwin-rebuild output.
+        let darwin = "building '/nix/store/h-darwin-system-26.11.4cff07d.drv'...\nsetting up /Applications/Nix Apps...\nsetting up pam...\nbuilding '/nix/store/x.drv'...\ncopying path '/nix/store/y' from 'z'...";
+        assert_eq!(phase_after(darwin), Phase::Activating);
+        // Real nixos-rebuild output (switch-to-configuration, then the activation script).
+        let nixos = "building '/nix/store/h-nixos-system-harbor.drv'...\nactivating the configuration...\nsetting up /etc...";
+        assert_eq!(phase_after(nixos), Phase::Activating);
+        assert_eq!(
+            phase_after("copying path '/nix/store/a' from 'b'...\nactivating the configuration..."),
+            Phase::Activating
+        );
+        assert_eq!(
+            phase_after("building '/nix/store/a.drv'...\nsetting up /etc..."),
+            Phase::Activating
+        );
+    }
+
+    #[test]
+    fn old_files_without_a_phase_parse() {
+        let json = r#"{"state":"running","pid":1,"started":2,"finished":null,"built":0,"to_build":0,"fetched":0,"to_fetch":0,"last_line":"x","error":null,"generation":null}"#;
+        let status: Status = serde_json::from_str(json).unwrap();
+        assert_eq!(status.phase, Phase::Evaluating);
+        let with = json.replace("\"last_line\"", "\"phase\":\"building\",\"last_line\"");
+        assert_eq!(
+            serde_json::from_str::<Status>(&with).unwrap().phase,
+            Phase::Building
+        );
     }
 
     #[test]

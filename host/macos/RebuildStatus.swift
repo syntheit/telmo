@@ -4,6 +4,7 @@ import Foundation
 /// The parts of `rebuild.json` (written by telmo-system's detached rebuild) that the island shows.
 struct RebuildStatus: Decodable, Equatable {
     enum State: String, Decodable { case running, ok, failed }
+    enum Phase: String, Decodable { case evaluating, downloading, building, activating }
 
     var state: State
     let pid: Int
@@ -13,11 +14,26 @@ struct RebuildStatus: Decodable, Equatable {
     let fetched: Int
     let toFetch: Int
     let generation: Int?
+    /// Files from older versions have none, which counts as evaluating.
+    let phase: Phase
 
     enum CodingKeys: String, CodingKey {
-        case state, pid, started, built, generation, fetched
+        case state, pid, started, built, generation, fetched, phase
         case toBuild = "to_build"
         case toFetch = "to_fetch"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        state = try c.decode(State.self, forKey: .state)
+        pid = try c.decode(Int.self, forKey: .pid)
+        started = try c.decode(Int.self, forKey: .started)
+        built = try c.decode(Int.self, forKey: .built)
+        toBuild = try c.decode(Int.self, forKey: .toBuild)
+        fetched = try c.decode(Int.self, forKey: .fetched)
+        toFetch = try c.decode(Int.self, forKey: .toFetch)
+        generation = try c.decodeIfPresent(Int.self, forKey: .generation)
+        phase = (try? c.decodeIfPresent(Phase.self, forKey: .phase)) ?? .evaluating
     }
 
     /// Where `rebuild.json` lives: `$TELMO_STATE_DIR` (for demos), else `$XDG_STATE_HOME/telmo`, else `~/.local/state/telmo`.
@@ -47,34 +63,56 @@ struct RebuildStatus: Decodable, Equatable {
     var key: String { "\(pid)-\(started)" }
 }
 
-/// What the island draws.
+/// What the island draws: the lit bars, and which of them moves.
 struct IslandContent: Equatable {
-    enum Kind: Equatable { case running, ok, failed }
+    /// How many bars the right wing has.
+    static let bars = 10
 
-    let kind: Kind
-    let text: String
-    /// 0...1, or nil while the totals are unknown.
-    let fraction: Double?
+    enum Look: Equatable {
+        case evaluating, downloading, building, activating, ok, failed
 
-    static func make(_ status: RebuildStatus, now: Date) -> IslandContent {
-        switch status.state {
-        case .running:
-            return IslandContent(kind: .running, text: progressText(status, now: now), fraction: fraction(status))
-        case .ok:
-            return IslandContent(kind: .ok, text: status.generation.map { "gen \($0)" } ?? "done", fraction: 1)
-        case .failed:
-            return IslandContent(kind: .failed, text: "failed", fraction: nil)
+        /// The colour of the bars, as 0xRRGGBB.
+        var rgb: UInt32 {
+            switch self {
+            case .evaluating: 0x9aa0b8
+            case .downloading: 0x7ebae4
+            case .building: 0x5b86d6
+            case .activating, .ok: 0x9ece6a
+            case .failed: 0xf7768e
+            }
         }
     }
 
-    /// built/to_build, else fetched/to_fetch, else the elapsed time.
-    static func progressText(_ s: RebuildStatus, now: Date) -> String {
-        if s.toBuild > 0 { return "\(min(s.built, s.toBuild))/\(s.toBuild)" }
-        if s.toFetch > 0 { return "\(min(s.fetched, s.toFetch))/\(s.toFetch)" }
-        let secs = max(0, Int(now.timeIntervalSince1970) - s.started)
-        return String(format: "%d:%02d", secs / 60, secs % 60)
+    let look: Look
+    /// Bars at full brightness, 0...bars.
+    let lit: Int
+    /// The bar that breathes: the first unlit one while running.
+    let head: Int?
+    /// A highlight sweeps over dim bars while no totals are known.
+    let sweeping: Bool
+
+    static func make(_ status: RebuildStatus) -> IslandContent {
+        let count = fraction(status).map { min(bars, Int($0 * Double(bars))) }
+        switch status.state {
+        case .running:
+            let look: Look = switch status.phase {
+            case .evaluating: .evaluating
+            case .downloading: .downloading
+            case .building: .building
+            case .activating: .activating
+            }
+            // Activation has no count: everything is lit but the last bar.
+            let lit = status.phase == .activating ? bars - 1 : count ?? 0
+            return IslandContent(look: look, lit: lit, head: lit < bars ? lit : nil,
+                                 sweeping: look == .evaluating && count == nil)
+        case .ok:
+            return IslandContent(look: .ok, lit: bars, head: nil, sweeping: false)
+        case .failed:
+            return IslandContent(look: .failed, lit: max(1, count ?? 0), head: nil, sweeping: false)
+        }
     }
 
+    /// built/to_build, else fetched/to_fetch, else nil while the totals are unknown.
     static func fraction(_ s: RebuildStatus) -> Double? {
         if s.toBuild > 0 { return min(1, Double(s.built) / Double(s.toBuild)) }
         if s.toFetch > 0 { return min(1, Double(s.fetched) / Double(s.toFetch)) }
@@ -97,7 +135,7 @@ struct IslandTracker {
         defer { first = false }
         guard let status else { return nil }
         if status.state == .running {
-            return popupOpen ? nil : IslandContent.make(status, now: now)
+            return popupOpen ? nil : IslandContent.make(status)
         }
         // Results from before the app started, or that the popup showed, are old news.
         if first || popupOpen { handled = status.key }
@@ -109,7 +147,7 @@ struct IslandTracker {
                 return nil
             }
         }
-        return IslandContent.make(status, now: now)
+        return IslandContent.make(status)
     }
 
     /// The user clicked the island: the current result is seen.
