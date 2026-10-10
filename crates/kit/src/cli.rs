@@ -1,5 +1,8 @@
 //! Arguments every module accepts.
 
+use std::time::Duration;
+use tokio::sync::mpsc::UnboundedReceiver;
+
 pub struct Args {
     /// Use fake data instead of the real system.
     pub mock: bool,
@@ -28,4 +31,24 @@ pub fn args() -> Args {
         }
     }
     args
+}
+
+/// For `status`: the first event `pick` turns into a snapshot, or `None` when
+/// the backend says nothing useful within five seconds or stops.
+pub async fn first_snapshot<E, S>(
+    events: &mut UnboundedReceiver<E>,
+    pick: impl Fn(E) -> Option<S>,
+) -> Option<S> {
+    let first = async {
+        while let Some(event) = events.recv().await {
+            if let Some(snapshot) = pick(event) {
+                return Some(snapshot);
+            }
+        }
+        None
+    };
+    tokio::time::timeout(Duration::from_secs(5), first)
+        .await
+        .ok()
+        .flatten()
 }

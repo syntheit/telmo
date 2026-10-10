@@ -35,15 +35,12 @@ async fn main() -> ExitCode {
 
 /// Print the first snapshot the backend sends as JSON.
 async fn status(mut events: UnboundedReceiver<Event>) -> ExitCode {
-    let first = async {
-        while let Some(event) = events.recv().await {
-            if let Event::Snapshot(snapshot) = event {
-                return Some(snapshot);
-            }
-        }
-        None
-    };
-    let Ok(Some(snapshot)) = tokio::time::timeout(Duration::from_secs(5), first).await else {
+    let Some(snapshot) = telmo_kit::cli::first_snapshot(&mut events, |event| match event {
+        Event::Snapshot(snapshot) => Some(snapshot),
+        _ => None,
+    })
+    .await
+    else {
         return fail("The power status did not arrive within 5 seconds. Is the system busy?");
     };
     match serde_json::to_string_pretty(&snapshot) {

@@ -1,5 +1,5 @@
 {
-  description = "telmo: keyboard-driven popups for network, bluetooth and sound";
+  description = "telmo: keyboard-driven popups for network, bluetooth, sound, displays, power and more";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
