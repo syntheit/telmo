@@ -932,12 +932,10 @@ fn draw_help(app: &App, frame: &mut Frame) {
     let keys = help_lines(app);
     let inner = open_dialog(app, frame, "Keys", 58, keys.len() as u16 + 4);
     let mut lines = vec![Line::raw("")];
-    lines.extend(keys.into_iter().map(|(key, what)| {
-        Line::from(vec![
-            Span::styled(format!("  {}", fit(key, 10)), theme::accent()),
-            Span::styled(what, theme::text()),
-        ])
-    }));
+    lines.extend(
+        keys.into_iter()
+            .map(|(key, what)| widgets::help_row(2, key, 10, what, theme::text())),
+    );
     widgets::text(frame, inner, lines);
 }
 

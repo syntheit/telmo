@@ -715,10 +715,7 @@ fn draw_help(app: &App, frame: &mut Frame) {
     let inner = widgets::dialog(frame, "Keys", 54, rows.len() as u16 + 4);
     let mut lines = vec![Line::raw("")];
     for (key, label) in rows {
-        lines.push(Line::from(vec![
-            Span::styled(format!("   {}", fit(key, 5)), theme::accent()),
-            Span::styled(label, theme::dim()),
-        ]));
+        lines.push(widgets::help_row(3, key, 5, label, theme::dim()));
     }
     widgets::text(frame, inner, lines);
     let _ = app;

@@ -165,11 +165,13 @@ fn draw_help(frame: &mut Frame) {
     let inner = widgets::dialog(frame, "Keys", 50, keys.len() as u16 + 4);
     let mut lines = vec![Line::raw("")];
     for (key, what) in keys {
-        lines.push(Line::from(vec![
-            Span::raw("  "),
-            Span::styled(widgets::fit(key, 9), theme::accent()),
-            Span::styled(what, Style::new().fg(theme::FG)),
-        ]));
+        lines.push(widgets::help_row(
+            2,
+            key,
+            9,
+            what,
+            Style::new().fg(theme::FG),
+        ));
     }
     widgets::text(frame, inner, lines);
 }

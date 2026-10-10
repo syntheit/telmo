@@ -332,12 +332,8 @@ fn draw_help(app: &App, frame: &mut Frame) {
     let inner = open_dialog(app, frame, "Keys", 64, keys.len() as u16 + 4);
     let mut lines = vec![Line::raw("")];
     for (key, what) in keys {
-        lines.push(Line::from(vec![
-            Span::styled(widgets::fit(key, 11), theme::accent()),
-            Span::styled(what, theme::text()),
-        ]));
+        lines.push(widgets::help_row(2, key, 11, what, theme::text()));
     }
-    let lines = lines.into_iter().map(indent).collect();
     widgets::text(frame, inner, lines);
 }
 

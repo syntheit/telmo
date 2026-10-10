@@ -324,12 +324,7 @@ fn draw_help(app: &App, frame: &mut Frame) {
     dialog_hits(app, frame, inner);
     let lines = KEYS
         .iter()
-        .map(|(key, what)| {
-            Line::from(vec![
-                Span::styled(format!("  {key:<5}"), theme::accent()),
-                Span::styled(*what, theme::dim()),
-            ])
-        })
+        .map(|(key, what)| widgets::help_row(2, key, 5, what, theme::dim()))
         .collect();
     widgets::text(frame, inner, lines);
 }
