@@ -6,7 +6,6 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent,
 use qrcode::QrCode;
 use std::collections::HashSet;
 use std::net::{IpAddr, Ipv4Addr};
-use std::time::{SystemTime, UNIX_EPOCH};
 use telmo_kit::{Flow, hits::Hits, input::TextInput, widgets::Toast};
 use telmo_speed::{Phase, Record, Update};
 use tokio::sync::mpsc::UnboundedSender;
@@ -728,9 +727,7 @@ impl App {
     }
 
     fn record(&self) -> Record {
-        let at = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_or(0, |d| d.as_secs());
+        let at = telmo_kit::time::unix_now();
         Record {
             at,
             network: self.primary_summary(),

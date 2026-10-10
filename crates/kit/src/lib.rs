@@ -13,6 +13,7 @@ pub mod runtime;
 pub mod state;
 pub mod test;
 pub mod theme;
+pub mod time;
 pub mod widgets;
 
 pub use runtime::{App, Flow, run};

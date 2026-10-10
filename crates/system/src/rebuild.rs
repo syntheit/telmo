@@ -15,7 +15,7 @@ use std::{
     os::unix::{ffi::OsStrExt, process::CommandExt},
     path::{Path, PathBuf},
     process::{Command, ExitCode, Stdio},
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant},
 };
 
 const STATE: &str = "rebuild";
@@ -100,12 +100,6 @@ impl Status {
     }
 }
 
-pub fn unix_now() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs())
-}
-
 /// What the progress line says until the command prints something.
 pub const STARTING: &str = "starting…";
 
@@ -128,7 +122,7 @@ fn pid_alive(pid: u32) -> bool {
 /// A run that says "running" but whose process is gone counts as failed.
 fn check_alive(status: Status) -> Status {
     if status.state == State::Running && !pid_alive(status.pid) {
-        return status.failed(STOPPED, unix_now());
+        return status.failed(STOPPED, telmo_kit::time::unix_now());
     }
     status
 }
@@ -348,7 +342,11 @@ fn write_status(job: &Job, status: &Status) -> std::io::Result<()> {
 /// Runs the job to its end, keeping the state file and log current.
 /// `observe` sees every status that is written.
 pub fn run(job: &Job, observe: &mut dyn FnMut(&Status)) -> Status {
-    let mut status = Status::running(std::process::id(), unix_now(), &job.waiting);
+    let mut status = Status::running(
+        std::process::id(),
+        telmo_kit::time::unix_now(),
+        &job.waiting,
+    );
     let _ = std::fs::create_dir_all(&job.dir);
     job.owner.give(&job.dir);
     save(job, &status, observe);
@@ -362,7 +360,7 @@ pub fn run(job: &Job, observe: &mut dyn FnMut(&Status)) -> Status {
             None
         }
     };
-    status.finished = Some(unix_now());
+    status.finished = Some(telmo_kit::time::unix_now());
     if code == Some(0) {
         status.state = State::Ok;
         status.generation = current_generation();

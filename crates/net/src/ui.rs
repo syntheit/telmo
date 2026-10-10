@@ -591,10 +591,7 @@ fn last_run_line(app: &App) -> Line<'static> {
 
 /// "just now", "5 min ago", "3 h ago", "2 d ago".
 fn ago(at: u64) -> String {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs());
-    let secs = now.saturating_sub(at);
+    let secs = telmo_kit::time::unix_now().saturating_sub(at);
     match secs {
         0..60 => "just now".to_string(),
         60..3600 => format!("{} min ago", secs / 60),
@@ -1038,11 +1035,7 @@ mod tests {
         let mut app = app();
         press(&mut app, "s");
         app.speed.last = Some(Record {
-            at: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map_or(0, |d| d.as_secs())
-                - 3 * 3600
-                - 60,
+            at: telmo_kit::time::unix_now() - 3 * 3600 - 60,
             network: Some("HomeNet-5G".to_string()),
             down_mbps: 388.0,
             up_mbps: 41.2,
