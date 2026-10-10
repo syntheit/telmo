@@ -945,9 +945,7 @@ fn draw_help(app: &App, frame: &mut Frame) {
 mod tests {
     use super::*;
     use crate::backend::{Cmd, Event, mock};
-    use crossterm::event::{
-        KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
-    };
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEventKind};
     use telmo_kit::App as _;
     use telmo_speed::{Record, Update};
     use tokio::sync::mpsc::unbounded_channel;
@@ -1148,22 +1146,13 @@ mod tests {
 
     /// Cell of the first match of `text` on the drawn screen.
     fn find(app: &App, text: &str) -> (u16, u16) {
-        for (row, line) in render(app).lines().enumerate() {
-            if let Some(byte) = line.find(text) {
-                return (line[..byte].chars().count() as u16, row as u16);
-            }
-        }
-        panic!("{text:?} isn't on screen");
+        telmo_kit::test::find(&render(app), text)
+            .unwrap_or_else(|| panic!("{text:?} isn't on screen"))
     }
 
     fn mouse(app: &mut App, kind: MouseEventKind, text: &str) {
         let (column, row) = find(app, text);
-        app.mouse(MouseEvent {
-            kind,
-            column,
-            row,
-            modifiers: KeyModifiers::NONE,
-        });
+        app.mouse(telmo_kit::test::mouse_event(kind, column, row));
     }
 
     fn click(app: &mut App, text: &str) {
@@ -1221,12 +1210,11 @@ mod tests {
         assert!(app.dialog.is_some());
         click(&mut app, "signal");
         assert!(app.dialog.is_some());
-        app.mouse(MouseEvent {
-            kind: MouseEventKind::Down(MouseButton::Left),
-            column: 0,
-            row: 0,
-            modifiers: KeyModifiers::NONE,
-        });
+        app.mouse(telmo_kit::test::mouse_event(
+            MouseEventKind::Down(MouseButton::Left),
+            0,
+            0,
+        ));
         assert!(app.dialog.is_none());
     }
 

@@ -341,7 +341,7 @@ mod tests {
     use crate::model::Snapshot;
     use ratatui::crossterm::event::{KeyCode, KeyModifiers};
     use std::{cell::RefCell, rc::Rc};
-    use telmo_kit::runtime::{MouseButton, MouseEvent, MouseEventKind};
+    use telmo_kit::runtime::{MouseButton, MouseEventKind};
     use telmo_kit::{App as _, Flow, runtime::KeyEvent};
 
     fn app(snapshot: Snapshot, keys: &str) -> App {
@@ -364,13 +364,7 @@ mod tests {
 
     fn mouse(app: &mut App, kind: MouseEventKind, column: u16, row: u16) -> Flow {
         render(app);
-        let event = MouseEvent {
-            kind,
-            column,
-            row,
-            modifiers: KeyModifiers::NONE,
-        };
-        app.mouse(event)
+        app.mouse(telmo_kit::test::mouse_event(kind, column, row))
     }
 
     fn click(app: &mut App, column: u16, row: u16) -> Flow {

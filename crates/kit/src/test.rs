@@ -1,5 +1,6 @@
 //! Render a frame to plain text for snapshot tests.
 
+use crossterm::event::{KeyModifiers, MouseEvent, MouseEventKind};
 use ratatui::{Frame, Terminal, backend::TestBackend};
 
 pub fn render(width: u16, height: u16, draw: impl FnOnce(&mut Frame)) -> String {
@@ -13,4 +14,34 @@ pub fn render(width: u16, height: u16, draw: impl FnOnce(&mut Frame)) -> String 
         out.push('\n');
     }
     out
+}
+
+/// Cell (column, row) of the first match of `text` on a rendered screen.
+pub fn find(screen: &str, text: &str) -> Option<(u16, u16)> {
+    screen.lines().enumerate().find_map(|(row, line)| {
+        let byte = line.find(text)?;
+        Some((line[..byte].chars().count() as u16, row as u16))
+    })
+}
+
+/// A mouse event at a cell, without modifiers.
+pub fn mouse_event(kind: MouseEventKind, column: u16, row: u16) -> MouseEvent {
+    MouseEvent {
+        kind,
+        column,
+        row,
+        modifiers: KeyModifiers::NONE,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn finds_cells_by_column_not_byte() {
+        let screen = "ab\n→ x ok\n";
+        assert_eq!(find(screen, "ok"), Some((4, 1)));
+        assert_eq!(find(screen, "nope"), None);
+    }
 }
