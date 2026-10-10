@@ -211,7 +211,7 @@ mod runtime {
 
     pub async fn run() {
         let Some(dir) = telmo_kit::state::dir() else {
-            return crate::fail("no home directory");
+            crate::fail("no home directory");
         };
         let (file_tx, mut file_rx) = unbounded_channel();
         watch(&dir, file_tx);
