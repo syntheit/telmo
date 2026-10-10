@@ -1,0 +1,18 @@
+---
+source: crates/launcher/src/ui.rs
+expression: render(&f)
+---
+╭────────────────────────────────────────────────────────────────╮
+│ ?nix ripgrep                                               web │
+├────────────────────────────────────────────────────────────────┤
+│▌   Nix packages: ripgrep                                 ?nix │
+│    GitHub: ripgrep                                        ?gh │
+│    YouTube: ripgrep                                       ?yt │
+│    Google: ripgrep                                         ?g │
+│                                                                │
+│                                                                │
+│                                                                │
+│                                                                │
+│                                                                │
+╰────────────────────────────────────────────────────────────────╯
+ ↵ search  tab next engine  esc close
