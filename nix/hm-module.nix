@@ -31,6 +31,16 @@ let
     "stay_focused 1"
   ];
 
+  # The launcher popup is 66×14 cells: the default size scaled down to that.
+  launcherSize =
+    let
+      parts = lib.splitString " " cfg.hyprland.size;
+      scaled = n: by: toString (builtins.floor (lib.toInt n * by / 90.0));
+    in
+    if lib.length parts == 2 then "${scaled (lib.elemAt parts 0) 66} ${toString (builtins.floor (lib.toInt (lib.elemAt parts 1) * 14 / 22.0))}" else cfg.hyprland.size;
+  # Title-cased modifier for the key hints: "SUPER ALT" -> "Super Alt".
+  titleCase = s: lib.concatStringsSep " " (map (w: lib.toUpper (lib.substring 0 1 w) + lib.toLower (lib.substring 1 (-1) w)) (lib.splitString " " s));
+
   # Only the options that are set, so system.json exists only when needed.
   systemConfig = lib.filterAttrs (_: v: v != null) { inherit (cfg.system) effect logo effects rebuild; };
 
@@ -166,6 +176,48 @@ in
       };
     };
 
+    launcher = {
+      keys = mkOption {
+        type = types.attrsOf types.str;
+        default = { };
+        example = { t = "Ghostty"; w = "Zen Browser"; };
+        description = ''
+          One letter per app. The letter is a global hotkey for the app (on
+          Linux, Hyprland binds below; on macOS wire it to
+          `telmo-launcher open "<app>"` in your hotkey daemon) and, typed in
+          the launcher, puts that app on top. The list shows it on the right.
+        '';
+      };
+      hotkeyLabel = mkOption {
+        type = types.str;
+        default = if isDarwin then "fn" else titleCase cfg.launcher.hyprlandModifier;
+        defaultText = lib.literalExpression ''"fn" on macOS, else the Hyprland modifier'';
+        example = "Super";
+        description = "What the launcher shows before an app's letter: `fn T`.";
+      };
+      search = mkOption {
+        type = types.attrsOf types.str;
+        default = {
+          nix = "https://search.nixos.org/packages?query=%s";
+          gh = "https://github.com/search?q=%s";
+          yt = "https://www.youtube.com/results?search_query=%s";
+          g = "https://www.google.com/search?q=%s";
+        };
+        description = "Web search engines for `?name words`; `%s` stands for the words.";
+      };
+      defaultSearch = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        example = "gh";
+        description = "Engine for `?words` without a name (default: nix, else the first by name).";
+      };
+      hyprlandModifier = mkOption {
+        type = types.str;
+        default = "SUPER ALT";
+        description = "Hyprland modifier for the app hotkeys: `<modifier>, <letter>, exec, telmo-launcher open \"<app>\"`.";
+      };
+    };
+
     popups = mkOption {
       default = { };
       example = { perf = { command = [ "btop" ]; size = "large"; escape = "close"; }; };
@@ -247,6 +299,24 @@ in
     (mkIf cfg.clipboard.enable {
       xdg.configFile."telmo/clipboard.json".text = builtins.toJSON {
         inherit (cfg.clipboard) maxItems maxDays;
+      };
+    })
+
+    {
+      xdg.configFile."telmo/launcher.json".text = builtins.toJSON (
+        {
+          inherit (cfg.launcher) keys hotkeyLabel search;
+        }
+        // lib.optionalAttrs (cfg.launcher.defaultSearch != null) { defaultSearch = cfg.launcher.defaultSearch; }
+      );
+    }
+
+    (mkIf (!isDarwin && cfg.hyprland.enable) {
+      wayland.windowManager.hyprland.settings = {
+        windowrule = popupRules "launcher" launcherSize;
+        bind = lib.mapAttrsToList (
+          letter: app: "${cfg.launcher.hyprlandModifier}, ${letter}, exec, ${cfg.package}/bin/telmo-launcher open ${lib.escapeShellArg app}"
+        ) cfg.launcher.keys;
       };
     })
 

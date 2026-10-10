@@ -1,0 +1,18 @@
+---
+source: crates/launcher/src/ui.rs
+expression: render(&f)
+---
+╭────────────────────────────────────────────────────────────────╮
+│   Search apps    ! commands    ? web                    recent │
+├────────────────────────────────────────────────────────────────┤
+│▌ ▀▀ Ghostty  ●                                            fn T │
+│  ▀▀ Zen Browser  ●                                        fn W │
+│  ▀▀ Spotify  ●                                            fn S │
+│  ▀▀ Telegram  ●                                           fn G │
+│  ▀▀ Obsidian  ●                                           fn O │
+│  ▀▀ Visual Studio Code                                    fn C │
+│                                                                │
+│                                                                │
+│                                                                │
+╰────────────────────────────────────────────────────────────────╯
+ ↵ open  ! commands  ? web  esc close

@@ -47,6 +47,25 @@ impl Cmd {
     }
 }
 
+impl Cmd {
+    /// The word `telmo-system action` takes.
+    pub fn parse(word: &str) -> Option<Cmd> {
+        Some(match word {
+            "lock" => Cmd::Lock,
+            "sleep" => Cmd::Sleep,
+            "restart" => Cmd::Restart,
+            "shutdown" => Cmd::ShutDown,
+            "logout" => Cmd::LogOut,
+            _ => return None,
+        })
+    }
+}
+
+/// Runs one action to completion, without any UI (`telmo-system action`).
+pub fn run_once(cmd: Cmd) -> Result<(), String> {
+    execute(cmd).map_err(|why| format!("Could not {}: {why}", cmd.verb()))
+}
+
 /// Runs on its own OS thread; ends when the UI drops the command channel.
 pub fn spawn(mock: bool, mut cmds: Rx, events: Tx) -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || {
@@ -169,5 +188,18 @@ fn command(program: &str, args: &[&str]) -> Result<(), String> {
         Err(format!("{program} failed. Try again."))
     } else {
         Err(format!("{reason}."))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn action_words_name_the_commands() {
+        assert_eq!(Cmd::parse("lock"), Some(Cmd::Lock));
+        assert_eq!(Cmd::parse("shutdown"), Some(Cmd::ShutDown));
+        assert_eq!(Cmd::parse("logout"), Some(Cmd::LogOut));
+        assert_eq!(Cmd::parse("reboot"), None);
     }
 }

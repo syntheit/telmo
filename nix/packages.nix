@@ -71,9 +71,10 @@ rec {
       TELMO_SOUND_FILE = "${pkgs.sound-theme-freedesktop}/share/sounds/freedesktop/stereo/complete.oga";
     }
   );
+  telmo-launcher = module "launcher" "App launcher: apps, math, commands and web search";
   telmo = pkgs.symlinkJoin {
     name = "telmo";
-    paths = [ telmo-cli telmo-net telmo-bt telmo-sound telmo-display telmo-power telmo-scale telmo-system telmo-clipboard telmo-clock ] ++ lib.optional stdenv.hostPlatform.isDarwin telmo-host;
+    paths = [ telmo-cli telmo-net telmo-bt telmo-sound telmo-display telmo-power telmo-scale telmo-system telmo-clipboard telmo-clock telmo-launcher ] ++ lib.optional stdenv.hostPlatform.isDarwin telmo-host;
     meta.mainProgram = "telmo";
   };
   default = telmo;

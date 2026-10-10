@@ -1,0 +1,290 @@
+<title>telmo Launcher</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: concept tabs, one live popup (it plays a demo, or takes your typing), its note, then the shared plan. One dark look: it mocks a terminal. */
+:root {
+  color-scheme: dark;
+  --page: #0b0c13; --panel: #141521; --ink: #c9d0ee; --mute: #7a81a6; --line: #24273a;
+  --accent: #7aa2f7; --term: rgba(20, 21, 31, 0.95);
+  --ui: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--ink); font-family: var(--ui); font-size: 15px; line-height: 1.55; margin: 0; padding-inline: 16px; padding-block: 28px 64px; }
+.wrap { max-width: 1040px; margin: 0 auto; display: grid; gap: 18px; }
+h1 { font-size: 22px; font-weight: 600; margin: 0; text-wrap: balance; }
+h2 { font-size: 16px; font-weight: 600; margin: 0 0 8px; }
+.sub { color: var(--mute); max-width: 76ch; margin: 6px 0 0; }
+kbd, code { font-family: var(--mono); font-size: .85em; }
+kbd { border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; background: var(--panel); }
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tabs button { font: 500 13.5px var(--ui); color: var(--mute); background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 6px 13px; cursor: pointer; }
+.tabs button[aria-pressed="true"] { color: var(--page); background: var(--accent); border-color: var(--accent); }
+.tabs button:focus-visible, .stage:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tabs button b { font-family: var(--mono); margin-right: 6px; }
+.hint { color: var(--mute); font-size: 13px; margin-left: auto; }
+.stage-scroll { overflow-x: auto; }
+.stage { background: radial-gradient(ellipse at 35% 15%, #222842 0%, #10121c 55%, #08090e 100%); border-radius: 12px; padding: 40px 24px; display: flex; justify-content: center; align-items: center; min-width: min-content; min-height: 470px; cursor: text; }
+.popup { background: var(--term); border-radius: 18px; padding: 12px 14px; box-shadow: 0 24px 70px rgba(0,0,0,.6); border: 1px solid #262a40; }
+.term { margin: 0; font-family: var(--mono); font-size: 13px; line-height: 1.25; color: #c0caf5; white-space: pre; }
+.note { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; }
+.note p { margin: 0; max-width: 84ch; }
+.note p + p { margin-top: 6px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.card ul { margin: 0; padding-left: 18px; }
+.card li + li { margin-top: 4px; }
+@media (max-width: 760px) { .term { font-size: 7px; } .stage { padding: 12px; min-height: 0; } .hint { margin-left: 0; } }
+@media (prefers-reduced-motion: reduce) { .term { transition: none; } }
+</style>
+
+<div class="wrap">
+  <div>
+    <h1>telmo launcher</h1>
+    <p class="sub">A plain list with your real app icons. No prompt symbol: the first character picks the mode. <b>Click the popup and type</b>; try <code>zen</code>, <code>t</code>, <code>!</code>, <code>!sl</code>, <code>?nix ripgrep</code>, <code>2 ft to cm</code>.</p>
+  </div>
+  <div class="tabs" id="tabs" role="group" aria-label="Host"><span class="hint" id="mode">demo playing · click the popup to type</span></div>
+  <div class="stage-scroll"><div class="stage" id="stage" tabindex="0" aria-label="Launcher preview, type to search"><div class="popup"><pre class="term" id="term"></pre></div></div></div>
+  <div class="grid">
+    <div class="card">
+      <h2>The first character picks the mode</h2>
+      <ul>
+        <li><b>letters</b>: apps. <b>a number or <code>=</code></b>: math. That's all of it most of the time.</li>
+        <li><code>!</code> commands: telmo popups, lock, sleep, restart, rebuild, Settings panes. <code>!sl</code> → Sleep.</li>
+        <li><code>?</code> search the web or your docs: <code>?nix ripgrep</code>, <code>?gh telmo</code>, <code>?yt …</code>. <kbd>tab</kbd> cycles the engine.</li>
+        <li>Help moved off <kbd>?</kbd>: the footer shows the modes; <kbd>!</kbd> alone lists every command.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Shortcuts: one letter per app, everywhere</h2>
+      <ul>
+        <li>You give your common apps a letter once, in Nix. <b>Ghostty = t, Zen = w, Spotify = s, Telegram = g, Obsidian = o, VS Code = c.</b></li>
+        <li>That letter becomes a global hotkey: <kbd>fn T</kbd> on swift, <kbd>Super T</kbd> on mantle. Same letter, both machines.</li>
+        <li>Inside the launcher, typing just the letter puts that app on top: <code>t</code> <kbd>↵</kbd>.</li>
+        <li>The list shows each app's key on the right, so you learn them by using it. Switch the host tab above to see the Linux labels.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card">
+    <h2>In Nix</h2>
+    <pre class="term" style="font-size:12.5px">programs.telmo.launcher = {
+  keys = { t = "Ghostty"; w = "Zen Browser"; s = "Spotify"; g = "Telegram"; o = "Obsidian"; c = "Visual Studio Code"; };
+  # hotkey modifier per host: fn on swift (skhd), SUPER on Hyprland
+  search = { nix = "https://search.nixos.org/packages?query=%s"; gh = "https://github.com/search?q=%s"; yt = "https://youtube.com/results?search_query=%s"; };
+};</pre>
+  </div>
+</div>
+
+<script>
+const APPS = __APPS__;
+
+const PANEL = "#14151f", FG = "#c0caf5", DIM = "#737aa2", FAINT = "#3b4261", BLUE = "#7aa2f7", GREEN = "#9ece6a", ORANGE = "#ff9e64", YELLOW = "#e0af68", SEL = "#232741", MAGENTA = "#bb9af7", CYAN = "#7dcfff";
+const BYNAME = Object.fromEntries(APPS.map(a => [a.n, a]));
+const RECENT = ["Ghostty", "Zen Browser", "Spotify", "Telegram", "Obsidian", "Visual Studio Code", "Preview"];
+const RUNNING = new Set(["Ghostty", "Zen Browser", "Spotify", "Telegram", "Obsidian"]);
+const KEYS = { t: "Ghostty", w: "Zen Browser", s: "Spotify", g: "Telegram", o: "Obsidian", c: "Visual Studio Code" };
+const KEYOF = Object.fromEntries(Object.entries(KEYS).map(([k, n]) => [n, k]));
+const COMMANDS = [
+  ["Wi-Fi", "≋", CYAN, "n"], ["Bluetooth", "ᛒ", BLUE, "b"], ["Sound", "♪", MAGENTA, "m"], ["Displays", "▭", FG, "d"], ["Power", "⚡", YELLOW, "u"],
+  ["Clipboard", "▤", FG, "v"], ["System menu", "◉", BLUE, "x"], ["Lock", "▣", YELLOW, ""], ["Sleep", "☾", MAGENTA, ""], ["Restart", "↻", ORANGE, ""],
+  ["Shut down", "⏻", "#f7768e", ""], ["Rebuild", "⚒", BLUE, ""], ["Force quit", "✕", "#f7768e", ""], ["Keyboard settings", "⌨", DIM, ""], ["Network settings", "⚙", DIM, ""],
+];
+const ENGINES = [["nix", "Nix packages", "❄", CYAN], ["gh", "GitHub", "◆", FG], ["yt", "YouTube", "▶", "#f7768e"], ["g", "Google", "G", BLUE], ["maps", "Maps", "⌖", GREEN]];
+let host = "swift";
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// ------------------------------------------------------------------ colors
+const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const toHex = c => "#" + c.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("");
+const mix = (a, b, t) => toHex(hex(a).map((v, i) => v + (hex(b)[i] - v) * t));
+
+class Screen {
+  constructor(w, h) { this.w = w; this.h = h; this.c = Array.from({ length: w * h }, () => [" ", FG, null, false]); }
+  set(x, y, ch, fg = FG, bg = null, b = false) { if (x < 0 || y < 0 || x >= this.w || y >= this.h) return; this.c[y * this.w + x] = [ch, fg, bg, b]; }
+  bg(x, y, bg) { if (x < 0 || y < 0 || x >= this.w || y >= this.h) return; this.c[y * this.w + x][2] = bg; }
+  text(x, y, s, fg = FG, bg = null, b = false) { [...s].forEach((ch, i) => this.set(x + i, y, ch, fg, bg, b)); return x + [...s].length; }
+  fill(x, y, w, bg) { for (let i = 0; i < w; i++) this.bg(x + i, y, bg); }
+  box(x, y, w, h, color = FAINT, title = null) {
+    for (let i = 1; i < w - 1; i++) { this.set(x + i, y, "─", color); this.set(x + i, y + h - 1, "─", color); }
+    for (let j = 1; j < h - 1; j++) { this.set(x, y + j, "│", color); this.set(x + w - 1, y + j, "│", color); }
+    this.set(x, y, "╭", color); this.set(x + w - 1, y, "╮", color); this.set(x, y + h - 1, "╰", color); this.set(x + w - 1, y + h - 1, "╯", color);
+    if (title) this.text(x + 2, y, " " + title + " ", BLUE, null, true);
+  }
+  html() {
+    let out = "";
+    for (let y = 0; y < this.h; y++) {
+      let run = "", key = null;
+      const flush = () => { if (!run) return; const [fg, bg, b] = key.split("|"); const esc = run.replace(/&/g, "&amp;").replace(/</g, "&lt;"); out += `<span style="color:${fg}${bg !== "null" ? ";background:" + bg : ""}${b === "true" ? ";font-weight:700" : ""}">${esc}</span>`; run = ""; };
+      for (let x = 0; x < this.w; x++) {
+        const cell = this.c[y * this.w + x];
+        if (cell[4]) { flush(); key = null; out += `<span style="display:inline-block;width:2ch;${cell[2] ? "background:" + cell[2] : ""}"><img src="data:image/png;base64,${cell[4]}" alt="" style="width:1.3em;height:1.3em;vertical-align:-0.3em;margin-left:0.05em"></span>`; x++; continue; }
+        const [ch, fg, bg, b] = cell; const k = fg + "|" + bg + "|" + b; if (k !== key) { flush(); key = k; } run += ch;
+      }
+      flush(); out += "\n";
+    }
+    return out;
+  }
+}
+
+
+function img(s, x, y, app, bgc) { if (!app || !app.img) return; s.c[y * s.w + x] = [" ", FG, bgc, false, app.img]; s.c[y * s.w + x + 1] = [" ", FG, bgc, false]; }
+function hotkey(letter) { return letter ? (host === "swift" ? "fn " : "Super ") + letter.toUpperCase() : ""; }
+
+// ------------------------------------------------------------------ results
+function results(q) {
+  if (q.startsWith("!")) {
+    const t = q.slice(1);
+    return COMMANDS.map(([n, g, c, k]) => ({ kind: "cmd", n, g, c, k, m: score(n, t) })).filter(r => !t || r.m).sort((a, b) => (b.m ? b.m.s : 0) - (a.m ? a.m.s : 0)).map(r => ({ ...r, hits: r.m ? r.m.hits : [] }));
+  }
+  if (q.startsWith("?")) {
+    const t = q.slice(1), sp = t.indexOf(" "), word = sp < 0 ? t : t.slice(0, sp), rest = sp < 0 ? "" : t.slice(sp + 1);
+    const named = ENGINES.find(e => e[0] === word);
+    const term = named ? rest : t;
+    const order = named ? [named, ...ENGINES.filter(e => e !== named)] : ENGINES;
+    return order.map(([k, n, g, c]) => ({ kind: "web", n: term ? `${n}: ${term}` : n, g, c, k, hits: [] }));
+  }
+  const m = calc(q);
+  const out = m ? [{ kind: "math", n: m.value, plain: m.plain, alts: m.alts, hits: [] }] : [];
+  if (q.startsWith("=")) return out;
+  if (!q) return RECENT.map(n => ({ kind: "app", app: BYNAME[n], n, hits: [] })).filter(r => r.app);
+  const apps = [];
+  for (const app of APPS) {
+    const sc = score(app.n, q);
+    if (KEYOF[app.n] === q.toLowerCase()) apps.push({ kind: "app", app, n: app.n, hits: [], s: 5000 });
+    else if (sc) apps.push({ kind: "app", app, n: app.n, hits: sc.hits, s: sc.s + (RECENT.includes(app.n) ? 40 : 0) });
+  }
+  return out.concat(apps.sort((a, b) => b.s - a.s).slice(0, 8));
+}
+
+function score(name, q) {
+  const n = name.toLowerCase(); q = q.toLowerCase();
+  if (!q) return { s: 0, hits: [] };
+  if (n.startsWith(q)) return { s: 1000 - n.length, hits: [...Array(q.length).keys()] };
+  // word starts (vsc → Visual Studio Code)
+  const starts = [...n].map((c, i) => (i === 0 || " -.".includes(n[i - 1])) ? i : -1).filter(i => i >= 0);
+  let qi = 0, hits = [];
+  for (const i of starts) if (qi < q.length && n[i] === q[qi]) { hits.push(i); qi++; }
+  if (qi === q.length) return { s: 800 - n.length, hits };
+  const idx = n.indexOf(q);
+  if (idx >= 0) return { s: 600 - idx - n.length, hits: [...Array(q.length).keys()].map(i => i + idx) };
+  qi = 0; hits = []; let gaps = 0, last = -1;
+  for (let i = 0; i < n.length && qi < q.length; i++) if (n[i] === q[qi]) { if (last >= 0) gaps += i - last - 1; hits.push(i); last = i; qi++; }
+  return qi === q.length ? { s: 300 - gaps * 5 - n.length, hits } : null;
+}
+// ------------------------------------------------------------------ math
+const UNITS = { mm: ["len", 0.001], cm: ["len", 0.01], m: ["len", 1], km: ["len", 1000], in: ["len", 0.0254], ft: ["len", 0.3048], yd: ["len", 0.9144], mi: ["len", 1609.344],
+  g: ["mass", 0.001], kg: ["mass", 1], lb: ["mass", 0.45359237], oz: ["mass", 0.028349523], ml: ["vol", 0.001], l: ["vol", 1], cup: ["vol", 0.2365882] };
+const fmt = v => { const r = Math.round(v * 1e6) / 1e6; return Math.abs(r) >= 1e15 ? r.toExponential(4) : r.toLocaleString("en-US", { maximumFractionDigits: 6 }); };
+function calc(q) {
+  const t = q.trim().replace(/^=\s*/, "");
+  let m;
+  if ((m = t.match(/^([\d.]+)\s*%\s*of\s*([\d.]+)$/i))) { const v = m[1] / 100 * m[2]; return { value: fmt(v), plain: String(+v.toFixed(6)), alts: [`${fmt(m[2] - v)} after a ${m[1]}% discount`, `${fmt(+m[2] + v)} plus ${m[1]}%`] }; }
+  if ((m = t.match(/^([\d.]+)\s*([a-z]+)\s+(?:to|in)\s+([a-z]+)$/i))) {
+    const a = UNITS[m[2].toLowerCase()], b = UNITS[m[3].toLowerCase()];
+    if (a && b && a[0] === b[0]) {
+      const v = m[1] * a[1] / b[1];
+      const alts = Object.entries(UNITS).filter(([k, u]) => u[0] === a[0] && k !== m[2].toLowerCase() && k !== m[3].toLowerCase()).slice(0, 3).map(([k, u]) => `${fmt(m[1] * a[1] / u[1])} ${k}`);
+      return { value: `${fmt(v)} ${m[3].toLowerCase()}`, plain: String(+v.toFixed(6)), alts };
+    }
+  }
+  if (/^[\d\s.+\-*/()^%]+$/.test(t) && /\d/.test(t) && /[+\-*/^%()]/.test(t)) {
+    try { const v = Function(`"use strict"; return (${t.replace(/\^/g, "**")})`)(); if (typeof v === "number" && isFinite(v)) return { value: fmt(v), plain: String(+v.toFixed(6)), alts: [`0x${Math.round(v).toString(16)}`, `${Math.round(v).toString(2).length > 16 ? "" : "0b" + Math.round(v).toString(2)}`].filter(Boolean) }; } catch (e) {}
+  }
+  return null;
+}
+
+const st = { q: "", sel: 0, items: [], flash: 0 };
+function update() { st.items = results(st.q); st.sel = Math.min(st.sel, Math.max(0, st.items.length - 1)); }
+
+// ------------------------------------------------------------------ draw
+function draw(now) {
+  const W = 66, H = 14, s = new Screen(W, H);
+  s.box(0, 0, W, H - 1, BLUE);
+  const on = Math.floor(now / 530) % 2 === 0;
+  let x = s.text(2, 1, st.q, FG, null, true);
+  s.set(x, 1, " ", PANEL, on ? FG : null);
+  if (!st.q) s.text(x + 2, 1, "Search apps    ! commands    ? web", FAINT);
+  const mode = st.q.startsWith("!") ? "commands" : st.q.startsWith("?") ? "web" : (st.items[0] && st.items[0].kind === "math") ? "math" : st.q ? "apps" : "recent";
+  s.text(W - 2 - mode.length, 1, mode, FAINT);
+  for (let i = 1; i < W - 1; i++) s.set(i, 2, "─", FAINT);
+  s.set(0, 2, "├", BLUE); s.set(W - 1, 2, "┤", BLUE);
+  let y = 3;
+  st.items.slice(0, 9).forEach((r, i) => {
+    const sel = i === st.sel, bgc = sel ? SEL : null;
+    if (y > H - 3) return;
+    if (bgc) s.fill(1, y, W - 2, bgc);
+    if (sel) s.set(1, y, "▌", BLUE, bgc);
+    if (r.kind === "app") {
+      img(s, 3, y, r.app, bgc);
+      [...r.n].forEach((ch, j) => s.set(6 + j, y, ch, r.hits.includes(j) ? YELLOW : (sel ? "#e6e8ff" : FG), bgc, r.hits.includes(j) || sel));
+      if (RUNNING.has(r.n)) s.text(6 + r.n.length + 2, y, "●", sel ? GREEN : "#4f6b3a", bgc);
+      const hk = hotkey(KEYOF[r.n]);
+      if (hk) s.text(W - 2 - hk.length, y, hk, sel ? BLUE : DIM, bgc);
+    } else if (r.kind === "math") {
+      s.text(3, y, "=", ORANGE, bgc, true); s.text(6, y, r.n, "#ffffff", bgc, true);
+      s.text(W - 12, y, "↵ copies", DIM, bgc);
+      if (r.alts && r.alts.length) { y++; s.text(6, y, r.alts.join("  ·  "), FAINT); }
+    } else {
+      s.text(3, y, r.g, r.c, bgc, true);
+      [...r.n].forEach((ch, j) => s.set(6 + j, y, ch, r.hits.includes(j) ? YELLOW : (sel ? "#e6e8ff" : FG), bgc, r.hits.includes(j) || sel));
+      const right = r.kind === "web" ? "?" + r.k : hotkey(r.k);
+      if (right) s.text(W - 2 - right.length, y, right, sel ? BLUE : DIM, bgc);
+    }
+    y++;
+  });
+  if (!st.items.length) s.text(3, 3, "Nothing matches. ! for commands, ? to search the web.", DIM);
+  if (now - st.flash < 200) s.fill(1, 3 + st.sel, W - 2, "#3a4370");
+  const sel = st.items[st.sel] || {};
+  const pairs = sel.kind === "math" ? [["↵", "copy"], ["tab", "with unit"], ["esc", "close"]]
+    : sel.kind === "web" ? [["↵", "search"], ["tab", "next engine"], ["esc", "close"]]
+    : sel.kind === "cmd" ? [["↵", "run"], ["esc", "back"]]
+    : [["↵", "open"], ["tab", "actions"], ["!", "commands"], ["?", "web"], ["esc", "close"]];
+  let fx = 1;
+  pairs.forEach(([k, l], i) => { if (i) fx += 2; fx = s.text(fx, H - 1, k, BLUE); fx = s.text(fx + 1, H - 1, l, DIM); });
+  return s;
+}
+
+// ------------------------------------------------------------------ host tabs, demo, keys
+const tabs = document.getElementById("tabs"), term = document.getElementById("term"), modeEl = document.getElementById("mode"), stage = document.getElementById("stage");
+[["swift", "swift (macOS)"], ["mantle", "mantle (Linux)"]].forEach(([k, label]) => {
+  const b = document.createElement("button"); b.type = "button"; b.dataset.k = k; b.textContent = label;
+  b.addEventListener("click", () => { host = k; paint(); });
+  tabs.insertBefore(b, modeEl);
+});
+function paint() { tabs.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.k === host))); }
+paint();
+const SCRIPT = [["", 1500], ["zen", 1400, "enter"], ["", 700], ["t", 1400, "enter"], ["", 700], ["vsc", 1400], ["", 500], ["!", 1300], ["!sl", 1400], ["", 500], ["?nix ripgrep", 1900], ["", 500], ["2 ft to cm", 1900, "enter"], ["", 1200]];
+let demo = true, step = 0, typed = 0, nextAt = 0, idleSince = 0;
+function demoTick(now) {
+  if (!demo || now < nextAt) return;
+  const [text, pause, action] = SCRIPT[step];
+  if (typed < text.length) { typed++; st.q = text.slice(0, typed); st.sel = 0; update(); nextAt = now + 80 + Math.random() * 70; return; }
+  if (!text) { st.q = ""; update(); }
+  if (action === "enter") st.flash = now;
+  step = (step + 1) % SCRIPT.length; typed = 0; nextAt = now + pause;
+}
+stage.addEventListener("keydown", e => {
+  if (e.metaKey || e.ctrlKey) return;
+  demo = false; idleSince = performance.now(); modeEl.textContent = "you're typing · the demo resumes after 10 s idle";
+  const n = st.items.length;
+  if (e.key === "Escape") { st.q = ""; st.sel = 0; }
+  else if (e.key === "Backspace") { st.q = st.q.slice(0, -1); st.sel = 0; }
+  else if (e.key === "Enter") { st.flash = performance.now(); setTimeout(() => { st.q = ""; st.sel = 0; update(); }, 220); }
+  else if (e.key === "ArrowDown" || e.key === "Tab") st.sel = n ? (st.sel + 1) % n : 0;
+  else if (e.key === "ArrowUp") st.sel = n ? (st.sel - 1 + n) % n : 0;
+  else if (e.key.length === 1) { st.q += e.key; st.sel = 0; }
+  else return;
+  e.preventDefault(); update();
+});
+update();
+let lastFrame = 0;
+function frame(now) {
+  if (!demo && now - idleSince > 10000) { demo = true; step = 0; typed = 0; nextAt = now; modeEl.textContent = "demo playing · click the popup to type"; }
+  demoTick(now);
+  if (now - lastFrame > 50) { lastFrame = now; term.innerHTML = draw(now).html(); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>

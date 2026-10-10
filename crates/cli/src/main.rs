@@ -55,6 +55,7 @@ const MODULES: [&str; 9] = [
     "system",
     "clipboard",
     "clock",
+    "launcher",
 ];
 
 fn main() -> ExitCode {
