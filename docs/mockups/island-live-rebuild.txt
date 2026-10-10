@@ -1,0 +1,8 @@
+Island · live (rebuild, building phase). Pill = notch height, wings 78 pt each side, nothing drawn over the notch.
+
+   left wing (78)      notch (no pixels)     right wing (78)
+  ╭──────────────╮┌────────────────────┐╭──────────────╮
+  │      ❄       ││                    ││ ▮▮▮▮▮▮░░░░   │   Nix snowflake · 10 bars, 6 lit, #5b86d6, head breathes
+  ╰──────────────╯└────────────────────┘╰──────────────╯
+  done:   ❄ left, ▮▮▮▮▮▮▮▮▮▮ right in green #9ece6a, held 10 s, then retracts
+  failed: ❄ left, bars stop where they were, #f7768e, stays until clicked

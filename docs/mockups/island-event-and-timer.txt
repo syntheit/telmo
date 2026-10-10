@@ -1,0 +1,13 @@
+Island · event (interrupts a page for ~4 s, then falls back)
+
+  ╭──────────────╮┌────────────────────┐╭──────────────╮
+  │      ✈       ││                    ││ Anna: lunch? │   telegram icon left; one clipped line right
+  ╰──────────────╯└────────────────────┘╰──────────────╯   (no counters; wing grows to 120 pt max when it has text)
+
+Island · live (timer "Tea", 4:32 of 5:00)
+
+  ╭──────────────╮┌────────────────────┐╭──────────────╮
+  │      ⏲       ││                    ││ ▮▮▮▮▮▮▮▮▮░   │   accent blue; bars drain with time left. Ends: bars blink once, then event "Tea is done".
+  ╰──────────────╯└────────────────────┘╰──────────────╯
+
+Priority when all are present: rebuild (live) > Tea (live, newer wins ties) > telegram (event) > music (page) > nothing

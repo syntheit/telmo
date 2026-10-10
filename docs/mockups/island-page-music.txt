@@ -1,0 +1,6 @@
+Island · page (music). Selected with fn/Caps + left/right; empty until chosen.
+
+  ╭──────────────╮┌────────────────────┐╭──────────────╮
+  │   [cover]    ││                    ││   ▂▅▇▅▂      │   cover art 20 pt, rounded; 5-bar level glyph
+  ╰──────────────╯└────────────────────┘╰──────────────╯   (static bars when paused or Reduce Motion)
+  Click or hotkey: opens the music popup (title, artist, playlists).

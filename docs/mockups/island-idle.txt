@@ -1,0 +1,5 @@
+Island · idle (nothing posted or selected: no island window at all; the notch is just the notch)
+
+            ┌────────────────────┐
+            │      the notch     │
+            └────────────────────┘
