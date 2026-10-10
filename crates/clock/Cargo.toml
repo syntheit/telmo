@@ -1,0 +1,18 @@
+[package]
+name = "telmo-clock"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+telmo-kit.workspace = true
+ratatui.workspace = true
+tokio.workspace = true
+crossterm.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+# The zone database is bundled, so cities work on hosts without /usr/share/zoneinfo.
+jiff = { version = "0.2", default-features = false, features = ["std", "tz-system", "tzdb-bundle-always"] }
+
+[dev-dependencies]
+insta.workspace = true

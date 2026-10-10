@@ -1,11 +1,11 @@
-# Clock · Alarms
- Timers · Stopwatch · World · Alarms                                       next in 6h 53m
+# Clock · Timers empty
+ Timers · Stopwatch · World · Alarms
 
-╭─ Alarms 4 ─────────────────────────────────────────────────────────────────────────────╮
-│ ▌ 04:15   Flight              Once                        ○ off                        │
-│   07:30   Wake up             Weekdays      in 1d 17h     ● on                         │
-│   18:00   Gym                 Mon Wed Fri   in 2d 3h      ● on                         │
-│   21:00   Pills               Every day     in 6h 53m     ● on                         │
+╭─ Timers ───────────────────────────────────────────────────────────────────────────────╮
+│                                                                                        │
+│  No timers. Press n to start one,                                                      │
+│  or run `telmo-clock timer start 5m`.                                                  │
+│                                                                                        │
 │                                                                                        │
 │                                                                                        │
 │                                                                                        │
@@ -20,4 +20,4 @@
 │                                                                                        │
 ╰────────────────────────────────────────────────────────────────────────────────────────╯
 
- n new  ↵ on/off  x delete  ←→ tab  ? more  esc close
+ n new  ↵ pause  r restart  x delete  ←→ tab  ? more  esc close

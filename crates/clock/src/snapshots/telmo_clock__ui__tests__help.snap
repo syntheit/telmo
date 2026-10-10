@@ -1,0 +1,26 @@
+---
+source: crates/clock/src/ui.rs
+expression: render(&app)
+---
+ Timers · Stopwatch · World · Alarms                                 2 running · 1 paused
+
+╭─ Tea ─────╭─ Keys ─────────────────────────────────────────────────────────╮────── 5m ─╮
+│   █ █   ██│                                                                │           │
+│   █ █ █   │   ← →    switch tab (or 1 to 4)                                │           │
+│   ███   ██│   ↑ ↓    move                                                  │           │
+│     █ █   │   n      new timer or alarm                                    │           │
+│     █   ██│   ↵      pause, resume or restart a timer; alarm on/off        │           │
+│           │   r      restart a timer; reset the stopwatch                  │           │
+│   ━━━━━━━━│   space  start or stop the stopwatch                           │────────   │
+│   running │   l      lap                                                   │           │
+╰───────────│   x      delete                                                │───────────╯
+╭─ Timers 4 │   esc    close                                                 │───────────╮
+│ ▌ Tea     │                                                                │           │
+│   Pasta   │   Everything keeps running with this closed.                   │           │
+│   Pomodoro│   Alarms ring only while the computer is awake.                │           │
+│   Laundry │                                                                │           │
+│           │                                                                │           │
+│           ╰────────────────────────────────────────────────────────────────╯           │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+
+ n new  ↵ pause  r restart  x delete  ←→ tab  ? more  esc close

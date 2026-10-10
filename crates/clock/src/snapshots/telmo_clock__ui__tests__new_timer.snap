@@ -1,4 +1,7 @@
-# Clock · New timer
+---
+source: crates/clock/src/ui.rs
+expression: render(&app)
+---
  Timers · Stopwatch · World · Alarms                                 2 running · 1 paused
 
 ╭─ Tea ───────────────────────────────────────────────────────────────────────────── 5m ─╮

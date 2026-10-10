@@ -1,4 +1,7 @@
-# Clock · Stopwatch
+---
+source: crates/clock/src/ui.rs
+expression: render(&app)
+---
  Timers · Stopwatch · World · Alarms                                              running
 
 ╭─ Stopwatch ────────────────────────────────────────────────────────────────── running ─╮

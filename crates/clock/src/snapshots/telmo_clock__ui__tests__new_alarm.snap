@@ -1,4 +1,7 @@
-# Clock · New alarm
+---
+source: crates/clock/src/ui.rs
+expression: render(&app)
+---
  Timers · Stopwatch · World · Alarms                                       next in 6h 53m
 
 ╭─ Alarms 4 ─────────────────────────────────────────────────────────────────────────────╮
