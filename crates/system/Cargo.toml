@@ -21,4 +21,8 @@ libc = "0.2"
 insta.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
+# Not referenced by name, but the per-crate Nix build needs their default
+# features (NSArray iteration); the workspace build hid that.
+objc2 = "0.6"
+objc2-foundation = "0.3"
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "libc", "NSWorkspace", "NSRunningApplication"] }
