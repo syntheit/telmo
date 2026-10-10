@@ -23,6 +23,7 @@ struct IconsTests {
         }
 
         check(Icons.render(app: "/etc/passwd", into: dir) == nil, "refuses what is not an app")
+        check(Icons.render(app: "System/Applications/Calculator.app", into: dir) == nil, "refuses a relative path")
         check(Icons.render(app: "/Applications/Nope.app", into: dir) == nil, "refuses a missing app")
         check(Icons.hash("a") == Icons.hash("a") && Icons.hash("a") != Icons.hash("b"), "hashes are stable and differ")
         check(Icons.isIconCommand("icon /A/B C.app") && !Icons.isIconCommand("toggle net"), "recognises the command")
