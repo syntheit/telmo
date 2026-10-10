@@ -365,6 +365,16 @@ impl App {
         }
     }
 
+    /// Starts what the launcher asked for when it opened this popup:
+    /// `rebuild` or `apps` (Force quit).
+    pub fn start_intent(&mut self, view: &str) {
+        match view {
+            "rebuild" => self.start_rebuild(),
+            "apps" => self.open_apps(),
+            _ => {}
+        }
+    }
+
     fn open_apps(&mut self) {
         self.view = Some(View::default());
         self.send_apps(AppCmd::Watch(true));
