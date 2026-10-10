@@ -153,3 +153,24 @@ pub struct Details {
     pub channel: Option<String>,
     pub tx_rate: Option<String>,
 }
+
+/// "100 Mbps", "1 Gbps", "2.5 Gbps".
+pub fn format_speed(mbps: u32) -> String {
+    match mbps {
+        m if m >= 1000 && m % 1000 == 0 => format!("{} Gbps", m / 1000),
+        m if m >= 1000 => format!("{:.1} Gbps", f64::from(m) / 1000.0),
+        m => format!("{m} Mbps"),
+    }
+}
+
+#[cfg(test)]
+mod speed_tests {
+    use super::format_speed;
+
+    #[test]
+    fn speed_labels() {
+        assert_eq!(format_speed(1000), "1 Gbps");
+        assert_eq!(format_speed(2500), "2.5 Gbps");
+        assert_eq!(format_speed(100), "100 Mbps");
+    }
+}

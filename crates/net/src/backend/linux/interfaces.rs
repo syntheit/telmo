@@ -1,7 +1,7 @@
 //! Network interfaces (sidebar rows), their IPv4 state and IPv4 editing.
 
 use super::nm::*;
-use crate::model::{Interface, InterfaceKind, Ipv4, Ipv4Config, ManualIpv4};
+use crate::model::{Interface, InterfaceKind, Ipv4, Ipv4Config, ManualIpv4, format_speed};
 use std::collections::HashMap;
 use std::net::Ipv4Addr;
 use zbus::Connection;
@@ -163,14 +163,6 @@ async fn summary(
             .unwrap_or_else(|| "connected".to_string()),
         (_, Some(mbps)) => format_speed(mbps),
         _ => "connected".to_string(),
-    }
-}
-
-fn format_speed(mbps: u32) -> String {
-    match mbps {
-        m if m >= 1000 && m % 1000 == 0 => format!("{} Gbps", m / 1000),
-        m if m >= 1000 => format!("{:.1} Gbps", f64::from(m) / 1000.0),
-        m => format!("{m} Mbps"),
     }
 }
 
@@ -445,13 +437,6 @@ mod tests {
             m.subnet = "255.0.255.0".to_string();
         }
         assert!(apply_ipv4(&mut Settings::new(), &config).is_err());
-    }
-
-    #[test]
-    fn speed_labels() {
-        assert_eq!(format_speed(1000), "1 Gbps");
-        assert_eq!(format_speed(2500), "2.5 Gbps");
-        assert_eq!(format_speed(100), "100 Mbps");
     }
 
     #[test]
