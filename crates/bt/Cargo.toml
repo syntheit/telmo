@@ -15,7 +15,6 @@ serde_json.workspace = true
 [target.'cfg(target_os = "linux")'.dependencies]
 bluer = { version = "0.17", features = ["bluetoothd"] }
 futures-util.workspace = true
-dbus = "0.9"
 
 [dev-dependencies]
 insta.workspace = true
