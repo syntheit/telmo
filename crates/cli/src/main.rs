@@ -45,7 +45,7 @@ pub fn custom_popups() -> Result<Vec<(String, Vec<String>)>, String> {
         .collect()
 }
 
-const MODULES: [&str; 9] = [
+const MODULES: [&str; 10] = [
     "net",
     "bt",
     "sound",
