@@ -258,6 +258,10 @@ pub fn next_occurrence(
     after_ms: i64,
     tz: &TimeZone,
 ) -> Option<i64> {
+    // `Date::at` panics on an impossible time, and clock.json is hand-editable.
+    if hour > 23 || minute > 59 {
+        return None;
+    }
     let start = Timestamp::from_millisecond(after_ms)
         .ok()?
         .to_zoned(tz.clone());
@@ -531,6 +535,10 @@ mod tests {
             next_occurrence(8, 0, &[7], now, &ny),
             Some(ms("2026-10-11T08:00[America/New_York]"))
         );
+        // A hand-edited file with an impossible time is never due, not a panic.
+        assert_eq!(next_occurrence(24, 0, &[], now, &ny), None);
+        assert_eq!(next_occurrence(255, 255, &[], now, &ny), None);
+        assert_eq!(next_occurrence(7, 60, &[], now, &ny), None);
     }
 
     #[test]
