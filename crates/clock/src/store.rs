@@ -26,6 +26,10 @@ pub struct Applied<R> {
 
 pub fn apply<R>(now_ms: i64, change: impl FnOnce(&mut ClockState) -> R) -> io::Result<Applied<R>> {
     let dir = state::dir().ok_or_else(|| io::Error::other("no home directory"))?;
+    // The schedule is changed after the file's own lock is released. Without
+    // this one, an older change could arm its (obsolete) wake-up after a newer
+    // change had already replaced it, and the valid one would be lost.
+    let _schedule = state::lock_in(&dir, "clock-schedule")?;
     let (state, result, actions) = locked(&dir, change)?;
     let problems = sched::run(&actions, now_ms);
     Ok(Applied {

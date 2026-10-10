@@ -36,10 +36,10 @@ enum Icons {
         return hash("\(app)|\(stamp)|\(pixels)")
     }
 
-    /// The PNG for an app bundle, drawing it first if needed. Only `.app` paths that exist qualify.
+    /// The PNG for an app bundle, drawing it first if needed. Only absolute `.app` paths that exist qualify: a relative one would resolve against whatever directory the host happens to run in.
     static func render(app: String, into dir: String) -> String? {
         var isDir: ObjCBool = false
-        guard app.hasSuffix(".app"), FileManager.default.fileExists(atPath: app, isDirectory: &isDir), isDir.boolValue else { return nil }
+        guard app.hasPrefix("/"), app.hasSuffix(".app"), FileManager.default.fileExists(atPath: app, isDirectory: &isDir), isDir.boolValue else { return nil }
         let target = dir + "/" + cacheKey(app: app) + ".png"
         if FileManager.default.fileExists(atPath: target) { return target }
         guard let png = pngData(of: NSWorkspace.shared.icon(forFile: app)) else { return nil }

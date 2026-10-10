@@ -9,7 +9,10 @@
 //! module) makes them again.
 
 use crate::model::ClockState;
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Action {
@@ -98,6 +101,24 @@ pub fn run_args(exe: &str, id: &str, due_ms: i64, now_ms: i64) -> Vec<String> {
     ]
 }
 
+/// Where `program` is: on `path` (a `PATH` value), else in the usual system
+/// places. A systemd user unit (`telmo-clock-sync` at login, a `fire` run by
+/// a timer) can start us with a PATH that has neither `systemctl` nor
+/// `systemd-run`.
+pub fn locate(
+    program: &str,
+    path: Option<&std::ffi::OsStr>,
+    exists: impl Fn(&Path) -> bool,
+) -> PathBuf {
+    const SYSTEM: [&str; 3] = ["/run/current-system/sw/bin", "/usr/bin", "/bin"];
+    let from_path = path.into_iter().flat_map(std::env::split_paths);
+    from_path
+        .chain(SYSTEM.iter().map(PathBuf::from))
+        .map(|dir| dir.join(program))
+        .find(|candidate| exists(candidate))
+        .unwrap_or_else(|| PathBuf::from(program))
+}
+
 /// Carries the plan out. Only Linux has anything to run; elsewhere this does
 /// nothing. Returns the problems met, one line each.
 pub fn run(actions: &[Action], now_ms: i64) -> Vec<String> {
@@ -114,6 +135,9 @@ pub fn run(actions: &[Action], now_ms: i64) -> Vec<String> {
             Action::Cancel(id) => ("systemctl", stop_args(id)),
             Action::Schedule { id, due_ms } => ("systemd-run", run_args(&exe, id, *due_ms, now_ms)),
         };
+        let program = locate(program, std::env::var_os("PATH").as_deref(), |p| {
+            p.is_file()
+        });
         let result = std::process::Command::new(program)
             .args(&args)
             .stdin(std::process::Stdio::null())
@@ -205,6 +229,30 @@ mod tests {
                     due_ms: T0 + 60_000
                 }
             ]
+        );
+    }
+
+    #[test]
+    fn systemd_tools_are_found_even_with_a_bare_path() {
+        let has = |present: &'static str| move |p: &Path| p == Path::new(present);
+        let bare = std::ffi::OsStr::new("/nix/store/x/bin");
+        assert_eq!(
+            locate(
+                "systemctl",
+                Some(bare),
+                has("/run/current-system/sw/bin/systemctl")
+            ),
+            Path::new("/run/current-system/sw/bin/systemctl")
+        );
+        assert_eq!(
+            locate("systemctl", Some(bare), has("/nix/store/x/bin/systemctl")),
+            Path::new("/nix/store/x/bin/systemctl"),
+            "PATH comes first"
+        );
+        assert_eq!(
+            locate("systemd-run", None, |_| false),
+            Path::new("systemd-run"),
+            "nothing found: the bare name, so the error names the program"
         );
     }
 

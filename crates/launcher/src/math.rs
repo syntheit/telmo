@@ -1,5 +1,7 @@
 //! Calculations and unit conversions, by `fend-core`.
 
+use std::time::{Duration, Instant};
+
 /// A result: what the row shows, what ↵ copies, and related values.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Math {
@@ -11,6 +13,19 @@ pub struct Math {
     pub with_unit: String,
     /// The dim line under the result.
     pub related: Vec<String>,
+}
+
+/// How long one calculation may run. Queries are evaluated on every keystroke
+/// on the UI thread, and something like `9^9^9^9` would otherwise freeze the
+/// popup (and eat memory) until it finished.
+const BUDGET: Duration = Duration::from_millis(250);
+
+struct Deadline(Instant);
+
+impl fend_core::Interrupt for Deadline {
+    fn should_interrupt(&self) -> bool {
+        Instant::now() >= self.0
+    }
 }
 
 /// Keeps fend's context between queries, so only the first one pays for setup.
@@ -42,7 +57,8 @@ impl Calc {
     }
 
     fn run(&mut self, expr: &str) -> Option<String> {
-        let result = fend_core::evaluate(expr, &mut self.context).ok()?;
+        let deadline = Deadline(Instant::now() + BUDGET);
+        let result = fend_core::evaluate_with_interrupt(expr, &mut self.context, &deadline).ok()?;
         let text = result.get_main_result().trim().to_string();
         (!text.is_empty()).then_some(text)
     }
@@ -252,6 +268,20 @@ mod tests {
 
     fn eval(expr: &str) -> Option<Math> {
         Calc::new().eval(expr, false)
+    }
+
+    #[test]
+    fn a_runaway_calculation_is_cut_off() {
+        let started = Instant::now();
+        for expr in ["9^9^9^9", "10^(10^9)", "(9^9^9)!"] {
+            let _ = Calc::new().eval(expr, true);
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(3),
+            "{:?}",
+            started.elapsed()
+        );
+        assert_eq!(eval("2+2").expect("still works").plain, "4");
     }
 
     #[test]

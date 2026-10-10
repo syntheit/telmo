@@ -789,6 +789,20 @@ mod tests {
     }
 
     #[test]
+    fn a_failed_save_is_not_reported_as_done() {
+        let mut app = App::new(model::ClockState::default(), Vec::new(), zone("UTC"), true);
+        // SAFETY: no other test in this crate reads the state directory.
+        unsafe { std::env::set_var("XDG_STATE_HOME", "/dev/null/telmo-state") };
+        press(&mut app, KeyCode::Char('n'));
+        type_text(&mut app, "5m tea");
+        press(&mut app, KeyCode::Enter);
+        unsafe { std::env::remove_var("XDG_STATE_HOME") };
+        let toast = app.toast.as_ref().expect("a toast");
+        assert!(toast.message.starts_with("Can't save"), "{}", toast.message);
+        assert!(app.state.timers.is_empty());
+    }
+
+    #[test]
     fn timers() {
         let app = fixture();
         insta::assert_snapshot!(render(&app));

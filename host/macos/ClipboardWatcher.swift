@@ -2,8 +2,12 @@ import AppKit
 
 /// Polls the general pasteboard and hands every change to `telmo-clipboard ingest`, one at a time.
 final class ClipboardWatcher {
-    static var configPath: String { NSHomeDirectory() + "/.config/telmo/clipboard.json" }
-    static var isEnabled: Bool { FileManager.default.fileExists(atPath: configPath) }
+    /// `$XDG_CONFIG_HOME/telmo/clipboard.json`, else under `~/.config`: the same place the Rust side looks (telmo_kit::dirs::config).
+    static func configPath(env: [String: String] = ProcessInfo.processInfo.environment, home: String = NSHomeDirectory()) -> String {
+        let base = env["XDG_CONFIG_HOME"].flatMap { $0.isEmpty ? nil : $0 } ?? home + "/.config"
+        return base + "/telmo/clipboard.json"
+    }
+    static var isEnabled: Bool { FileManager.default.fileExists(atPath: configPath()) }
 
     private let pasteboard = NSPasteboard.general
     private var lastCount: Int

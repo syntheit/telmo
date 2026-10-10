@@ -40,11 +40,15 @@ pub fn duration(word: &str) -> Result<i64, ParseError> {
             .split(':')
             .map(|p| p.parse::<u64>().map_err(|_| invalid()))
             .collect::<Result<_, _>>()?;
-        match parts[..] {
-            [m, s] if s < 60 => m * 60 + s,
-            [h, m, s] if m < 60 && s < 60 => h * 3600 + m * 60 + s,
+        // Checked: a huge number must be "too long", not a panic or a wrap.
+        let total = match parts[..] {
+            [m, s] if s < 60 => m.checked_mul(60).and_then(|m| m.checked_add(s)),
+            [h, m, s] if m < 60 && s < 60 => {
+                h.checked_mul(3600).and_then(|h| h.checked_add(m * 60 + s))
+            }
             _ => return Err(invalid()),
-        }
+        };
+        total.ok_or(ParseError::TooLong)?
     } else {
         units(&word).ok_or_else(invalid)?
     };
@@ -257,6 +261,9 @@ mod tests {
         assert_eq!(duration("0"), Err(ParseError::Zero));
         assert_eq!(duration("0:00"), Err(ParseError::Zero));
         assert_eq!(duration("100h"), Err(ParseError::TooLong));
+        // Would overflow (and panic or wrap to 44 seconds) without checked math.
+        assert_eq!(duration("307445734561825861:00"), Err(ParseError::TooLong));
+        assert_eq!(duration("5124095576030431:00:00"), Err(ParseError::TooLong));
         for text in [
             "abc", "5x", "m5", "1h30s5", "30s1m", "1:2:3:4", "1:75", "1:61:00", "-5m", "5m3m",
             "1.5h",
