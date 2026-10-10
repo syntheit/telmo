@@ -3,6 +3,7 @@ mod backend;
 mod capture;
 mod cover;
 mod eq;
+mod eqd;
 mod history;
 mod identify;
 mod model;
@@ -22,6 +23,9 @@ use tokio::sync::mpsc::unbounded_channel;
 async fn main() {
     if std::env::args().nth(1).as_deref() == Some("eq-seed") {
         return eq_seed().await;
+    }
+    if std::env::args().nth(1).as_deref() == Some("eq-daemon") {
+        return eq_daemon().await;
     }
     let args = telmo_kit::cli::args();
     if args.status {
@@ -69,6 +73,17 @@ async fn eq_seed() {
     }
 }
 
+/// The Linux EQ engine; see `eqd`. Runs until stopped.
+#[cfg(target_os = "linux")]
+async fn eq_daemon() {
+    eqd::run().await;
+}
+
+#[cfg(not(target_os = "linux"))]
+async fn eq_daemon() {
+    fail("the EQ daemon is Linux only (on macOS, Telmo.app applies the EQ)");
+}
+
 async fn first_snapshot(mock: bool) -> Option<Snapshot> {
     let (_cmd_tx, cmd_rx) = unbounded_channel();
     let (event_tx, mut event_rx) = unbounded_channel();
@@ -85,7 +100,7 @@ async fn first_snapshot(mock: bool) -> Option<Snapshot> {
     first.ok().flatten()
 }
 
-fn fail(message: &str) -> ! {
+pub(crate) fn fail(message: &str) -> ! {
     eprintln!("telmo-sound: {message}");
     std::process::exit(1);
 }

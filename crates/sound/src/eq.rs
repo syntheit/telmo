@@ -170,6 +170,18 @@ const WIRED: [Preset; 6] = [
     LATE_NIGHT,
 ];
 
+/// The Mac mini's built-in speaker, heard over the network from the Linux
+/// desktop. It is one tiny driver that gives out below ~150 Hz, so the tune
+/// is gentle: a broad +3 dB bump just above where it rolls off (a boost under
+/// that only makes it distort) and 3 dB of headroom for it.
+const MAC_MINI: [Preset; 5] = [
+    preset("Mac mini speaker", -3.0, &[peak(180.0, 3.0, 0.7)]),
+    FLAT,
+    BASS_BOOST,
+    VOCAL,
+    LATE_NIGHT,
+];
+
 const GENERIC: [Preset; 4] = [FLAT, BASS_BOOST, VOCAL, LATE_NIGHT];
 
 /// Which list of presets an output gets.
@@ -178,13 +190,25 @@ pub enum Kind {
     Speakers,
     EarFun,
     Wired,
+    /// The Mac mini speaker the Linux desktop streams to (`mac-speakers`).
+    MacMini,
     Generic,
 }
 
+/// The node name of the PipeWire sink that streams to the Mac mini.
+pub const MAC_SPEAKERS: &str = "mac-speakers";
+
 impl Kind {
     pub fn of(name: &str, target: &EqTarget) -> Kind {
-        if target.builtin {
-            if target.key.ends_with("#hdpn") || name.contains("Headphones") {
+        if target.key == MAC_SPEAKERS {
+            Kind::MacMini
+        } else if target.builtin {
+            // `#hdpn` is the Mac's headphone data source; `.analog-` is the
+            // analog jack's PipeWire node on Linux.
+            if target.key.ends_with("#hdpn")
+                || target.key.contains(".analog-")
+                || name.contains("Headphones")
+            {
                 Kind::Wired
             } else {
                 Kind::Speakers
@@ -201,6 +225,7 @@ impl Kind {
             Kind::Speakers => &SPEAKERS,
             Kind::EarFun => &EARFUN,
             Kind::Wired => &WIRED,
+            Kind::MacMini => &MAC_MINI,
             Kind::Generic => &GENERIC,
         }
     }
@@ -213,6 +238,35 @@ impl Kind {
             _ => 0,
         }
     }
+}
+
+/// Node-name prefix of the virtual sinks the Linux `eq-daemon` creates. They
+/// are plumbing, not outputs to pick or equalize.
+pub const FILTER_PREFIX: &str = "telmo_eq.";
+/// Node name of the virtual sink in front of sink `x`: `telmo_eq.in.x`.
+pub const FILTER_IN: &str = "telmo_eq.in.";
+/// Node name of the stream that plays on into sink `x`: `telmo_eq.out.x`.
+pub const FILTER_OUT: &str = "telmo_eq.out.";
+
+/// The real sink a (possibly filtered) sink name stands for. Apps playing
+/// into a filter's virtual sink are really playing on the sink behind it.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+pub fn real_sink(name: &str) -> &str {
+    name.strip_prefix(FILTER_IN).unwrap_or(name)
+}
+
+/// How the EQ recognizes a PipeWire sink, by its node name; `None` for the
+/// daemon's own filter sinks. The key is the node name itself: stable for the
+/// onboard jack, `mac-speakers` and HDMI, and per-device for Bluetooth.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+pub fn sink_target(node_name: &str) -> Option<EqTarget> {
+    if node_name.starts_with(FILTER_PREFIX) {
+        return None;
+    }
+    Some(EqTarget {
+        key: node_name.to_string(),
+        builtin: node_name.starts_with("alsa_output.") && node_name.contains(".analog-"),
+    })
 }
 
 /// A preset with the bass nudge folded in: what the audio engine applies.
@@ -340,7 +394,8 @@ impl Config {
     }
 }
 
-/// Tells Telmo.app to read `eq.json` again. Best effort and off the caller's
+/// Tells Telmo.app to read `eq.json` again. (Linux needs no poke: the
+/// `eq-daemon` watches the file.) Best effort and off the caller's
 /// thread: if the app isn't running it reads the file when it starts.
 #[cfg(target_os = "macos")]
 pub fn reload() {
@@ -407,6 +462,31 @@ mod tests {
         assert_eq!(kind(&earfun()), Kind::EarFun);
         assert_eq!(kind(&jack()), Kind::Wired);
         assert_eq!(kind(&device("LG UltraFine", "lg", false)), Kind::Generic);
+        // mantle's outputs.
+        assert_eq!(
+            kind(&device(
+                "Starship/Matisse HD Audio Controller Analog Stereo",
+                "alsa_output.pci-0000_28_00.4.analog-stereo",
+                true
+            )),
+            Kind::Wired
+        );
+        assert_eq!(
+            kind(&device("Mac mini speakers", "mac-speakers", false)),
+            Kind::MacMini
+        );
+        assert_eq!(
+            kind(&device(
+                "TU104 HD Audio Controller Digital Stereo (HDMI) [M2763]",
+                "alsa_output.pci-0000_26_00.1.hdmi-stereo",
+                false
+            )),
+            Kind::Generic
+        );
+        assert_eq!(
+            kind(&device("EarFun Air Pro 4", "bluez_output.AA_BB.1", false)),
+            Kind::EarFun
+        );
         // A built-in output switched to the jack by its data source.
         assert_eq!(
             Kind::of("MacBook Air Headphones", &jack().eq.unwrap()),
@@ -452,6 +532,41 @@ mod tests {
             names(Kind::Generic),
             ["Flat", "Bass boost", "Vocal", "Late night"]
         );
+    }
+
+    #[test]
+    fn sinks_are_keyed_by_node_name_and_our_own_are_skipped() {
+        let jack = sink_target("alsa_output.pci-0000_28_00.4.analog-stereo").unwrap();
+        assert_eq!(jack.key, "alsa_output.pci-0000_28_00.4.analog-stereo");
+        assert!(jack.builtin);
+        let mac = sink_target("mac-speakers").unwrap();
+        assert!(!mac.builtin);
+        assert!(
+            !sink_target("alsa_output.pci-0000_26_00.1.hdmi-stereo")
+                .unwrap()
+                .builtin
+        );
+        assert!(sink_target("telmo_eq.in.mac-speakers").is_none());
+        assert_eq!(real_sink("telmo_eq.in.mac-speakers"), "mac-speakers");
+        assert_eq!(real_sink("mac-speakers"), "mac-speakers");
+    }
+
+    #[test]
+    fn the_mac_mini_gets_a_gentle_tune_first() {
+        assert_eq!(
+            names(Kind::MacMini),
+            [
+                "Mac mini speaker",
+                "Flat",
+                "Bass boost",
+                "Vocal",
+                "Late night"
+            ]
+        );
+        let resolved = resolve(&Kind::MacMini.presets()[0], 0);
+        assert_eq!(resolved.preamp, -3.0);
+        assert_eq!(resolved.filters, [peak(180.0, 3.0, 0.7)]);
+        assert_eq!(Kind::MacMini.default_preset(), 0);
     }
 
     #[test]

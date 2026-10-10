@@ -311,7 +311,9 @@ fn refresh(context: &Context, shared: &State_, events: &Tx) {
     intro.get_sink_input_info_list({
         let (shared, events) = (shared.clone(), events.clone());
         move |item| {
-            if let ListResult::Item(info) = &item {
+            if let ListResult::Item(info) = &item
+                && !is_eq_plumbing(&info.proplist)
+            {
                 shared.borrow_mut().collect.inputs.push(input(info));
             }
             list_step(item, &shared, &events);
@@ -390,6 +392,13 @@ fn source_dev(info: &SourceInfo) -> Option<Dev> {
     })
 }
 
+/// The EQ daemon's own playback streams are not apps.
+fn is_eq_plumbing(props: &Proplist) -> bool {
+    props
+        .get_str("node.name")
+        .is_some_and(|n| n.starts_with(crate::eq::FILTER_PREFIX))
+}
+
 fn input(info: &SinkInputInfo) -> Input {
     let props = &info.proplist;
     let app = ["application.name", "application.process.binary"]
@@ -437,7 +446,19 @@ fn snapshot(c: &Collect) -> Snapshot {
             .collect()
     };
     Snapshot {
-        outputs: devices(&c.sinks, &c.default_sink),
+        outputs: c
+            .sinks
+            .iter()
+            .filter(|d| !d.name.starts_with(crate::eq::FILTER_PREFIX))
+            .map(|d| Device {
+                eq: crate::eq::sink_target(&d.name),
+                ..device(
+                    d,
+                    c.default_sink.as_deref() == Some(d.name.as_str()),
+                    &c.cards,
+                )
+            })
+            .collect(),
         inputs: devices(&c.sources, &c.default_source),
         streams: c.inputs.iter().map(|i| stream(i, &c.sinks)).collect(),
         caps: Caps {
@@ -508,7 +529,7 @@ fn stream(i: &Input, sinks: &[Dev]) -> Stream {
         device: sinks
             .iter()
             .find(|s| s.index == i.sink)
-            .map(|s| s.name.clone()),
+            .map(|s| crate::eq::real_sink(&s.name).to_owned()),
         playing: !i.corked,
     }
 }
