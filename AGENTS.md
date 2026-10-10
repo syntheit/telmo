@@ -1,7 +1,8 @@
 # Working on telmo
 
-telmo is a set of small keyboard-driven TUI popups: `telmo-net`, `telmo-bt`,
-`telmo-sound`, plus a `telmo` dispatcher and a macOS host app (`host/macos`).
+telmo is a set of small keyboard-driven TUI popups (`telmo-net`, `telmo-bt`,
+`telmo-sound`, `telmo-display`, `telmo-power`, `telmo-scale`, `telmo-system`,
+`telmo-clipboard`), plus a `telmo` dispatcher and a macOS host app (`host/macos`).
 Rust + ratatui 0.30, tokio current-thread runtime. Linux and macOS.
 
 ## Build
