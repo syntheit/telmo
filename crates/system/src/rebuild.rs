@@ -525,13 +525,8 @@ fn spawn_child(invocation: &Invocation) -> Result<(), String> {
             Ok(())
         });
     }
-    let mut child = command
-        .spawn()
-        .map_err(|e| format!("Couldn't start the rebuild ({e})."))?;
-    std::thread::spawn(move || {
-        let _ = child.wait();
-    });
-    Ok(())
+    telmo_kit::os::spawn_reaped(&mut command)
+        .map_err(|e| format!("Couldn't start the rebuild ({e})."))
 }
 
 /// Entry point of `telmo-system rebuild-run`; `args` follow the subcommand.
