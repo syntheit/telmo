@@ -404,6 +404,11 @@ mod tests {
     fn other_words_find_commands_without_highlights() {
         assert_eq!(labels("reboot", MAC)[0], "Restart");
         assert_eq!(labels("net", MAC)[0], "Wi-Fi");
+        assert_eq!(
+            labels("power", MAC)[0],
+            "Power",
+            "a short label beats a shared word"
+        );
         assert!(labels("zzzz", MAC).is_empty());
     }
 

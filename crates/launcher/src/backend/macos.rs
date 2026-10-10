@@ -120,3 +120,15 @@ impl Source for Real {
         sys::clock_installed()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Only reads NSWorkspace's list; nothing is launched or touched.
+    #[test]
+    fn the_finder_is_always_running() {
+        let running = Real.running(&[]);
+        assert!(running.contains("com.apple.finder"), "{running:?}");
+    }
+}

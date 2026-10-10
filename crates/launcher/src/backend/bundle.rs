@@ -62,7 +62,7 @@ pub fn read(bundle: &Path) -> Option<AppEntry> {
                     .is_some_and(|s| s.eq_ignore_ascii_case("yes") || s == "1")
         })
     };
-    if text("CFBundlePackageType").is_some_and(|t| t != "APPL")
+    if text("CFBundlePackageType").is_some_and(|t| t != "APPL" && t != "FNDR")
         || truthy("LSUIElement")
         || truthy("LSBackgroundOnly")
     {
