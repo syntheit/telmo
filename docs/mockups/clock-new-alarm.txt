@@ -1,0 +1,23 @@
+# Clock · New alarm
+ Timers · Stopwatch · World · Alarms                                       next in 6h 53m
+
+╭─ Alarms 4 ─────────────────────────────────────────────────────────────────────────────╮
+│ ▌ 07:30   Wake up             Weekdays      in 1d 17h     ● on                         │
+│   18:00   Gym                 Mon Wed Fri   in 2d 3h      ● on                         │
+│   21:00   Pills╭─ New alarm ──────────────────────────────────────────╮                │
+│   04:15   Fligh│                                                      │                │
+│                │  Time, then days if you like, then a name.           │                │
+│                │                                                      │                │
+│                │  Try 7:30 weekdays wake up, 6pm mon wed fri,         │                │
+│                │  or 21:00 daily pills.                               │                │
+│                │                                                      │                │
+│                │   7:30 weekdays wake up▏                             │                │
+│                │                                                      │                │
+│                │  Weekdays at 07:30 · next in 1d 17h                  │                │
+│                │                                                      │                │
+│                ╰──────────────────────────────────────────────────────╯                │
+│                                                                                        │
+│                                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+
+ n new  ↵ on/off  x delete  ←→ tab  ? more  esc close
