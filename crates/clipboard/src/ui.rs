@@ -666,7 +666,7 @@ fn draw_dialog(app: &App, frame: &mut Frame, dialog: &Dialog) {
             ),
             "clear all",
         ),
-        Dialog::Help => draw_help(app, frame),
+        Dialog::Help => draw_help(frame),
     }
 }
 
@@ -699,7 +699,7 @@ fn confirm(frame: &mut Frame, app: &App, title: &str, text: (&str, &str), action
     }
 }
 
-fn draw_help(app: &App, frame: &mut Frame) {
+fn draw_help(frame: &mut Frame) {
     let rows = [
         ("↑ ↓", "move"),
         ("↵", "put it back on the clipboard"),
@@ -718,7 +718,6 @@ fn draw_help(app: &App, frame: &mut Frame) {
         lines.push(widgets::help_row(3, key, 5, label, theme::dim()));
     }
     widgets::text(frame, inner, lines);
-    let _ = app;
 }
 
 #[cfg(test)]
