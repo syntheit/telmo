@@ -2,7 +2,7 @@ import Foundation
 
 /// What to run in the popup and how to present it.
 struct Launch {
-    enum Size: String { case normal, medium, large }
+    enum Size: String { case small, normal, medium, large }
 
     let executable: String
     let args: [String]
@@ -42,7 +42,13 @@ enum Popups {
 
 /// Built-in modules that open bigger than normal.
 enum ModuleSizes {
-    static func size(of name: String) -> Launch.Size { name == "clipboard" ? .medium : .normal }
+    static func size(of name: String) -> Launch.Size {
+        switch name {
+        case "clipboard": .medium
+        case "launcher": .small
+        default: .normal
+        }
+    }
 }
 
 struct PopupError: Error {

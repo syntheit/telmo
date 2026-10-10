@@ -62,9 +62,10 @@ rec {
     lib.optionalAttrs stdenv.hostPlatform.isLinux { TELMO_NOTIFY_SEND = "${pkgs.libnotify}/bin/notify-send"; }
   );
   telmo-clipboard = module "clipboard" "Clipboard history: text, links, colors, images, files";
+  telmo-launcher = module "launcher" "App launcher: apps, math, commands and web search";
   telmo = pkgs.symlinkJoin {
     name = "telmo";
-    paths = [ telmo-cli telmo-net telmo-bt telmo-sound telmo-display telmo-power telmo-scale telmo-system telmo-clipboard ] ++ lib.optional stdenv.hostPlatform.isDarwin telmo-host;
+    paths = [ telmo-cli telmo-net telmo-bt telmo-sound telmo-display telmo-power telmo-scale telmo-system telmo-clipboard telmo-launcher ] ++ lib.optional stdenv.hostPlatform.isDarwin telmo-host;
     meta.mainProgram = "telmo";
   };
   default = telmo;

@@ -132,6 +132,7 @@ final class IPCServer {
         guard !text.isEmpty else { return }
         if Audio.isAudioCommand(text) { return Audio.stream(command: text, to: fd) } // streams until the client leaves
         if Wifi.isWifiCommand(text) { return reply(Wifi.handle(text), to: fd) } // slow: stays off the main thread
+        if Icons.isIconCommand(text) { return reply(Icons.handle(text), to: fd) } // drawing an icon: off the main thread
         if Helper.isHelperCommand(text) { return reply(Helper.forward(text), to: fd) } // blocking socket I/O
         // Main runs the command asynchronously; this background thread waits (bounded) for the reply.
         let done = DispatchSemaphore(value: 0)

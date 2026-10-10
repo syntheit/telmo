@@ -2,6 +2,8 @@ import AppKit
 
 private let normalCols = 90
 private let normalRows = 22
+private let smallCols = 66
+private let smallRows = 14
 private let largeFraction: CGFloat = 0.8
 private let mediumScale = 1.2
 private let padding: CGFloat = 14
@@ -112,9 +114,11 @@ final class PopupPanel: NSPanel, LocalProcessTerminalViewDelegate {
         escapeMonitor = nil
     }
 
-    /// 90×22 cells, 1.2× that for medium, or 80% of the mouse's screen rounded down to whole cells for large.
+    /// 90×22 cells, 66×14 for small (the launcher), 1.2× the normal for medium, or 80% of the mouse's screen rounded down to whole cells for large.
     private func chooseGrid(_ size: Launch.Size) {
         switch size {
+        case .small:
+            (cols, rows) = (smallCols, smallRows)
         case .normal:
             (cols, rows) = (normalCols, normalRows)
         case .medium:
