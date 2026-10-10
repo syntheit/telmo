@@ -109,7 +109,7 @@ pub fn ingest() -> Result<Outcome, String> {
             Content::Text(String::from_utf8_lossy(&bytes).into_owned())
         }
     };
-    store.ingest(content, &source, ingest::now())
+    store.ingest(content, &source, telmo_kit::time::unix_now())
 }
 
 fn wl_paste(args: &[&str]) -> Result<Vec<u8>, String> {

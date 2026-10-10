@@ -71,10 +71,7 @@ pub fn save(prefs: &Prefs) -> io::Result<()> {
 }
 
 fn config_path() -> Option<PathBuf> {
-    let base = std::env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))?;
-    Some(base.join("telmo/system.json"))
+    Some(telmo_kit::dirs::config()?.join("telmo/system.json"))
 }
 
 fn load_config() -> Option<Config> {

@@ -4,11 +4,7 @@
 
 use crate::model::{AwakeChoice, KeepAwake};
 use serde::{Deserialize, Serialize};
-use std::{
-    path::PathBuf,
-    process::Stdio,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::{path::PathBuf, process::Stdio};
 use tokio::process::Command;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -19,16 +15,11 @@ struct Saved {
 }
 
 fn path() -> Option<PathBuf> {
-    let base = std::env::var_os("XDG_STATE_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/state")))?;
-    Some(base.join("telmo").join("keep-awake.json"))
-}
-
-fn now() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs())
+    Some(
+        telmo_kit::dirs::state()?
+            .join("telmo")
+            .join("keep-awake.json"),
+    )
 }
 
 fn load() -> Option<Saved> {
@@ -81,14 +72,16 @@ pub async fn current() -> KeepAwake {
     let Some(saved) = load() else {
         return KeepAwake::Off;
     };
-    let expired = saved.ends.is_some_and(|ends| ends <= now());
+    let expired = saved
+        .ends
+        .is_some_and(|ends| ends <= telmo_kit::time::unix_now());
     if expired || !is_ours(saved.pid).await {
         forget();
         return KeepAwake::Off;
     }
     match saved.ends {
         Some(ends) => KeepAwake::Timed {
-            minutes_left: (ends - now()).div_ceil(60) as u32,
+            minutes_left: (ends - telmo_kit::time::unix_now()).div_ceil(60) as u32,
         },
         None => KeepAwake::Indefinite,
     }
@@ -123,7 +116,7 @@ fn start(secs: Option<u64>) -> Result<(), String> {
         .ok_or("The keep-awake process stopped right away.")? as i32;
     let saved = Saved {
         pid,
-        ends: secs.map(|s| now() + s),
+        ends: secs.map(|s| telmo_kit::time::unix_now() + s),
     };
     if let Some(dir) = path.parent() {
         let _ = std::fs::create_dir_all(dir);

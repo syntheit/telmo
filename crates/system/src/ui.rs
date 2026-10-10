@@ -469,16 +469,17 @@ mod tests {
 
     #[test]
     fn clicking_the_arrows_switches() {
-        use crossterm::event::{MouseEvent, MouseEventKind};
+        use crossterm::event::MouseEventKind;
         let (mut app, _rx) = app(90, 22);
         let first = app.prefs.effect.clone();
         render(&app, 90, 22);
         let right = 90 - 2 - 1;
-        let click = |column| MouseEvent {
-            kind: MouseEventKind::Down(crossterm::event::MouseButton::Left),
-            column,
-            row: 21,
-            modifiers: KeyModifiers::NONE,
+        let click = |column| {
+            telmo_kit::test::mouse_event(
+                MouseEventKind::Down(crossterm::event::MouseButton::Left),
+                column,
+                21,
+            )
         };
         app.mouse(click(right));
         assert_ne!(app.prefs.effect, first);

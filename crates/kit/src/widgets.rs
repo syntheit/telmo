@@ -345,6 +345,24 @@ pub fn dialog(frame: &mut Frame, title: &str, width: u16, height: u16) -> Rect {
     inner
 }
 
+/// One row of a help overlay: `key` padded to `key_width` columns after
+/// `indent` spaces, then its description in `what_style`.
+pub fn help_row<'a>(
+    indent: usize,
+    key: &str,
+    key_width: usize,
+    what: &'a str,
+    what_style: Style,
+) -> Line<'a> {
+    Line::from(vec![
+        Span::styled(
+            format!("{}{}", " ".repeat(indent), fit(key, key_width)),
+            theme::accent(),
+        ),
+        Span::styled(what, what_style),
+    ])
+}
+
 /// Key hints inside a dialog, e.g. `↵ join   esc cancel`.
 pub fn hint(bindings: &[(&str, &str)]) -> Line<'static> {
     let mut spans = vec![Span::raw(" ")];

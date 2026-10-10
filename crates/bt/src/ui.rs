@@ -332,12 +332,8 @@ fn draw_help(app: &App, frame: &mut Frame) {
     let inner = open_dialog(app, frame, "Keys", 64, keys.len() as u16 + 4);
     let mut lines = vec![Line::raw("")];
     for (key, what) in keys {
-        lines.push(Line::from(vec![
-            Span::styled(widgets::fit(key, 11), theme::accent()),
-            Span::styled(what, theme::text()),
-        ]));
+        lines.push(widgets::help_row(2, key, 11, what, theme::text()));
     }
-    let lines = lines.into_iter().map(indent).collect();
     widgets::text(frame, inner, lines);
 }
 
@@ -486,9 +482,7 @@ mod tests {
     use super::*;
     use crate::backend::{Cmd, Event, mock};
     use crate::model::Snapshot;
-    use crossterm::event::{
-        KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
-    };
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEventKind};
     use telmo_kit::App as _;
     use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
 
@@ -521,24 +515,15 @@ mod tests {
         }
 
         fn mouse(&mut self, kind: MouseEventKind, column: u16, row: u16) {
-            let event = MouseEvent {
-                kind,
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            };
-            self.app.mouse(event);
+            self.app
+                .mouse(telmo_kit::test::mouse_event(kind, column, row));
         }
 
         /// Draw, then find the first cell of `text` on screen.
         fn find(&self, text: &str) -> (u16, u16) {
             let screen = self.render();
-            for (y, line) in screen.lines().enumerate() {
-                if let Some(byte) = line.find(text) {
-                    return (line[..byte].chars().count() as u16, y as u16);
-                }
-            }
-            panic!("{text:?} not on screen:\n{screen}");
+            telmo_kit::test::find(&screen, text)
+                .unwrap_or_else(|| panic!("{text:?} not on screen:\n{screen}"))
         }
 
         fn click_on(&mut self, text: &str) {

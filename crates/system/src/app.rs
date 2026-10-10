@@ -245,7 +245,7 @@ impl App {
             return;
         }
         self.poll_in = 1.0;
-        let unix = rebuild::unix_now();
+        let unix = telmo_kit::time::unix_now();
         let change = if self.mock {
             let Some(start) = self.mock_start else { return };
             let elapsed = self.now - start;
@@ -525,7 +525,7 @@ impl telmo_kit::App for App {
         match result {
             Ok(status) if status.success() => {
                 self.rebuild
-                    .launch(self.now, rebuild::unix_now(), rebuild::STARTING);
+                    .launch(self.now, telmo_kit::time::unix_now(), rebuild::STARTING);
             }
             Ok(_) => self.toast = Some(Toast::error(rebuild::AUTH_FAILED)),
             Err(e) => {

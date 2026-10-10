@@ -5,9 +5,6 @@
 use super::wifi::Entry;
 use crate::model::{Band, Security};
 use serde::Deserialize;
-use std::io::{Read, Write};
-use std::os::unix::net::UnixStream;
-use std::path::PathBuf;
 use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
@@ -21,30 +18,9 @@ pub fn running_in_host() -> bool {
     std::env::var_os("TELMO_HOST").is_some_and(|v| v == "1")
 }
 
-fn socket_path() -> Result<PathBuf, String> {
-    if let Some(path) = std::env::var_os("TELMO_SOCKET") {
-        return Ok(path.into());
-    }
-    let home = std::env::var_os("HOME").ok_or("HOME is not set.")?;
-    Ok(PathBuf::from(home).join("Library/Application Support/Telmo/host.sock"))
-}
-
 /// Send one command and read the reply until the host closes the connection.
 pub fn command(command: &str, limit: Duration) -> Result<String, String> {
-    let unreachable = |e: std::io::Error| format!("Couldn't reach the Telmo host: {e}.");
-    let mut stream = UnixStream::connect(socket_path()?).map_err(unreachable)?;
-    stream.set_read_timeout(Some(limit)).map_err(unreachable)?;
-    stream.set_write_timeout(Some(QUICK)).map_err(unreachable)?;
-    stream
-        .write_all(format!("{command}\n").as_bytes())
-        .map_err(unreachable)?;
-    let mut reply = String::new();
-    stream.read_to_string(&mut reply).map_err(unreachable)?;
-    let reply = reply.trim_end_matches('\n');
-    match reply.strip_prefix("error ") {
-        Some(message) => Err(message.to_string()),
-        None => Ok(reply.to_string()),
-    }
+    telmo_kit::host::command(command, limit, QUICK)
 }
 
 #[derive(Debug, Clone, Deserialize)]

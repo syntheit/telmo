@@ -27,7 +27,7 @@ async fn main() -> ExitCode {
     }
     let cli = telmo_kit::cli::args();
     let source: Arc<dyn backend::Source> = if cli.mock {
-        Arc::new(backend::mock::Mock::new(ingest::now()))
+        Arc::new(backend::mock::Mock::new(telmo_kit::time::unix_now()))
     } else {
         match ingest::open_store() {
             Ok(store) => Arc::new(backend::Real(store)),

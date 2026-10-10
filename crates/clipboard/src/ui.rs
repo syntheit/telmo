@@ -666,7 +666,7 @@ fn draw_dialog(app: &App, frame: &mut Frame, dialog: &Dialog) {
             ),
             "clear all",
         ),
-        Dialog::Help => draw_help(app, frame),
+        Dialog::Help => draw_help(frame),
     }
 }
 
@@ -699,7 +699,7 @@ fn confirm(frame: &mut Frame, app: &App, title: &str, text: (&str, &str), action
     }
 }
 
-fn draw_help(app: &App, frame: &mut Frame) {
+fn draw_help(frame: &mut Frame) {
     let rows = [
         ("↑ ↓", "move"),
         ("↵", "put it back on the clipboard"),
@@ -715,13 +715,9 @@ fn draw_help(app: &App, frame: &mut Frame) {
     let inner = widgets::dialog(frame, "Keys", 54, rows.len() as u16 + 4);
     let mut lines = vec![Line::raw("")];
     for (key, label) in rows {
-        lines.push(Line::from(vec![
-            Span::styled(format!("   {}", fit(key, 5)), theme::accent()),
-            Span::styled(label, theme::dim()),
-        ]));
+        lines.push(widgets::help_row(3, key, 5, label, theme::dim()));
     }
     widgets::text(frame, inner, lines);
-    let _ = app;
 }
 
 #[cfg(test)]

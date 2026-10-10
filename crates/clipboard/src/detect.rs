@@ -34,10 +34,9 @@ pub fn is_link(text: &str) -> bool {
 }
 
 fn bare_domain_with_path(text: &str) -> bool {
-    let Some((host, path)) = text.split_once('/') else {
+    let Some((host, _path)) = text.split_once('/') else {
         return false;
     };
-    let _ = path;
     let host = host.split(':').next().unwrap_or(host);
     let labels: Vec<&str> = host.split('.').collect();
     let tld_ok = labels

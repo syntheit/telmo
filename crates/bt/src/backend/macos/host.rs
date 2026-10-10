@@ -2,9 +2,6 @@
 //! that connect without us asking. We reach it over its socket.
 
 use serde::Deserialize;
-use std::io::{Read, Write};
-use std::os::unix::net::UnixStream;
-use std::path::PathBuf;
 use std::time::Duration;
 
 const LIMIT: Duration = Duration::from_secs(2);
@@ -15,30 +12,8 @@ struct GuardStatus {
     no_auto_connect: Vec<String>,
 }
 
-fn socket_path() -> Option<PathBuf> {
-    if let Some(path) = std::env::var_os("TELMO_SOCKET") {
-        return Some(path.into());
-    }
-    let home = std::env::var_os("HOME")?;
-    Some(PathBuf::from(home).join("Library/Application Support/Telmo/host.sock"))
-}
-
 fn command(line: &str) -> Result<String, String> {
-    let unreachable = |e: std::io::Error| format!("Couldn't reach the Telmo host: {e}.");
-    let path = socket_path().ok_or("HOME is not set.")?;
-    let mut stream = UnixStream::connect(path).map_err(unreachable)?;
-    stream.set_read_timeout(Some(LIMIT)).map_err(unreachable)?;
-    stream.set_write_timeout(Some(LIMIT)).map_err(unreachable)?;
-    stream
-        .write_all(format!("{line}\n").as_bytes())
-        .map_err(unreachable)?;
-    let mut reply = String::new();
-    stream.read_to_string(&mut reply).map_err(unreachable)?;
-    let reply = reply.trim_end_matches('\n');
-    match reply.strip_prefix("error ") {
-        Some(message) => Err(message.to_string()),
-        None => Ok(reply.to_string()),
-    }
+    telmo_kit::host::command(line, LIMIT, LIMIT)
 }
 
 /// "AA:BB:CC:DD:EE:FF", any case.

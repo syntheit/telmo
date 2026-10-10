@@ -591,10 +591,7 @@ fn last_run_line(app: &App) -> Line<'static> {
 
 /// "just now", "5 min ago", "3 h ago", "2 d ago".
 fn ago(at: u64) -> String {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs());
-    let secs = now.saturating_sub(at);
+    let secs = telmo_kit::time::unix_now().saturating_sub(at);
     match secs {
         0..60 => "just now".to_string(),
         60..3600 => format!("{} min ago", secs / 60),
@@ -935,12 +932,10 @@ fn draw_help(app: &App, frame: &mut Frame) {
     let keys = help_lines(app);
     let inner = open_dialog(app, frame, "Keys", 58, keys.len() as u16 + 4);
     let mut lines = vec![Line::raw("")];
-    lines.extend(keys.into_iter().map(|(key, what)| {
-        Line::from(vec![
-            Span::styled(format!("  {}", fit(key, 10)), theme::accent()),
-            Span::styled(what, theme::text()),
-        ])
-    }));
+    lines.extend(
+        keys.into_iter()
+            .map(|(key, what)| widgets::help_row(2, key, 10, what, theme::text())),
+    );
     widgets::text(frame, inner, lines);
 }
 
@@ -948,9 +943,7 @@ fn draw_help(app: &App, frame: &mut Frame) {
 mod tests {
     use super::*;
     use crate::backend::{Cmd, Event, mock};
-    use crossterm::event::{
-        KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
-    };
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEventKind};
     use telmo_kit::App as _;
     use telmo_speed::{Record, Update};
     use tokio::sync::mpsc::unbounded_channel;
@@ -1038,11 +1031,7 @@ mod tests {
         let mut app = app();
         press(&mut app, "s");
         app.speed.last = Some(Record {
-            at: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map_or(0, |d| d.as_secs())
-                - 3 * 3600
-                - 60,
+            at: telmo_kit::time::unix_now() - 3 * 3600 - 60,
             network: Some("HomeNet-5G".to_string()),
             down_mbps: 388.0,
             up_mbps: 41.2,
@@ -1155,22 +1144,13 @@ mod tests {
 
     /// Cell of the first match of `text` on the drawn screen.
     fn find(app: &App, text: &str) -> (u16, u16) {
-        for (row, line) in render(app).lines().enumerate() {
-            if let Some(byte) = line.find(text) {
-                return (line[..byte].chars().count() as u16, row as u16);
-            }
-        }
-        panic!("{text:?} isn't on screen");
+        telmo_kit::test::find(&render(app), text)
+            .unwrap_or_else(|| panic!("{text:?} isn't on screen"))
     }
 
     fn mouse(app: &mut App, kind: MouseEventKind, text: &str) {
         let (column, row) = find(app, text);
-        app.mouse(MouseEvent {
-            kind,
-            column,
-            row,
-            modifiers: KeyModifiers::NONE,
-        });
+        app.mouse(telmo_kit::test::mouse_event(kind, column, row));
     }
 
     fn click(app: &mut App, text: &str) {
@@ -1228,12 +1208,11 @@ mod tests {
         assert!(app.dialog.is_some());
         click(&mut app, "signal");
         assert!(app.dialog.is_some());
-        app.mouse(MouseEvent {
-            kind: MouseEventKind::Down(MouseButton::Left),
-            column: 0,
-            row: 0,
-            modifiers: KeyModifiers::NONE,
-        });
+        app.mouse(telmo_kit::test::mouse_event(
+            MouseEventKind::Down(MouseButton::Left),
+            0,
+            0,
+        ));
         assert!(app.dialog.is_none());
     }
 

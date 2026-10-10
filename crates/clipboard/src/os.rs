@@ -23,17 +23,14 @@ pub fn reveal(path: &str) -> Result<(), String> {
             .map_or_else(|| "/".to_string(), |p| p.display().to_string());
         ("xdg-open", vec![folder])
     };
-    let mut child = Command::new(tool)
-        .args(argument)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|_| format!("Couldn't show the file. Is `{tool}` installed?"))?;
-    std::thread::spawn(move || {
-        let _ = child.wait();
-    });
-    Ok(())
+    telmo_kit::os::spawn_reaped(
+        Command::new(tool)
+            .args(argument)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null()),
+    )
+    .map_err(|_| format!("Couldn't show the file. Is `{tool}` installed?"))
 }
 
 #[cfg(test)]

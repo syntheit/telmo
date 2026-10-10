@@ -21,20 +21,13 @@ impl Default for Config {
     }
 }
 
-fn home_dir(var: &str, fallback: &str) -> Option<PathBuf> {
-    std::env::var_os(var)
-        .filter(|v| !v.is_empty())
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(fallback)))
-}
-
 pub fn config_path() -> Option<PathBuf> {
-    Some(home_dir("XDG_CONFIG_HOME", ".config")?.join("telmo/clipboard.json"))
+    Some(telmo_kit::dirs::config()?.join("telmo/clipboard.json"))
 }
 
 /// `$XDG_DATA_HOME/telmo/clipboard`, falling back to `~/.local/share`.
 pub fn data_dir() -> Option<PathBuf> {
-    Some(home_dir("XDG_DATA_HOME", ".local/share")?.join("telmo/clipboard"))
+    Some(telmo_kit::dirs::data()?.join("telmo/clipboard"))
 }
 
 /// A missing file means the defaults; a broken one is an error worth showing.

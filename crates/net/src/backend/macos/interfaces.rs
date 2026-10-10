@@ -2,7 +2,7 @@
 
 use super::sc::{Store, strings, typed};
 use super::shell;
-use crate::model::{Interface, InterfaceKind, Ipv4, Ipv4Config, ManualIpv4};
+use crate::model::{Interface, InterfaceKind, Ipv4, Ipv4Config, ManualIpv4, format_speed};
 use objc2_core_foundation::CFString;
 use objc2_system_configuration::{SCNetworkService, SCNetworkSet, SCPreferences};
 use serde_json::Value;
@@ -291,19 +291,6 @@ fn config(store: &Store, service: &Service) -> Option<Ipv4Config> {
         .map(|v| strings(v.get("ServerAddresses")))
         .unwrap_or_default();
     Some(Ipv4Config { manual, dns })
-}
-
-fn format_speed(mbps: u32) -> String {
-    if mbps >= 1000 {
-        let gbps = mbps as f64 / 1000.0;
-        if mbps.is_multiple_of(1000) {
-            format!("{} Gbps", mbps / 1000)
-        } else {
-            format!("{gbps:.1} Gbps")
-        }
-    } else {
-        format!("{mbps} Mbps")
-    }
 }
 
 /// Negotiated link speed from `ifconfig -v`, e.g. "link rate: 1.0 Gbps".

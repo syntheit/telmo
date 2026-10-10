@@ -12,14 +12,7 @@ use crate::wayland;
 use std::{
     path::{Path, PathBuf},
     process::ExitCode,
-    time::{SystemTime, UNIX_EPOCH},
 };
-
-pub fn now() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs())
-}
 
 pub fn open_store() -> Result<Store, String> {
     let config = config::load()?;
@@ -137,7 +130,7 @@ fn ingest_file(kind: &str, file: &Path, source: &str) -> Result<Outcome, String>
             ));
         }
     };
-    store.ingest(content, source, now())
+    store.ingest(content, source, telmo_kit::time::unix_now())
 }
 
 /// The file's bytes, or `None` when it is bigger than `limit`.

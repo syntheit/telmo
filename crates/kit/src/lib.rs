@@ -3,7 +3,9 @@
 
 pub mod cache;
 pub mod cli;
+pub mod dirs;
 pub mod hits;
+pub mod host;
 pub mod images;
 pub mod input;
 pub mod os;
@@ -11,6 +13,7 @@ pub mod runtime;
 pub mod state;
 pub mod test;
 pub mod theme;
+pub mod time;
 pub mod widgets;
 
 pub use runtime::{App, Flow, run};

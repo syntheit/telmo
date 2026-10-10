@@ -11,7 +11,6 @@ use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
     sync::mpsc::Sender,
-    time::{SystemTime, UNIX_EPOCH},
 };
 use telmo_kit::{App as _, Flow, hits::Hits, input::TextInput, widgets::Toast};
 
@@ -93,11 +92,7 @@ impl App {
     }
 
     pub fn now(&self) -> u64 {
-        self.fixed_now.unwrap_or_else(|| {
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map_or(0, |d| d.as_secs())
-        })
+        self.fixed_now.unwrap_or_else(telmo_kit::time::unix_now)
     }
 
     pub fn query(&self) -> &str {

@@ -324,12 +324,7 @@ fn draw_help(app: &App, frame: &mut Frame) {
     dialog_hits(app, frame, inner);
     let lines = KEYS
         .iter()
-        .map(|(key, what)| {
-            Line::from(vec![
-                Span::styled(format!("  {key:<5}"), theme::accent()),
-                Span::styled(*what, theme::dim()),
-            ])
-        })
+        .map(|(key, what)| widgets::help_row(2, key, 5, what, theme::dim()))
         .collect();
     widgets::text(frame, inner, lines);
 }
@@ -341,7 +336,7 @@ mod tests {
     use crate::model::Snapshot;
     use ratatui::crossterm::event::{KeyCode, KeyModifiers};
     use std::{cell::RefCell, rc::Rc};
-    use telmo_kit::runtime::{MouseButton, MouseEvent, MouseEventKind};
+    use telmo_kit::runtime::{MouseButton, MouseEventKind};
     use telmo_kit::{App as _, Flow, runtime::KeyEvent};
 
     fn app(snapshot: Snapshot, keys: &str) -> App {
@@ -364,13 +359,7 @@ mod tests {
 
     fn mouse(app: &mut App, kind: MouseEventKind, column: u16, row: u16) -> Flow {
         render(app);
-        let event = MouseEvent {
-            kind,
-            column,
-            row,
-            modifiers: KeyModifiers::NONE,
-        };
-        app.mouse(event)
+        app.mouse(telmo_kit::test::mouse_event(kind, column, row))
     }
 
     fn click(app: &mut App, column: u16, row: u16) -> Flow {

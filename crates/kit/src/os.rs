@@ -39,13 +39,20 @@ pub fn open(url: &str) -> Result<(), String> {
     } else {
         "xdg-open"
     };
-    let mut child = Command::new(tool)
-        .arg(url)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|_| format!("Couldn't open the page. Is `{tool}` installed?"))?;
+    spawn_reaped(
+        Command::new(tool)
+            .arg(url)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null()),
+    )
+    .map_err(|_| format!("Couldn't open the page. Is `{tool}` installed?"))
+}
+
+/// Starts `command` without waiting; a thread reaps it when it exits so no
+/// zombie is left behind.
+pub fn spawn_reaped(command: &mut Command) -> std::io::Result<()> {
+    let mut child = command.spawn()?;
     std::thread::spawn(move || {
         let _ = child.wait();
     });
