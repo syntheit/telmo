@@ -3,6 +3,7 @@
 
 pub mod cache;
 pub mod cli;
+pub mod dirs;
 pub mod hits;
 pub mod host;
 pub mod images;

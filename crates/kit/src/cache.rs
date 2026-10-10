@@ -5,10 +5,11 @@ use serde::{Serialize, de::DeserializeOwned};
 use std::path::PathBuf;
 
 fn path(name: &str) -> Option<PathBuf> {
-    let base = std::env::var_os("XDG_CACHE_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))?;
-    Some(base.join("telmo").join(format!("{name}.json")))
+    Some(
+        crate::dirs::cache()?
+            .join("telmo")
+            .join(format!("{name}.json")),
+    )
 }
 
 pub fn load<T: DeserializeOwned>(name: &str) -> Option<T> {

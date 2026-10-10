@@ -19,10 +19,11 @@ struct Saved {
 }
 
 fn path() -> Option<PathBuf> {
-    let base = std::env::var_os("XDG_STATE_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/state")))?;
-    Some(base.join("telmo").join("keep-awake.json"))
+    Some(
+        telmo_kit::dirs::state()?
+            .join("telmo")
+            .join("keep-awake.json"),
+    )
 }
 
 fn now() -> u64 {
