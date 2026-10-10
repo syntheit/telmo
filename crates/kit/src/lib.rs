@@ -4,6 +4,7 @@
 pub mod cache;
 pub mod cli;
 pub mod hits;
+pub mod host;
 pub mod images;
 pub mod input;
 pub mod os;
