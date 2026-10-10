@@ -40,7 +40,8 @@ where
     update_in(&dir, name, change)
 }
 
-fn update_in<T, F>(dir: &Path, name: &str, change: F) -> io::Result<T>
+/// Like `update`, for a state directory other than the user's (tests, tools).
+pub fn update_in<T, F>(dir: &Path, name: &str, change: F) -> io::Result<T>
 where
     T: Serialize + DeserializeOwned + Default,
     F: FnOnce(&mut T),

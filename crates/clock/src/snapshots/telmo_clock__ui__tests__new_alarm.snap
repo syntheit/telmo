@@ -1,0 +1,26 @@
+---
+source: crates/clock/src/ui.rs
+expression: render(&app)
+---
+ Timers · Stopwatch · World · Alarms                                       next in 6h 53m
+
+╭─ Alarms 4 ─────────────────────────────────────────────────────────────────────────────╮
+│ ▌ 04:15   Flight              Once                        ○ off                        │
+│   07:30   Wake ╭─ New alarm ──────────────────────────────────────────╮                │
+│   18:00   Gym  │                                                      │                │
+│   21:00   Pills│  Time, then days if you like, then a name.           │                │
+│                │                                                      │                │
+│                │  Try 7:30 weekdays wake up, 6pm mon wed fri,         │                │
+│                │  or 21:00 daily pills.                               │                │
+│                │                                                      │                │
+│                │   7:30 weekdays wake up▏                             │                │
+│                │                                                      │                │
+│                │  Weekdays at 07:30 · next in 1d 17h                  │                │
+│                │                                                      │                │
+│                │   ↵ add   esc cancel                                 │                │
+│                ╰──────────────────────────────────────────────────────╯                │
+│                                                                                        │
+│                                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+
+ n new  ↵ on/off  x delete  ←→ tab  ? more  esc close

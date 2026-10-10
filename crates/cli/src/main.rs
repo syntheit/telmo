@@ -45,7 +45,7 @@ pub fn custom_popups() -> Result<Vec<(String, Vec<String>)>, String> {
         .collect()
 }
 
-const MODULES: [&str; 8] = [
+const MODULES: [&str; 9] = [
     "net",
     "bt",
     "sound",
@@ -54,6 +54,7 @@ const MODULES: [&str; 8] = [
     "scale",
     "system",
     "clipboard",
+    "clock",
 ];
 
 fn main() -> ExitCode {

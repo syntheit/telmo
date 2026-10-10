@@ -1,0 +1,23 @@
+# Clock · Timers empty
+ Timers · Stopwatch · World · Alarms
+
+╭─ Timers ───────────────────────────────────────────────────────────────────────────────╮
+│                                                                                        │
+│  No timers. Press n to start one,                                                      │
+│  or run `telmo-clock timer start 5m`.                                                  │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+
+ n new  ↵ pause  r restart  x delete  ←→ tab  ? more  esc close
