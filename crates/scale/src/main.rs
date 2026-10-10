@@ -28,13 +28,10 @@ async fn main() -> ExitCode {
 
 /// Print the first snapshot the backend sends as JSON.
 async fn status(mut events: UnboundedReceiver<Event>) -> ExitCode {
-    let first = async {
-        events
-            .recv()
+    let Some(snapshot) =
+        telmo_kit::cli::first_snapshot(&mut events, |Event::Snapshot(snapshot)| Some(snapshot))
             .await
-            .map(|Event::Snapshot(snapshot)| snapshot)
-    };
-    let Ok(Some(snapshot)) = tokio::time::timeout(Duration::from_secs(5), first).await else {
+    else {
         return fail("The trackpad did not answer within 5 seconds. Try again.");
     };
     match serde_json::to_string_pretty(&snapshot) {

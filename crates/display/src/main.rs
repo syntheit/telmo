@@ -5,7 +5,7 @@ mod ui;
 
 use app::App;
 use model::Snapshot;
-use std::{cell::RefCell, rc::Rc, time::Duration};
+use std::{cell::RefCell, rc::Rc};
 use tokio::sync::mpsc::unbounded_channel;
 
 #[tokio::main(flavor = "current_thread")]
@@ -36,17 +36,13 @@ async fn status(mock: bool) {
     let (_cmd_tx, cmd_rx) = unbounded_channel();
     let (event_tx, mut event_rx) = unbounded_channel();
     backend::spawn(mock, cmd_rx, event_tx);
-    let first = tokio::time::timeout(Duration::from_secs(5), async {
-        while let Some(event) = event_rx.recv().await {
-            if let backend::Event::Snapshot(snapshot) = event {
-                return Some(snapshot);
-            }
-        }
-        None
+    let first = telmo_kit::cli::first_snapshot(&mut event_rx, |event| match event {
+        backend::Event::Snapshot(snapshot) => Some(snapshot),
+        _ => None,
     })
     .await;
     match first {
-        Ok(Some(snapshot)) => match serde_json::to_string_pretty(&snapshot) {
+        Some(snapshot) => match serde_json::to_string_pretty(&snapshot) {
             Ok(json) => println!("{json}"),
             Err(e) => fail(&format!("could not encode the snapshot: {e}")),
         },

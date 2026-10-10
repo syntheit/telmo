@@ -5,7 +5,6 @@ mod ui;
 
 use backend::Event;
 use model::Snapshot;
-use std::time::Duration;
 use tokio::sync::mpsc::unbounded_channel;
 
 #[tokio::main(flavor = "current_thread")]
@@ -33,16 +32,13 @@ async fn main() {
 
 /// Print the first snapshot the backend sends as JSON.
 async fn print_status(events: &mut tokio::sync::mpsc::UnboundedReceiver<Event>) {
-    let first = async {
-        while let Some(event) = events.recv().await {
-            if let Event::Snapshot(snapshot) = event {
-                return Some(snapshot);
-            }
-        }
-        None
-    };
-    match tokio::time::timeout(Duration::from_secs(5), first).await {
-        Ok(Some(snapshot)) => match serde_json::to_string_pretty(&snapshot) {
+    let first = telmo_kit::cli::first_snapshot(events, |event| match event {
+        Event::Snapshot(snapshot) => Some(snapshot),
+        _ => None,
+    })
+    .await;
+    match first {
+        Some(snapshot) => match serde_json::to_string_pretty(&snapshot) {
             Ok(json) => println!("{json}"),
             Err(e) => eprintln!("telmo-net: couldn't format the snapshot: {e}"),
         },
