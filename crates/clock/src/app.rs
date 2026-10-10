@@ -211,8 +211,12 @@ impl App {
             return;
         };
         let (id, label) = (timer.id.clone(), crate::ui::timer_title(timer));
-        self.change(|s, _, _| s.timers.retain(|t| t.id != id));
-        self.toast = Some(Toast::ok(format!("Deleted {label}")));
+        if self
+            .change(|s, _, _| s.timers.retain(|t| t.id != id))
+            .is_some()
+        {
+            self.toast = Some(Toast::ok(format!("Deleted {label}")));
+        }
         self.clamp();
     }
 
@@ -231,8 +235,12 @@ impl App {
         let Some(id) = self.state.alarms.get(self.alarm).map(|a| a.id.clone()) else {
             return;
         };
-        self.change(|s, _, _| s.alarms.retain(|a| a.id != id));
-        self.toast = Some(Toast::ok("Deleted the alarm"));
+        if self
+            .change(|s, _, _| s.alarms.retain(|a| a.id != id))
+            .is_some()
+        {
+            self.toast = Some(Toast::ok("Deleted the alarm"));
+        }
         self.clamp();
     }
 
@@ -306,12 +314,17 @@ impl App {
                 KeyCode::Esc => None,
                 KeyCode::Enter => match parse::timer(&input.value) {
                     Ok((duration, name)) => {
-                        self.change(|s, now, _| s.add_timer(&name, duration, now));
-                        self.timer = self.state.timers.len().saturating_sub(1);
-                        self.toast = Some(Toast::ok(format!(
-                            "Started a {} timer",
-                            crate::fmt::short(duration)
-                        )));
+                        // A failed save keeps its error toast.
+                        if self
+                            .change(|s, now, _| s.add_timer(&name, duration, now))
+                            .is_some()
+                        {
+                            self.timer = self.state.timers.len().saturating_sub(1);
+                            self.toast = Some(Toast::ok(format!(
+                                "Started a {} timer",
+                                crate::fmt::short(duration)
+                            )));
+                        }
                         None
                     }
                     Err(_) => Some(Dialog::NewTimer { input, pick }),
@@ -347,12 +360,15 @@ impl App {
                             ..Alarm::default()
                         };
                         let id = self.change(|s, now, tz| s.add_alarm(alarm, now, tz));
+                        let id_saved = id.is_some();
                         if let Some(index) =
                             id.and_then(|id| self.state.alarms.iter().position(|a| a.id == id))
                         {
                             self.alarm = index;
                         }
-                        self.toast = Some(Toast::ok("Alarm added"));
+                        if id_saved {
+                            self.toast = Some(Toast::ok("Alarm added"));
+                        }
                         None
                     }
                     Err(_) => Some(Dialog::NewAlarm { input }),
