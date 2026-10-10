@@ -62,6 +62,26 @@ in
       '';
     };
 
+    sound.eq = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = ''
+          Linux: run the sound popup's EQ engine (`telmo-sound eq-daemon`) as
+          a systemd user service. It applies the popup's per-output EQ with a
+          PipeWire filter-chain in front of each equalized output, routed by
+          a WirePlumber smart filter (the default output stays the real
+          one). Nothing happens on macOS, where Telmo.app is the engine.
+        '';
+      };
+      pipewirePackage = mkOption {
+        type = types.package;
+        default = pkgs.pipewire;
+        defaultText = lib.literalExpression "pkgs.pipewire";
+        description = "The `pipewire` binary the daemon runs one filter-chain process with; match the system's PipeWire.";
+      };
+    };
+
     system = {
       effect = mkOption {
         type = types.nullOr types.str;
@@ -202,6 +222,25 @@ in
           ExecStart = "${pkgs.wl-clipboard}/bin/wl-paste --watch ${cfg.package}/bin/telmo-clipboard ingest-wayland";
           Restart = "on-failure";
           Environment = [ "PATH=${lib.makeBinPath [ pkgs.wl-clipboard ]}:/run/current-system/sw/bin" ];
+        };
+        Install.WantedBy = [ "graphical-session.target" ];
+      };
+    })
+
+    (mkIf (!isDarwin && cfg.sound.eq.enable) {
+      systemd.user.services.telmo-eq = {
+        Unit = {
+          Description = "telmo sound EQ (PipeWire filter-chains driven by eq.json)";
+          After = [ "pipewire.service" "wireplumber.service" ];
+          Wants = [ "pipewire.service" "wireplumber.service" ];
+          # A PipeWire restart drops the chains: restart with it.
+          PartOf = [ "pipewire.service" "graphical-session.target" ];
+        };
+        Service = {
+          ExecStart = "${cfg.package}/bin/telmo-sound eq-daemon";
+          Restart = "on-failure";
+          RestartSec = 2;
+          Environment = [ "TELMO_PIPEWIRE=${cfg.sound.eq.pipewirePackage}/bin/pipewire" ];
         };
         Install.WantedBy = [ "graphical-session.target" ];
       };

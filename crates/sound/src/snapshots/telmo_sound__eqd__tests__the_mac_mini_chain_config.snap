@@ -1,0 +1,89 @@
+---
+source: crates/sound/src/eqd.rs
+expression: chain_conf(spec)
+---
+{
+  "context.modules": [
+    {
+      "flags": [
+        "ifexists",
+        "nofail"
+      ],
+      "name": "libpipewire-module-rt"
+    },
+    {
+      "name": "libpipewire-module-protocol-native"
+    },
+    {
+      "name": "libpipewire-module-client-node"
+    },
+    {
+      "name": "libpipewire-module-adapter"
+    },
+    {
+      "args": {
+        "audio.channels": 2,
+        "audio.position": [
+          "FL",
+          "FR"
+        ],
+        "capture.props": {
+          "filter.smart": true,
+          "filter.smart.name": "telmo-eq-mac-speakers",
+          "filter.smart.target": {
+            "node.name": "mac-speakers"
+          },
+          "media.class": "Audio/Sink",
+          "node.link-group": "telmo-eq-mac-speakers",
+          "node.name": "telmo_eq.in.mac-speakers"
+        },
+        "filter.graph": {
+          "links": [
+            {
+              "input": "f0:In",
+              "output": "preamp:Out"
+            }
+          ],
+          "nodes": [
+            {
+              "control": {
+                "Freq": 0.0,
+                "Gain": -3.0,
+                "Q": 1.0
+              },
+              "label": "bq_highshelf",
+              "name": "preamp",
+              "type": "builtin"
+            },
+            {
+              "control": {
+                "Freq": 180.0,
+                "Gain": 3.0,
+                "Q": 0.7
+              },
+              "label": "bq_peaking",
+              "name": "f0",
+              "type": "builtin"
+            }
+          ]
+        },
+        "media.name": "EQ for Mac mini speakers",
+        "node.description": "EQ for Mac mini speakers",
+        "playback.props": {
+          "node.link-group": "telmo-eq-mac-speakers",
+          "node.name": "telmo_eq.out.mac-speakers",
+          "node.passive": true,
+          "stream.dont-remix": true
+        }
+      },
+      "name": "libpipewire-module-filter-chain"
+    }
+  ],
+  "context.properties": {
+    "log.level": 1
+  },
+  "context.spa-libs": {
+    "audio.convert.*": "audioconvert/libspa-audioconvert",
+    "support.*": "support/libspa-support"
+  }
+}

@@ -3306,6 +3306,7 @@ dependencies = [
  "block2",
  "image",
  "insta",
+ "libc",
  "libpulse-binding",
  "objc2-core-audio",
  "objc2-core-audio-types",
