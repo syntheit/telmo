@@ -9,7 +9,7 @@ let
   cfg = config.programs.telmo;
   inherit (lib) mkEnableOption mkIf mkMerge mkOption types;
   isDarwin = pkgs.stdenv.hostPlatform.isDarwin;
-  builtIns = [ "net" "bt" "sound" "display" "power" "scale" "system" "clipboard" ];
+  builtIns = [ "net" "bt" "sound" "display" "power" "scale" "system" "clipboard" "clock" ];
   customNames = lib.attrNames cfg.popups;
 
   # Hyprland size per custom popup: "large" is 80% of the monitor.
@@ -123,6 +123,29 @@ in
       };
     };
 
+    clock = {
+      cities = mkOption {
+        type = types.listOf (types.submodule {
+          options = {
+            name = mkOption { type = types.str; description = "Name shown in the World tab."; };
+            zone = mkOption { type = types.str; example = "Europe/London"; description = "IANA time zone."; };
+          };
+        });
+        default = [
+          { name = "Buenos Aires"; zone = "America/Argentina/Buenos_Aires"; }
+          { name = "San Francisco"; zone = "America/Los_Angeles"; }
+          { name = "New York"; zone = "America/New_York"; }
+          { name = "London"; zone = "Europe/London"; }
+          { name = "Tokyo"; zone = "Asia/Tokyo"; }
+        ];
+        description = ''
+          Cities of the clock popup's World tab, in order. Written to
+          ~/.config/telmo/clock-config.json. Timers, the stopwatch and alarms
+          live in ~/.local/state/telmo/clock.json, which Nix never touches.
+        '';
+      };
+    };
+
     popups = mkOption {
       default = { };
       example = { perf = { command = [ "btop" ]; size = "large"; escape = "close"; }; };
@@ -183,6 +206,22 @@ in
 
     (mkIf (systemConfig != { }) {
       xdg.configFile."telmo/system.json".text = builtins.toJSON systemConfig;
+    })
+
+    {
+      xdg.configFile."telmo/clock-config.json".text = builtins.toJSON { inherit (cfg.clock) cities; };
+    }
+
+    (mkIf (!isDarwin) {
+      # Wake-ups for timers and alarms are transient systemd timers, which a reboot drops.
+      systemd.user.services.telmo-clock-sync = {
+        Unit.Description = "telmo clock: arm timers and alarms again";
+        Service = {
+          Type = "oneshot";
+          ExecStart = "${cfg.package}/bin/telmo-clock sync";
+        };
+        Install.WantedBy = [ "default.target" ];
+      };
     })
 
     (mkIf cfg.clipboard.enable {

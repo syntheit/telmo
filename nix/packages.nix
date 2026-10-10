@@ -62,9 +62,18 @@ rec {
     lib.optionalAttrs stdenv.hostPlatform.isLinux { TELMO_NOTIFY_SEND = "${pkgs.libnotify}/bin/notify-send"; }
   );
   telmo-clipboard = module "clipboard" "Clipboard history: text, links, colors, images, files";
+  # Linux: a systemd timer starts `telmo-clock fire` with a bare PATH, so the notifier,
+  # the sound player and a freedesktop sound are baked in (all optional at run time).
+  telmo-clock = (module "clock" "Clock popup: timers, stopwatch, world clock, alarms").overrideAttrs (
+    lib.optionalAttrs stdenv.hostPlatform.isLinux {
+      TELMO_NOTIFY_SEND = "${pkgs.libnotify}/bin/notify-send";
+      TELMO_PW_PLAY = "${pkgs.pipewire}/bin/pw-play";
+      TELMO_SOUND_FILE = "${pkgs.sound-theme-freedesktop}/share/sounds/freedesktop/stereo/complete.oga";
+    }
+  );
   telmo = pkgs.symlinkJoin {
     name = "telmo";
-    paths = [ telmo-cli telmo-net telmo-bt telmo-sound telmo-display telmo-power telmo-scale telmo-system telmo-clipboard ] ++ lib.optional stdenv.hostPlatform.isDarwin telmo-host;
+    paths = [ telmo-cli telmo-net telmo-bt telmo-sound telmo-display telmo-power telmo-scale telmo-system telmo-clipboard telmo-clock ] ++ lib.optional stdenv.hostPlatform.isDarwin telmo-host;
     meta.mainProgram = "telmo";
   };
   default = telmo;

@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
     private let equalizer = Equalizer()
     private var hotkeys: Hotkeys?
     private var clipboard: ClipboardWatcher?
+    private let clock = ClockWatcher()
     private var ipc: IPCServer?
     private var locationManager: CLLocationManager?
     private var module: String?
@@ -40,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
         bluetooth.start()
         equalizer.start()
         island.start()
+        clock.start()
         if ClipboardWatcher.isEnabled {
             clipboard = ClipboardWatcher()
             clipboard?.start()
@@ -50,6 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CLLocationManagerDeleg
     func applicationWillTerminate(_ note: Notification) {
         popup.terminateChild() // otherwise the telmo-* child outlives the host
         equalizer.stop()
+        clock.stop()
     }
 
     // MARK: Commands (main thread)
