@@ -65,6 +65,23 @@ where
     Ok(value) // closing `lock` unlocks
 }
 
+/// Takes the exclusive lock `<name>.lock` in `dir` and holds it until the
+/// returned file is dropped. For work that must stay in step with a state file
+/// but happens after `update_in` has released its own lock.
+pub fn lock_in(dir: &Path, name: &str) -> io::Result<std::fs::File> {
+    std::fs::create_dir_all(dir)?;
+    let lock = OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(dir.join(format!("{name}.lock")))?;
+    // SAFETY: the descriptor belongs to `lock`, which the caller keeps.
+    if unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX) } != 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(lock)
+}
+
 /// Writes a temp file and renames it, so a crash never leaves half a file.
 pub fn save<T: Serialize>(name: &str, value: &T) -> io::Result<()> {
     write(
@@ -87,6 +104,30 @@ fn write<T: Serialize>(path: &Path, value: &T) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_held_lock_keeps_others_out() {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        let dir = std::env::temp_dir().join(format!("telmo-lock-{}", std::process::id()));
+        let inside = std::sync::Arc::new(AtomicU32::new(0));
+        let workers: Vec<_> = (0..4)
+            .map(|_| {
+                let (dir, inside) = (dir.clone(), inside.clone());
+                std::thread::spawn(move || {
+                    for _ in 0..20 {
+                        let _lock = lock_in(&dir, "sched").expect("lock");
+                        assert_eq!(inside.fetch_add(1, Ordering::SeqCst), 0, "two inside");
+                        std::thread::yield_now();
+                        inside.fetch_sub(1, Ordering::SeqCst);
+                    }
+                })
+            })
+            .collect();
+        for worker in workers {
+            worker.join().expect("worker");
+        }
+        let _ = std::fs::remove_dir_all(dir);
+    }
 
     #[test]
     fn concurrent_updates_all_land() {
