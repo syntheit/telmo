@@ -31,13 +31,6 @@ let
     "stay_focused 1"
   ];
 
-  # The launcher popup is 66×14 cells: the default size scaled down to that.
-  launcherSize =
-    let
-      parts = lib.splitString " " cfg.hyprland.size;
-      scaled = n: by: toString (builtins.floor (lib.toInt n * by / 90.0));
-    in
-    if lib.length parts == 2 then "${scaled (lib.elemAt parts 0) 66} ${toString (builtins.floor (lib.toInt (lib.elemAt parts 1) * 14 / 22.0))}" else cfg.hyprland.size;
   # Title-cased modifier for the key hints: "SUPER ALT" -> "Super Alt".
   titleCase = s: lib.concatStringsSep " " (map (w: lib.toUpper (lib.substring 0 1 w) + lib.toLower (lib.substring 1 (-1) w)) (lib.splitString " " s));
 
@@ -313,7 +306,7 @@ in
 
     (mkIf (!isDarwin && cfg.hyprland.enable) {
       wayland.windowManager.hyprland.settings = {
-        windowrule = popupRules "launcher" launcherSize;
+        windowrule = popupRules "launcher" cfg.hyprland.size;
         bind = lib.mapAttrsToList (
           letter: app: "${cfg.launcher.hyprlandModifier}, ${letter}, exec, ${cfg.package}/bin/telmo-launcher open ${lib.escapeShellArg app}"
         ) cfg.launcher.keys;

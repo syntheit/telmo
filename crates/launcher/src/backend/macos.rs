@@ -81,19 +81,18 @@ impl Source for Real {
     }
 
     fn open(&self, app: &AppEntry) -> Result<Option<String>, String> {
-        // `open -a` starts the app, or brings it forward when it runs.
-        let mut child = Command::new("open")
-            .arg("-a")
-            .arg(&app.path)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .map_err(|e| format!("Couldn't run open: {e}."))?;
-        std::thread::spawn(move || {
-            let _ = child.wait();
-        });
-        Ok(None)
+        // `open -a` starts the app, or brings it forward when it runs. Its own
+        // session lets it finish after the launcher quits.
+        telmo_kit::os::spawn_reaped(
+            Command::new("open")
+                .arg("-a")
+                .arg(&app.path)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null()),
+        )
+        .map(|()| None)
+        .map_err(|e| format!("Couldn't run open: {e}."))
     }
 
     fn copy(&self, text: &str) -> Result<Option<String>, String> {

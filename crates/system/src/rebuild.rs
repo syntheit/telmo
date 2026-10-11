@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
     io::{BufRead, BufReader, Write},
-    os::unix::{ffi::OsStrExt, process::CommandExt},
+    os::unix::ffi::OsStrExt,
     path::{Path, PathBuf},
     process::{Command, ExitCode, Stdio},
     time::{Duration, Instant},
@@ -517,14 +517,8 @@ fn spawn_child(invocation: &Invocation) -> Result<(), String> {
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
-    // SAFETY: setsid is async-signal-safe. A new session keeps the rebuild
-    // alive when the popup's terminal closes and sends SIGHUP.
-    unsafe {
-        command.pre_exec(|| {
-            libc::setsid();
-            Ok(())
-        });
-    }
+    // spawn_reaped's own session keeps the rebuild alive when the popup's
+    // terminal closes.
     telmo_kit::os::spawn_reaped(&mut command)
         .map_err(|e| format!("Couldn't start the rebuild ({e})."))
 }

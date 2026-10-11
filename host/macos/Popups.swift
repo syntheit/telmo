@@ -45,7 +45,6 @@ enum ModuleSizes {
     static func size(of name: String) -> Launch.Size {
         switch name {
         case "clipboard": .medium
-        case "launcher": .small
         default: .normal
         }
     }

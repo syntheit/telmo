@@ -50,11 +50,56 @@ pub fn open(url: &str) -> Result<(), String> {
 }
 
 /// Starts `command` without waiting; a thread reaps it when it exits so no
-/// zombie is left behind.
+/// zombie is left behind. It runs in a session of its own: a popup is its
+/// terminal's session leader, and quitting right after would hang it up.
 pub fn spawn_reaped(command: &mut Command) -> std::io::Result<()> {
+    use std::os::unix::process::CommandExt;
+    // SAFETY: setsid is async-signal-safe and touches no memory of ours.
+    unsafe {
+        command.pre_exec(|| {
+            libc::setsid();
+            Ok(())
+        });
+    }
     let mut child = command.spawn()?;
     std::thread::spawn(move || {
         let _ = child.wait();
     });
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn spawn_reaped_starts_its_own_session() {
+        let file = std::env::temp_dir().join(format!("telmo-reaped-{}", std::process::id()));
+        let _ = std::fs::remove_file(&file);
+        spawn_reaped(
+            Command::new("sh")
+                .arg("-c")
+                .arg(format!("echo $$ > {}; sleep 2", file.display())),
+        )
+        .expect("spawn");
+        let pid = (0..100)
+            .find_map(|_| {
+                std::thread::sleep(std::time::Duration::from_millis(20));
+                std::fs::read_to_string(&file)
+                    .ok()?
+                    .trim()
+                    .parse::<i32>()
+                    .ok()
+            })
+            .expect("child wrote its pid");
+        let _ = std::fs::remove_file(&file);
+        // SAFETY: getsid only reads the session id of a live process.
+        assert_eq!(
+            unsafe { libc::getsid(pid) },
+            pid,
+            "child leads its own session"
+        );
+        // SAFETY: the child is ours and still sleeping.
+        unsafe { libc::kill(pid, libc::SIGTERM) };
+    }
 }

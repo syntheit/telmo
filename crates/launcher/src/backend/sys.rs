@@ -89,19 +89,5 @@ pub fn spawn_detached(program: &str, args: &[String]) -> Result<(), String> {
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
-    // SAFETY: setsid is async-signal-safe and touches no memory of ours.
-    unsafe {
-        command.pre_exec(|| {
-            libc::setsid();
-            Ok(())
-        });
-    }
-    let mut child = command
-        .spawn()
-        .map_err(|e| format!("Couldn't start {program}: {e}."))?;
-    // Reap it if it ends while we are still here.
-    std::thread::spawn(move || {
-        let _ = child.wait();
-    });
-    Ok(())
+    telmo_kit::os::spawn_reaped(&mut command).map_err(|e| format!("Couldn't start {program}: {e}."))
 }
