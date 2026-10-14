@@ -36,6 +36,15 @@ enum HAL {
         get(device, address(kAudioDevicePropertyDataSource, scope: kAudioObjectPropertyScopeOutput), default: UInt32(0))
     }
 
+    /// Asks for the smallest IO buffer the device allows, at least `floor` frames. Each buffer is delay.
+    static func preferSmallBuffer(_ device: AudioObjectID, floor: UInt32) {
+        guard let range = get(device, address(kAudioDevicePropertyBufferFrameSizeRange), default: AudioValueRange()) else { return }
+        var frames = UInt32(max(range.mMinimum, Double(floor)))
+        guard Double(frames) <= range.mMaximum else { return }
+        var at = address(kAudioDevicePropertyBufferFrameSize)
+        AudioObjectSetPropertyData(device, &at, 0, nil, UInt32(MemoryLayout<UInt32>.size), &frames)
+    }
+
     static func nominalRate(_ device: AudioObjectID) -> Double? {
         get(device, address(kAudioDevicePropertyNominalSampleRate), default: 0.0).flatMap { $0 > 0 ? $0 : nil }
     }
@@ -106,7 +115,8 @@ final class TapAggregate {
             kAudioAggregateDeviceSubDeviceListKey: [[kAudioSubDeviceUIDKey: output]],
             kAudioAggregateDeviceTapListKey: [[
                 kAudioSubTapUIDKey: description.uuid.uuidString,
-                kAudioSubTapDriftCompensationKey: true,
+                // A tap scoped to the output runs on that device's clock, so resampling would only add delay.
+                kAudioSubTapDriftCompensationKey: !scoped,
             ]],
         ]
         guard AudioHardwareCreateAggregateDevice(aggregateDescription as CFDictionary, &aggregate) == noErr else { throw Failure.aggregate }

@@ -209,6 +209,8 @@ final class Equalizer {
                 Unmanaged<Session>.fromOpaque(context).takeUnretainedValue().render(input, output)
                 return noErr
             }
+            // The aggregate adds its buffer on top of the output's; keep it short (256 frames is ~5 ms).
+            HAL.preferSmallBuffer(aggregate, floor: 256)
             guard AudioDeviceCreateIOProcID(aggregate, proc, Unmanaged.passUnretained(self).toOpaque(), &ioProc) == noErr,
                   AudioDeviceStart(aggregate, ioProc) == noErr else {
                 throw SessionFailure(description: "the audio could not be started")
