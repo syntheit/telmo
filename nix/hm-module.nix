@@ -363,19 +363,51 @@ in
     (mkIf (isDarwin && cfg.signingIdentity != null) {
       home.activation.telmoSignApp = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         # The marker lives outside the bundle: files added after signing break the seal.
+        # It holds the store path once signed, or "<store path> adhoc" while signing fails.
+        # Nothing here stops the rest of the activation: a locked keychain or a
+        # missing identity only warns, and the next activation tries again.
         marker="${config.xdg.stateHome}/telmo/app-source"
-        if [ "$(cat "$marker" 2>/dev/null)" != "${storeApp}" ]; then
-          run mkdir -p "${config.home.homeDirectory}/Applications"
-          run rm -rf "${signedApp}"
+        identity=${lib.escapeShellArg cfg.signingIdentity}
+        dst="${signedApp}"
+        tmp="$dst.nix-new"
+        have="$(cat "$marker" 2>/dev/null || true)"
+
+        # Swap in the new copy (a failure leaves the old one) and record it.
+        telmoInstall() {
+          if run rm -rf "$dst" && run mv "$tmp" "$dst"; then
+            echo "$1" > "$marker"
+            run /bin/launchctl kickstart -k "gui/$(id -u)/org.nix-community.home.telmo" || true
+          else
+            warnEcho "telmo: cannot replace $dst"
+          fi
+        }
+
+        if [ "$have" != "${storeApp}" ]; then
+          run mkdir -p "${config.home.homeDirectory}/Applications" "$(dirname "$marker")"
+          run rm -rf "$tmp"
           # -L: the package is a symlinkJoin; codesign needs real files.
-          run cp -RL "${storeApp}" "${signedApp}"
-          run chmod -R u+w "${signedApp}"
+          run cp -RL "${storeApp}" "$tmp"
+          run chmod -R u+w "$tmp"
           # No hardened runtime: it would need extra entitlements for Location.
-          run /usr/bin/codesign --force --deep \
-            --sign ${lib.escapeShellArg cfg.signingIdentity} "${signedApp}"
-          run mkdir -p "$(dirname "$marker")"
-          echo "${storeApp}" > "$marker"
-          run /bin/launchctl kickstart -k "gui/$(id -u)/org.nix-community.home.telmo" || true
+          if run /usr/bin/codesign --force --deep --sign "$identity" "$tmp"; then
+            telmoInstall "${storeApp}"
+          else
+            warnEcho "telmo: codesign with '$identity' failed (see: security find-identity -v -p codesigning)"
+            signedBy="$(/usr/bin/codesign -dvv "$dst" 2>&1 || true)"
+            if /usr/bin/codesign --verify --deep "$dst" >/dev/null 2>&1 \
+              && grep -qxF "Authority=$identity" <<< "$signedBy"; then
+              # The old build keeps its Location and Bluetooth permissions.
+              warnEcho "telmo: keeping $dst, signed with '$identity', until signing works"
+              run rm -rf "$tmp"
+            elif [ "$have" = "${storeApp} adhoc" ] && [ -d "$dst" ]; then
+              # Already this build, signed ad hoc.
+              run rm -rf "$tmp"
+            else
+              warnEcho "telmo: installing this build as $dst, signed ad hoc: macOS asks for Location and Bluetooth again until signing works"
+              run /usr/bin/codesign --force --deep --sign - "$tmp" || true
+              telmoInstall "${storeApp} adhoc"
+            fi
+          fi
         fi
       '';
     })
