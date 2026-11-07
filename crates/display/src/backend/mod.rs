@@ -23,8 +23,8 @@ pub enum Event {
     Failed(String),
 }
 
-/// Said under the scale choices: `hyprctl keyword` does not outlive a reload.
-pub const SCALE_NOTE: &str = "Resets on Hyprland reload. Save it in hyprland.conf to keep it.";
+/// Said under the scale choices: a scale set from `hyprctl` does not outlive a reload.
+pub const SCALE_NOTE: &str = "Resets on Hyprland reload. Save it in hyprland.lua to keep it.";
 
 pub type Tx = UnboundedSender<Event>;
 pub type Rx = UnboundedReceiver<Cmd>;

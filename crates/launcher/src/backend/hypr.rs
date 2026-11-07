@@ -75,19 +75,24 @@ pub fn window_of<'a>(app: &AppEntry, clients: &'a [Client]) -> Option<&'a Client
     clients.iter().find(|c| matches(app, c))
 }
 
+/// `hyprctl dispatch` takes Lua with a Lua config (Hyprland 0.55 and later)
+/// and the old dispatcher syntax with a hyprland.conf.
 pub fn focus(address: &str) -> Result<(), String> {
-    let status = Command::new("hyprctl")
-        .args(["dispatch", "focuswindow", &format!("address:{address}")])
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map_err(|e| format!("Couldn't run hyprctl: {e}."))?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err("hyprctl couldn't focus the window.".into())
+    for request in [
+        format!("hl.dsp.focus({{ window = \"address:{address}\" }})"),
+        format!("focuswindow address:{address}"),
+    ] {
+        let output = Command::new("hyprctl")
+            .args(["dispatch", &request])
+            .stdin(Stdio::null())
+            .stderr(Stdio::null())
+            .output()
+            .map_err(|e| format!("Couldn't run hyprctl: {e}."))?;
+        if String::from_utf8_lossy(&output.stdout).trim() == "ok" {
+            return Ok(());
+        }
     }
+    Err("hyprctl couldn't focus the window.".into())
 }
 
 #[cfg(test)]
