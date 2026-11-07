@@ -22,14 +22,44 @@ let
     in
     if lib.length parts == 2 then "${bigger (lib.elemAt parts 0)} ${bigger (lib.elemAt parts 1)}" else cfg.hyprland.size;
   sizeFor = name: if name == "clipboard" then clipboardSize else cfg.hyprland.size;
-  popupRules = name: size: map (rule: "${rule}, match:class ^(telmo\\.${name})$") [
-    "float 1"
-    "center 1"
-    "size ${size}"
-    "rounding 24"
-    "dim_around 1"
-    "stay_focused 1"
-  ];
+
+  # Home Manager writes hyprland.conf ("hyprlang", also before configType
+  # existed) or hyprland.lua, where each settings entry is an `hl.<name>(...)` call.
+  hyprlang = (config.wayland.windowManager.hyprland.configType or "hyprlang") == "hyprlang";
+  ruleKey = if hyprlang then "windowrule" else "window_rule";
+  popupRules = name: size:
+    if hyprlang then
+      map (rule: "${rule}, match:class ^(telmo\\.${name})$") [
+        "float 1"
+        "center 1"
+        "size ${size}"
+        "rounding 24"
+        "dim_around 1"
+        "stay_focused 1"
+      ]
+    else
+      [
+        {
+          match.class = "^(telmo\\.${name})$";
+          float = true;
+          center = true;
+          inherit size;
+          rounding = 24;
+          dim_around = true;
+          stay_focused = true;
+        }
+      ];
+  # A bind running `command` on `combo` ("MODS, key", as in hyprland.conf).
+  execBind = combo: command:
+    if hyprlang then
+      "${combo}, exec, ${command}"
+    else
+      let
+        parts = lib.splitString "," combo;
+        mods = lib.filter (m: m != "") (lib.splitString " " (lib.trim (lib.head parts)));
+        keys = lib.concatStringsSep " + " (mods ++ [ (lib.trim (lib.last parts)) ]);
+      in
+      { _args = [ keys (lib.generators.mkLuaInline "hl.dsp.exec_cmd(${lib.generators.toLua { } command})") ]; };
 
   # Title-cased modifier for the key hints: "SUPER ALT" -> "Super Alt".
   titleCase = s: lib.concatStringsSep " " (map (w: lib.toUpper (lib.substring 0 1 w) + lib.toLower (lib.substring 1 (-1) w)) (lib.splitString " " s));
@@ -252,7 +282,7 @@ in
         type = types.attrsOf types.str;
         default = { };
         example = { net = "SUPER, N"; bt = "SUPER, B"; sound = "SUPER, M"; };
-        description = "Hyprland key per module, e.g. `net = \"SUPER, N\"`.";
+        description = "Hyprland key per module, e.g. `net = \"SUPER, N\"` (rewritten in Lua's form for a Lua config).";
       };
       size = mkOption {
         type = types.str;
@@ -306,9 +336,9 @@ in
 
     (mkIf (!isDarwin && cfg.hyprland.enable) {
       wayland.windowManager.hyprland.settings = {
-        windowrule = popupRules "launcher" cfg.hyprland.size;
+        ${ruleKey} = popupRules "launcher" cfg.hyprland.size;
         bind = lib.mapAttrsToList (
-          letter: app: "${cfg.launcher.hyprlandModifier}, ${letter}, exec, ${cfg.package}/bin/telmo-launcher open ${lib.escapeShellArg app}"
+          letter: app: execBind "${cfg.launcher.hyprlandModifier}, ${letter}" "${cfg.package}/bin/telmo-launcher open ${lib.escapeShellArg app}"
         ) cfg.launcher.keys;
       };
     })
@@ -414,10 +444,10 @@ in
 
     (mkIf (!isDarwin && cfg.hyprland.enable) {
       wayland.windowManager.hyprland.settings = {
-        windowrule =
+        ${ruleKey} =
           lib.concatMap (m: popupRules m (sizeFor m)) builtIns
           ++ lib.concatMap (m: popupRules m (hyprSize cfg.popups.${m})) customNames;
-        bind = lib.mapAttrsToList (m: key: "${key}, exec, telmo popup ${m}") cfg.hyprland.binds;
+        bind = lib.mapAttrsToList (m: key: execBind key "telmo popup ${m}") cfg.hyprland.binds;
       };
     })
   ]);

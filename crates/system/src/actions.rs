@@ -155,7 +155,7 @@ fn linux(cmd: Cmd) -> Result<(), String> {
         Cmd::Restart => command("systemctl", &["reboot"]),
         Cmd::ShutDown => command("systemctl", &["poweroff"]),
         Cmd::LogOut if std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE").is_some() => {
-            command("hyprctl", &["dispatch", "exit"])
+            hyprland_dispatch("hl.dsp.exit()", "exit")
         }
         Cmd::LogOut => {
             let session = std::env::var("XDG_SESSION_ID").map_err(|_| {
@@ -164,6 +164,26 @@ fn linux(cmd: Cmd) -> Result<(), String> {
             command("loginctl", &["terminate-session", &session])
         }
     }
+}
+
+/// `hyprctl dispatch`, which takes Lua with a Lua config (Hyprland 0.55 and
+/// later) and the old dispatcher syntax with a hyprland.conf. Hyprland answers
+/// "ok", or nothing when the dispatch ends it.
+#[cfg(not(target_os = "macos"))]
+fn hyprland_dispatch(lua: &str, legacy: &str) -> Result<(), String> {
+    for request in [lua, legacy] {
+        let output = Command::new("hyprctl")
+            .args(["dispatch", request])
+            .process_group(0)
+            .stdin(Stdio::null())
+            .output()
+            .map_err(|e| format!("hyprctl did not start ({e}). Is it installed?"))?;
+        let reply = String::from_utf8_lossy(&output.stdout);
+        if output.status.success() && matches!(reply.trim(), "ok" | "") {
+            return Ok(());
+        }
+    }
+    Err("Hyprland refused. Log out from your desktop instead.".into())
 }
 
 /// Runs a program to completion; its stderr becomes the failure sentence.

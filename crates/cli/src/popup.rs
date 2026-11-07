@@ -130,6 +130,21 @@ mod linux {
             .ok_or_else(|| "no terminal found; set TELMO_TERMINAL or install ghostty, kitty, foot, alacritty or wezterm".into())
     }
 
+    /// `hyprctl dispatch`, which takes Lua with a Lua config (Hyprland 0.55
+    /// and later) and the old dispatcher syntax with a hyprland.conf.
+    fn dispatch(lua: &str, legacy: &str) -> Result<(), String> {
+        for request in [lua, legacy] {
+            let out = Command::new("hyprctl")
+                .args(["dispatch", request])
+                .output()
+                .map_err(|e| format!("cannot run hyprctl: {e}"))?;
+            if String::from_utf8_lossy(&out.stdout).trim() == "ok" {
+                return Ok(());
+            }
+        }
+        Err("hyprctl dispatch failed; is Hyprland running?".into())
+    }
+
     /// Address of an existing popup window for this class, if any.
     fn existing_window(class: &str) -> Result<Option<String>, String> {
         let out = Command::new("hyprctl")
@@ -160,12 +175,10 @@ mod linux {
     pub fn toggle(module: &str) -> Result<(), String> {
         let class = format!("telmo.{module}");
         if let Some(address) = existing_window(&class)? {
-            let status = Command::new("hyprctl")
-                .args(["dispatch", "closewindow", &format!("address:{address}")])
-                .status();
-            return status
-                .map_err(|e| format!("cannot run hyprctl: {e}"))
-                .map(|_| ());
+            return dispatch(
+                &format!("hl.dsp.window.close({{ window = \"address:{address}\" }})"),
+                &format!("closewindow address:{address}"),
+            );
         }
         let command = match find_module(module) {
             Some(binary) => vec![binary.to_string_lossy().into_owned()],
