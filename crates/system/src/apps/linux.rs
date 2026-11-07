@@ -103,17 +103,29 @@ pub fn quit(pid: i32, name: &str, force: bool) -> Result<(), String> {
         return Err(format!("{name} has no window left to close."));
     }
     for address in addresses {
-        let target = format!("address:{address}");
-        let status = Command::new("hyprctl")
-            .args(["dispatch", "closewindow", &target])
-            .output()
-            .map_err(|e| format!("hyprctl did not start ({e}). Is Hyprland running?"))?
-            .status;
-        if !status.success() {
+        if !close_window(&address)? {
             return Err(format!("Could not close {name}. Press K to force it."));
         }
     }
     Ok(())
+}
+
+/// `hyprctl dispatch` takes Lua with a Lua config (Hyprland 0.55 and later)
+/// and the old dispatcher syntax with a hyprland.conf.
+fn close_window(address: &str) -> Result<bool, String> {
+    for request in [
+        format!("hl.dsp.window.close({{ window = \"address:{address}\" }})"),
+        format!("closewindow address:{address}"),
+    ] {
+        let output = Command::new("hyprctl")
+            .args(["dispatch", &request])
+            .output()
+            .map_err(|e| format!("hyprctl did not start ({e}). Is Hyprland running?"))?;
+        if String::from_utf8_lossy(&output.stdout).trim() == "ok" {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn kill(pid: i32, name: &str) -> Result<(), String> {

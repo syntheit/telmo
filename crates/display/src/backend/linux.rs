@@ -229,8 +229,10 @@ fn same_scale(a: f32, b: f32) -> bool {
     (a - b).abs() < 0.01
 }
 
-/// `hyprctl keyword` only changes the running session; the monitor keeps its
-/// current mode and position so only the scale moves.
+/// A monitor rule set from `hyprctl` only changes the running session; the
+/// monitor keeps its current mode and position so only the scale moves. A Lua
+/// config (Hyprland 0.55 and later) takes it as `hl.monitor` through `eval`,
+/// a hyprland.conf as a `keyword monitor` line.
 fn set_scale(connector: &str, scale: &str) -> Result<(), String> {
     let monitors = hyprctl(&["monitors", "-j"])?;
     let monitors: Vec<Value> = serde_json::from_str(&monitors)
@@ -239,15 +241,20 @@ fn set_scale(connector: &str, scale: &str) -> Result<(), String> {
         .iter()
         .find(|m| m["name"] == connector)
         .ok_or("That monitor is gone. Reopen the app to refresh the list.")?;
-    let rule = format!(
-        "{connector},{}x{}@{:.2},{}x{},{scale}",
+    let mode = format!(
+        "{}x{}@{:.2}",
         monitor["width"],
         monitor["height"],
         monitor["refreshRate"].as_f64().unwrap_or(60.0),
-        monitor["x"],
-        monitor["y"],
     );
-    let reply = hyprctl(&["keyword", "monitor", &rule])?;
+    let position = format!("{}x{}", monitor["x"], monitor["y"]);
+    let lua = format!(
+        "hl.monitor({{ output = \"{connector}\", mode = \"{mode}\", position = \"{position}\", scale = \"{scale}\" }})"
+    );
+    let mut reply = hyprctl(&["eval", &lua])?;
+    if reply.contains("only supported with the lua config manager") {
+        reply = hyprctl(&["keyword", "monitor", &format!("{connector},{mode},{position},{scale}")])?;
+    }
     if reply == "ok" {
         Ok(())
     } else {

@@ -10,7 +10,7 @@
 ╰─────────│     1.25x         1536 × 864                                       │─────────╯
           │     1.5x          1280 × 720                                       │
           │                                                                    │
-          │   Resets on Hyprland reload. Save it in hyprland.conf to keep it.  │
+          │   Resets on Hyprland reload. Save it in hyprland.lua to keep it.   │
           │                                                                    │
           │  ↵ apply   esc cancel                                              │
           │                                                                    │
